@@ -3,7 +3,12 @@ use anyhow::Result;
 
 /// Create a SQLite connection pool.
 pub async fn create_pool(db_path: &str) -> Result<Pool<Sqlite>> {
-    let pool = sqlx::SqlitePool::connect(db_path).await?;
+    let url = if db_path.starts_with("sqlite:") {
+        db_path.to_string()
+    } else {
+        format!("sqlite:{}?mode=rwc", db_path)
+    };
+    let pool = sqlx::SqlitePool::connect(&url).await?;
     Ok(pool)
 }
 
