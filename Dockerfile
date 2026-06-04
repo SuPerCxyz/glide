@@ -2,12 +2,15 @@ FROM rust:1.87-slim AS builder
 
 WORKDIR /app
 COPY . .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN cargo build --release --package glide-server --package glide-cli
 
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
+    ca-certificates libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -m glide && mkdir -p /data && chown glide:glide /data
