@@ -12,6 +12,7 @@ use crate::state::ServerState;
 
 pub fn router() -> Router<ServerState> {
     Router::new()
+        .route("/", get(admin_page))
         .route("/api/v1/health", get(health))
         .route("/api/v1/devices/register", post(device_register))
         .route("/api/v1/devices", get(list_devices))
@@ -31,6 +32,10 @@ async fn health() -> Json<serde_json::Value> {
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
     }))
+}
+
+async fn admin_page() -> axum::response::Html<&'static str> {
+    axum::response::Html(include_str!("../static/index.html"))
 }
 
 async fn device_register(

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glide Server Admin</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+        .header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+        .header h1{font-size:20px;color:#58a6ff;display:flex;align-items:center;gap:8px}
+        .header h1 span{font-size:11px;color:#8b949e;background:#21262d;padding:2px 8px;border-radius:10px}
+        .container{max-width:1200px;margin:0 auto;padding:24px}
+        .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+        .stat{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px}
+        .stat .label{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:1px}
+        .stat .value{font-size:28px;font-weight:700;margin-top:4px}
+        .stat .value.green{color:#3fb950}
+        .stat .value.blue{color:#58a6ff}
+        .stat .value.yellow{color:#d29922}
+        .stat .value.red{color:#f85149}
+        .section{background:#161b22;border:1px solid #30363d;border-radius:8px;margin-bottom:24px;overflow:hidden}
+        .section-header{padding:16px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
+        .section-header h2{font-size:15px;font-weight:600}
+        .section-header .badge{font-size:11px;background:#21262d;padding:2px 8px;border-radius:10px;color:#8b949e}
+        .section-body{padding:0}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #21262d;font-size:13px}
+        th{color:#8b949e;font-weight:500;background:#0d1117}
+        td{color:#c9d1d9}
+        .status{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+        .status.online{background:#1a3a2a;color:#3fb950}
+        .status.offline{background:#3a1a1a;color:#f85149}
+        .status.trusted{background:#1a2a3a;color:#58a6ff}
+        .empty{text-align:center;color:#8b949e;padding:40px;font-size:14px}
+        .btn{padding:6px 14px;border:1px solid #30363d;border-radius:6px;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:12px}
+        .btn:hover{background:#30363d}
+        .btn.primary{background:#238636;border-color:#238636;color:#fff}
+        .btn.primary:hover{background:#2ea043}
+        .env-table{width:100%}
+        .env-table td:first-child{font-family:monospace;color:#58a6ff;width:40%}
+        .env-table td:last-child{color:#c9d1d9}
+        .footer{text-align:center;padding:20px;color:#484f58;font-size:12px}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        .pulse{animation:pulse 2s infinite}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Glide Server <span>v0.1.0</span></h1>
+        <div style="display:flex;gap:8px">
+            <button class="btn" onclick="refresh()">🔄 刷新</button>
+            <button class="btn primary" onclick="createToken()">🔑 创建临时令牌</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat">
+                <div class="label">服务状态</div>
+                <div class="value green" id="status">运行中</div>
+            </div>
+            <div class="stat">
+                <div class="label">已注册设备</div>
+                <div class="value blue" id="deviceCount">-</div>
+            </div>
+            <div class="stat">
+                <div class="label">剪贴板项目</div>
+                <div class="value yellow" id="itemCount">-</div>
+            </div>
+            <div class="stat">
+                <div class="label">运行时间</div>
+                <div class="value" id="uptime">-</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2>已注册设备</h2>
+                <span class="badge" id="deviceBadge">0 台</span>
+            </div>
+            <div class="section-body">
+                <table>
+                    <thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>最后在线</th></tr></thead>
+                    <tbody id="deviceList"><tr><td colspan="5" class="empty">加载中...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2>剪贴板历史</h2>
+                <span class="badge" id="historyBadge">0 条</span>
+            </div>
+            <div class="section-body">
+                <table>
+                    <thead><tr><th>时间</th><th>来源</th><th>类型</th><th>大小</th><th>预览</th></tr></thead>
+                    <tbody id="historyList"><tr><td colspan="5" class="empty">暂无剪贴板记录</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2>环境变量配置</h2>
+            </div>
+            <div class="section-body" style="padding:16px 20px">
+                <table class="env-table">
+                    <tr><td>GLIDE_DATA_DIR</td><td id="envDataDir">-</td></tr>
+                    <tr><td>GLIDE_MAX_STORAGE_BYTES</td><td id="envMaxStorage">-</td></tr>
+                    <tr><td>GLIDE_RETENTION_DAYS</td><td id="envRetention">-</td></tr>
+                    <tr><td>GLIDE_INPUT_RELAY_ENABLED</td><td id="envInputRelay">-</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">Glide Server Admin Panel • LAN-first clipboard sync</div>
+
+    <script>
+        const API = window.location.origin;
+        let startTime = Date.now();
+
+        async function fetchJSON(path) {
+            try {
+                const r = await fetch(API + path);
+                return await r.json();
+            } catch(e) { return null; }
+        }
+
+        async function refresh() {
+            // Health
+            const health = await fetchJSON('/api/v1/health');
+            document.getElementById('status').textContent = health ? '运行中' : '离线';
+            document.getElementById('status').className = health ? 'value green' : 'value red';
+
+            // Devices
+            const devData = await fetchJSON('/api/v1/devices');
+            const devices = devData?.devices || [];
+            document.getElementById('deviceCount').textContent = devices.length;
+            document.getElementById('deviceBadge').textContent = devices.length + ' 台';
+
+            const devBody = document.getElementById('deviceList');
+            if (devices.length === 0) {
+                devBody.innerHTML = '<tr><td colspan="5" class="empty">暂无注册设备</td></tr>';
+            } else {
+                devBody.innerHTML = devices.map(d => {
+                    const time = d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('zh-CN') : '从未';
+                    const statusClass = d.last_seen_at ? 'online' : 'offline';
+                    const statusText = d.last_seen_at ? '在线' : '离线';
+                    return `<tr>
+                        <td style="font-family:monospace;font-size:11px">${d.device_id.slice(0,12)}…</td>
+                        <td>${d.name}</td>
+                        <td>${d.platform}</td>
+                        <td><span class="status ${statusClass}">${statusText}</span> ${d.trusted ? '<span class="status trusted">受信任</span>' : ''}</td>
+                        <td>${time}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            // History
+            const histData = await fetchJSON('/api/v1/clipboard/history?limit=20');
+            const items = histData?.items || [];
+            document.getElementById('itemCount').textContent = items.length;
+            document.getElementById('historyBadge').textContent = items.length + ' 条';
+
+            const histBody = document.getElementById('historyList');
+            if (items.length === 0) {
+                histBody.innerHTML = '<tr><td colspan="5" class="empty">暂无剪贴板记录</td></tr>';
+            } else {
+                histBody.innerHTML = items.map(i => {
+                    const time = new Date(i.created_at).toLocaleString('zh-CN');
+                    const preview = (i.representations || []).map(r => {
+                        if (r.content?.Text) return r.content.Text.slice(0, 50);
+                        return '[二进制数据]';
+                    }).join(' ') || '-';
+                    return `<tr>
+                        <td>${time}</td>
+                        <td style="font-family:monospace;font-size:11px">${(i.source_device_id||'').slice(0,8)}…</td>
+                        <td><span class="status ${i.kind==='text'?'online':i.kind==='image'?'trusted':'offline'}">${i.kind}</span></td>
+                        <td>${i.size} B</td>
+                        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            // Uptime
+            const sec = Math.floor((Date.now() - startTime) / 1000);
+            const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+            document.getElementById('uptime').textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+
+            // Env
+            document.getElementById('envDataDir').textContent = '/data';
+            document.getElementById('envMaxStorage').textContent = '1 GB';
+            document.getElementById('envRetention').textContent = '30 天';
+            document.getElementById('envInputRelay').textContent = '关闭';
+        }
+
+        async function createToken() {
+            const ttl = prompt('临时令牌有效期（秒）:', '3600');
+            if (!ttl) return;
+            alert('功能开发中：创建临时令牌');
+        }
+
+        refresh();
+        setInterval(refresh, 5000);
+    </script>
+</body>
+</html>
