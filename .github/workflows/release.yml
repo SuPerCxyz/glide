@@ -1,0 +1,282 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0)'
+        required: true
+        default: '0.1.0'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # --- Linux: Build release binaries and packages ---
+  linux-packages:
+    name: Linux Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev \
+            fuse libfuse2 desktop-file-utils
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-release-
+
+      - name: Build release binaries
+        run: cargo build --release --workspace
+
+      - name: Create .deb package for glide-cli
+        run: |
+          mkdir -p dist
+          CLI_DIR="glide-cli_${VERSION}_amd64"
+          mkdir -p "$CLI_DIR/DEBIAN" "$CLI_DIR/usr/bin" "$CLI_DIR/usr/share/doc/glide-cli"
+          cat > "$CLI_DIR/DEBIAN/control" <<EOF
+          Package: glide-cli
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: SuPerC <superc@soocoo.xyz>
+          Description: LAN-first clipboard sync CLI tool
+           Glide synchronizes clipboard content across devices.
+          EOF
+          cp target/release/glide-cli "$CLI_DIR/usr/bin/glide"
+          cp README.md "$CLI_DIR/usr/share/doc/glide-cli/"
+          dpkg-deb --build "$CLI_DIR" dist/
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+      - name: Create .deb package for glide-server
+        run: |
+          SERVER_DIR="glide-server_${VERSION}_amd64"
+          mkdir -p "$SERVER_DIR/DEBIAN" "$SERVER_DIR/usr/bin" "$SERVER_DIR/etc/glide" "$SERVER_DIR/usr/share/doc/glide-server"
+          cat > "$SERVER_DIR/DEBIAN/control" <<EOF
+          Package: glide-server
+          Version: ${VERSION}
+          Section: net
+          Priority: optional
+          Architecture: amd64
+          Maintainer: SuPerC <superc@soocoo.xyz>
+          Description: LAN-first clipboard sync server
+           Glide server provides clipboard relay and device management.
+          EOF
+          cp target/release/glide-server "$SERVER_DIR/usr/bin/glide-server"
+          cp docker-compose.yml "$SERVER_DIR/etc/glide/"
+          cp README.md "$SERVER_DIR/usr/share/doc/glide-server/"
+          dpkg-deb --build "$SERVER_DIR" dist/
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+      - name: Create .rpm package for glide-cli
+        run: |
+          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          RPMBUILD=$HOME/rpmbuild
+          mkdir -p "$RPMBUILD"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cat > "$RPMBUILD/SPECS/glide-cli.spec" <<EOF
+          Name:           glide-cli
+          Version:        ${VERSION}
+          Release:        1%{?dist}
+          Summary:        LAN-first clipboard sync CLI tool
+          License:        MIT
+          URL:            https://github.com/SuPerCxyz/glide
+          BuildArch:      x86_64
+
+          %description
+          Glide synchronizes clipboard content across devices.
+
+          %install
+          mkdir -p %{buildroot}/usr/bin
+          cp %{_sourcedir}/glide %{buildroot}/usr/bin/glide
+
+          %files
+          /usr/bin/glide
+          EOF
+          cp target/release/glide-cli "$RPMBUILD/SOURCES/glide"
+          rpmbuild -bb --define "_topdir $RPMBUILD" "$RPMBUILD/SPECS/glide-cli.spec"
+          mkdir -p dist
+          cp "$RPMBUILD/RPMS/x86_64/glide-cli-${VERSION}-1.x86_64.rpm" dist/
+
+      - name: Create .rpm package for glide-server
+        run: |
+          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          RPMBUILD=$HOME/rpmbuild
+          mkdir -p "$RPMBUILD"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cat > "$RPMBUILD/SPECS/glide-server.spec" <<EOF
+          Name:           glide-server
+          Version:        ${VERSION}
+          Release:        1%{?dist}
+          Summary:        LAN-first clipboard sync server
+          License:        MIT
+          URL:            https://github.com/SuPerCxyz/glide
+          BuildArch:      x86_64
+
+          %description
+          Glide server provides clipboard relay and device management.
+
+          %install
+          mkdir -p %{buildroot}/usr/bin %{buildroot}/etc/glide
+          cp %{_sourcedir}/glide-server %{buildroot}/usr/bin/glide-server
+          cp %{_sourcedir}/docker-compose.yml %{buildroot}/etc/glide/
+
+          %files
+          /usr/bin/glide-server
+          /etc/glide/docker-compose.yml
+          EOF
+          cp target/release/glide-server "$RPMBUILD/SOURCES/glide-server"
+          cp docker-compose.yml "$RPMBUILD/SOURCES/docker-compose.yml"
+          rpmbuild -bb --define "_topdir $RPMBUILD" "$RPMBUILD/SPECS/glide-server.spec"
+          mkdir -p dist
+          cp "$RPMBUILD/RPMS/x86_64/glide-server-${VERSION}-1.x86_64.rpm" dist/
+
+      - name: Create AppImage for glide-cli
+        run: |
+          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          APPDIR=AppDir
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+
+          cp target/release/glide-cli "$APPDIR/usr/bin/glide"
+
+          # Create desktop entry
+          cat > "$APPDIR/glide-cli.desktop" <<EOF
+          [Desktop Entry]
+          Name=Glide CLI
+          Exec=glide
+          Icon=glide
+          Type=Application
+          Categories=Utility;
+          EOF
+
+          # Create icon placeholder (128x128 PNG)
+          convert -size 128x128 xc:blue \
+            -fill white -gravity center -pointsize 48 \
+            -annotate 0 '📋' "$APPDIR/glide.png" 2>/dev/null || \
+            python3 -c "
+          import struct, zlib
+          # minimal valid 1x1 PNG
+          sig = b'\\x89PNG\\r\\n\\x1a\\n'
+          # IHDR
+          ihdr_data = struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
+          ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff)
+          ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + ihdr_crc
+          # IDAT (1 pixel, filter=0, RGB)
+          raw = b'\\x00\\x00\\x00\\xff'
+          compressed = zlib.compress(raw)
+          idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed) & 0xffffffff)
+          idat = struct.pack('>I', len(compressed)) + b'IDAT' + compressed + idat_crc
+          # IEND
+          iend_crc = struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
+          iend = struct.pack('>I', 0) + b'IEND' + iend_crc
+          open('$APPDIR/glide.png', 'wb').write(sig + ihdr + idat + iend)
+          "
+          cp "$APPDIR/glide.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png"
+          cp "$APPDIR/glide-cli.desktop" "$APPDIR/usr/share/applications/"
+
+          # Download AppImageTool
+          wget -q -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "dist/glide-cli-${VERSION}-x86_64.AppImage"
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/*
+          retention-days: 90
+
+  # --- Windows: Build and create installer ---
+  windows-packages:
+    name: Windows Packages
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-win-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-win-release-
+
+      - name: Build release binaries
+        run: cargo build --release --workspace
+
+      - name: Create Windows installer (7z)
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          mkdir -p "dist/glide-${VERSION}-windows"
+          cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows/glide.exe"
+          cp target/release/glide-server.exe "dist/glide-${VERSION}-windows/glide-server.exe"
+          cp README.md "dist/glide-${VERSION}-windows/"
+          7z a "dist/glide-${VERSION}-windows.zip" "dist/glide-${VERSION}-windows/"
+        shell: bash
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: dist/*
+          retention-days: 90
+
+  # --- Create GitHub Release ---
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [linux-packages, windows-packages]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/linux/
+
+      - name: Download Windows packages
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-packages
+          path: dist/windows/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/linux/*.deb
+            dist/linux/*.rpm
+            dist/linux/*.AppImage
+            dist/windows/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
