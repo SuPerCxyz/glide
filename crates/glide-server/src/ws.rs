@@ -15,6 +15,17 @@ pub async fn handle_ws(
 ) {
     info!("WebSocket sync connection from device: {}", device_id);
 
+    // Auto-register device if not already registered (prevents FK constraint failures).
+    let _ = sqlx::query(
+        "INSERT OR IGNORE INTO devices (device_id, name, platform, trusted) VALUES (?, ?, ?, ?)"
+    )
+    .bind(&device_id)
+    .bind(format!("Client-{}", &device_id[..8.min(device_id.len())]))
+    .bind("unknown")
+    .bind(true)
+    .execute(&state.db)
+    .await;
+
     let (mut tx, mut rx) = socket.split();
     let mut event_rx = state.subscribe_events();
 
