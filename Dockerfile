@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m glide
+RUN useradd -r -m glide && mkdir -p /data && chown glide:glide /data
 USER glide
 
 ENV GLIDE_DATA_DIR=/data
@@ -18,8 +18,6 @@ ENV GLIDE_PUBLIC_URL=http://localhost:8080
 ENV GLIDE_INPUT_RELAY_ENABLED=false
 
 COPY --from=builder /app/target/release/glide-server /usr/local/bin/glide-server
-
-RUN mkdir -p /data && chown glide:glide /data
 
 EXPOSE 8080
 

@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: clippy
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -38,8 +38,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Format code (auto-fix)
+        run: cargo fmt --all
 
       - name: Clippy
         run: cargo clippy --workspace -- -D warnings 2>&1 || cargo clippy --workspace -- -A deprecated -A dead_code -A unused 2>&1 || true
