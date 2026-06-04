@@ -18,11 +18,24 @@ pub async fn handle_ws(
     let (mut tx, mut rx) = socket.split();
     let mut event_rx = state.subscribe_events();
 
-    // Spawn task to forward broadcast events to this client.
+    // Spawn task to forward broadcast events to this client, filtering own events.
+    let my_device_id = device_id.clone();
     let send_task = tokio::spawn(async move {
         loop {
             match event_rx.recv().await {
                 Ok(event) => {
+                    // Skip events from this device (loop prevention).
+                    let from_device = match &event {
+                        SyncEvent::ClipboardCaptured { item } => &item.source_device_id,
+                        SyncEvent::DeviceJoined { device_id, .. } => device_id,
+                        SyncEvent::DeviceLeft { device_id } => device_id,
+                        SyncEvent::Heartbeat { device_id, .. } => device_id,
+                        _ => continue,
+                    };
+                    if *from_device == my_device_id {
+                        continue;
+                    }
+
                     let msg = match serde_json::to_string(&event) {
                         Ok(s) => s,
                         Err(e) => {
