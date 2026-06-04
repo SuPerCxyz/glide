@@ -119,10 +119,28 @@
         async function connect(){
             const url=document.getElementById('serverUrl').value;
             if(!url)return;
-            if(await invoke('set_server_url',{url})){
-                updateStatus('connecting');
-                setTimeout(()=>updateStatus('connected'),1000);
+            updateStatus('connecting');
+            try{
+                const result=await invoke('connect_to_server',{url});
+                updateStatus('connected');
+                // Start polling for status updates.
+                startStatusPoll();
+            }catch(e){
+                updateStatus('error');
+                document.getElementById('statusText').textContent='连接失败: '+e;
             }
+        }
+        let pollInterval=null;
+        function startStatusPoll(){
+            if(pollInterval)return;
+            pollInterval=setInterval(async()=>{
+                const s=await invoke('get_connection_status');
+                updateStatus(s);
+                if(s.startsWith('error')){
+                    clearInterval(pollInterval);
+                    pollInterval=null;
+                }
+            },3000);
         }
         async function togglePause(){updatePauseButton(await invoke('toggle_sync_pause'))}
         function updatePauseButton(p){const b=document.getElementById('pauseBtn');b.textContent=p?'▶ 恢复同步':'⏸ 暂停同步';b.classList.toggle('active',p)}

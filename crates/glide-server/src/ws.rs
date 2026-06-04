@@ -48,12 +48,18 @@ pub async fn handle_ws(
     let recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = rx.next().await {
             if let Message::Text(text) = msg {
-                if let Ok(event) = serde_json::from_str::<SyncEvent>(&text) {
-                    // Store clipboard items to database.
-                    if let SyncEvent::ClipboardCaptured { ref item } = event {
-                        store_clipboard_item(&state, item).await;
+                match serde_json::from_str::<SyncEvent>(&text) {
+                    Ok(event) => {
+                        // Store clipboard items to database.
+                        if let SyncEvent::ClipboardCaptured { ref item } = event {
+                            info!("Storing clipboard item {} from {}", item.item_id, item.source_device_id);
+                            store_clipboard_item(&state, item).await;
+                        }
+                        state.broadcast_event(event);
                     }
-                    state.broadcast_event(event);
+                    Err(e) => {
+                        warn!("Failed to parse sync event: {} (raw: {})", e, &text[..text.len().min(100)]);
+                    }
                 }
             }
         }
