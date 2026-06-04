@@ -185,7 +185,7 @@ jobs:
             ghcr.io/${{ github.repository }}/glide-server
           tags: |
             type=raw,value=dev-latest
-            type=raw,value={{date 'YYYYMMDD'}}
+            type=raw,value={{date 'YYYYMMDD-HHmm'}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
