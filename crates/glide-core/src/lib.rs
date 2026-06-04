@@ -13,6 +13,8 @@ pub mod sync_event;
 pub mod input_event;
 pub mod policy;
 pub mod error;
+pub mod discovery;
+pub mod route;
 
 pub use clipboard::*;
 pub use device::*;
