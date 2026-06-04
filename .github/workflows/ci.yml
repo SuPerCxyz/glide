@@ -3,8 +3,22 @@ name: CI
 on:
   push:
     branches: [master, main]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [master, main]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - '.github/workflows/**'
 
 env:
   CARGO_TERM_COLOR: always

@@ -50,6 +50,7 @@ crates/glide-tauri/     Tauri 2.x GUI 应用
 - GitHub Actions：Linux + Windows + Docker + Package
 - Release：deb + rpm + AppImage + NSIS + MSI + zip + Docker 镜像
 - 仓库同步：Gitea → GitHub
+- **CI 触发规则：** 不是每次提交都触发 CI，只在代码变更（crates/、Cargo.toml、Cargo.lock、Dockerfile）时触发。文档变更（docs/、README.md、*.md）不触发 CI。每次任务完成后手动触发一次 CI 验证。
 
 ## 部署
 

@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 
 struct AppState {
@@ -81,21 +81,28 @@ fn main() {
                 })
                 .build(app)?;
 
-            // Start clipboard monitor.
-            let sync_engine_clone = app.state::<AppState>().sync_engine.clone();
+            // Start clipboard monitor and incoming handler.
+            let sync_engine_for_monitor = app.state::<AppState>().sync_engine.clone();
+            let sync_engine_for_recv = app.state::<AppState>().sync_engine.clone();
             let app_handle = app.handle().clone();
 
             tokio::spawn(async move {
-                let engine = sync_engine_clone.lock().await;
-                let device_id = engine.device_id.clone();
-                let mut rx = engine.take_incoming().await;
-                drop(engine);
+                // Take the incoming receiver before starting monitor.
+                let mut rx = {
+                    let engine = sync_engine_for_recv.lock().await;
+                    engine.take_incoming().await
+                };
 
-                // Spawn clipboard monitor.
-                let se = sync_engine_clone.clone();
+                // Start clipboard monitor in background.
+                let se_monitor = sync_engine_for_monitor.clone();
+                let monitor_device_id = {
+                    let engine = se_monitor.lock().await;
+                    engine.device_id.clone()
+                };
+
                 tokio::spawn(async move {
-                    sync_engine::monitor_clipboard(device_id, move |item| {
-                        let se = se.clone();
+                    sync_engine::monitor_clipboard(monitor_device_id, move |item| {
+                        let se = se_monitor.clone();
                         tokio::spawn(async move {
                             let engine = se.lock().await;
                             if let Err(e) = engine.send_clipboard(&item).await {
@@ -107,13 +114,11 @@ fn main() {
                 });
 
                 // Process incoming clipboard items.
-                if let Some(mut rx) = rx {
+                if let Some(ref mut rx) = rx {
                     while let Some(item) = rx.recv().await {
-                        // Write to local clipboard.
                         if let Err(e) = apply_clipboard(&item).await {
                             tracing::warn!("Failed to apply clipboard: {}", e);
                         }
-                        // Notify frontend.
                         let _ = app_handle.emit("clipboard-received", &item.item_id);
                     }
                 }
@@ -148,9 +153,9 @@ fn main() {
 }
 
 #[tauri::command]
-async fn get_connection_status(state: tauri::State<'_, AppState>) -> String {
+async fn get_connection_status(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let engine = state.sync_engine.lock().await;
-    engine.connection_status.lock().await.clone()
+    Ok(engine.connection_status.lock().await.clone())
 }
 
 #[tauri::command]
@@ -160,110 +165,110 @@ async fn connect_to_server(state: tauri::State<'_, AppState>, url: String) -> Re
 }
 
 #[tauri::command]
-fn get_clipboard_history(_state: tauri::State<AppState>) -> serde_json::Value {
-    serde_json::json!({ "items": [], "message": "连接服务器后显示剪贴板历史" })
+async fn get_clipboard_history(_state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({ "items": [], "message": "连接服务器后显示剪贴板历史" }))
 }
 
 #[tauri::command]
-fn get_devices(_state: tauri::State<AppState>) -> serde_json::Value {
-    serde_json::json!({ "devices": [], "message": "连接服务器后显示设备列表" })
+async fn get_devices(_state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({ "devices": [], "message": "连接服务器后显示设备列表" }))
 }
 
 #[tauri::command]
-fn toggle_sync_pause(state: tauri::State<AppState>) -> bool {
-    let mut paused = state.sync_paused.blocking_lock();
+async fn toggle_sync_pause(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let mut paused = state.sync_paused.lock().await;
     *paused = !*paused;
-    *paused
+    Ok(*paused)
 }
 
 #[tauri::command]
-fn get_sync_paused(state: tauri::State<AppState>) -> bool {
-    *state.sync_paused.blocking_lock()
+async fn get_sync_paused(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    Ok(*state.sync_paused.lock().await)
 }
 
 #[tauri::command]
-fn toggle_input_sharing(state: tauri::State<AppState>) -> bool {
-    let mut enabled = state.input_sharing_enabled.blocking_lock();
+async fn toggle_input_sharing(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let mut enabled = state.input_sharing_enabled.lock().await;
     *enabled = !*enabled;
-    *enabled
+    Ok(*enabled)
 }
 
 #[tauri::command]
-fn get_input_sharing_enabled(state: tauri::State<AppState>) -> bool {
-    *state.input_sharing_enabled.blocking_lock()
+async fn get_input_sharing_enabled(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    Ok(*state.input_sharing_enabled.lock().await)
 }
 
 #[tauri::command]
-async fn get_server_url(state: tauri::State<'_, AppState>) -> String {
+async fn get_server_url(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let engine = state.sync_engine.lock().await;
-    engine.server_url.lock().await.clone()
+    Ok(engine.server_url.lock().await.clone())
 }
 
 #[tauri::command]
-async fn set_server_url(state: tauri::State<'_, AppState>, url: String) -> bool {
+async fn set_server_url(state: tauri::State<'_, AppState>, url: String) -> Result<bool, String> {
     let engine = state.sync_engine.lock().await;
     let mut server = engine.server_url.lock().await;
     if url.is_empty() || url.starts_with("http://") || url.starts_with("https://") {
         *server = url;
-        true
+        Ok(true)
     } else {
-        false
+        Ok(false)
     }
 }
 
 #[tauri::command]
-fn get_policy(state: tauri::State<AppState>) -> serde_json::Value {
-    let policy = state.policy.blocking_lock();
-    serde_json::to_value(&*policy).unwrap_or(serde_json::json!({}))
+async fn get_policy(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let policy = state.policy.lock().await;
+    Ok(serde_json::to_value(&*policy).unwrap_or(serde_json::json!({})))
 }
 
 #[tauri::command]
-fn set_device_policy(
-    state: tauri::State<AppState>,
+async fn set_device_policy(
+    state: tauri::State<'_, AppState>,
     device_id: String,
     sync_enabled: bool,
     input_enabled: bool,
-) -> bool {
+) -> Result<bool, String> {
     if let Ok(device_uuid) = device_id.parse() {
-        let mut policy = state.policy.blocking_lock();
+        let mut policy = state.policy.lock().await;
         policy.device_policies.retain(|dp| dp.device_id != device_uuid);
         policy.device_policies.push(glide_core::policy::DevicePolicy {
             device_id: device_uuid,
             sync_enabled,
             input_enabled,
         });
-        true
+        Ok(true)
     } else {
-        false
+        Ok(false)
     }
 }
 
 #[tauri::command]
-fn set_type_policy(
-    state: tauri::State<AppState>,
+async fn set_type_policy(
+    state: tauri::State<'_, AppState>,
     kind: String,
     sync_enabled: bool,
     max_size: Option<u64>,
-) -> bool {
+) -> Result<bool, String> {
     let clipboard_kind = match kind.as_str() {
         "text" => ClipboardKind::Text,
         "image" => ClipboardKind::Image,
         "file" => ClipboardKind::File,
-        _ => return false,
+        _ => return Ok(false),
     };
-    let mut policy = state.policy.blocking_lock();
+    let mut policy = state.policy.lock().await;
     policy.type_policies.retain(|tp| tp.kind != clipboard_kind);
     policy.type_policies.push(glide_core::policy::TypePolicy {
         kind: clipboard_kind,
         sync_enabled,
         max_size_bytes: max_size,
     });
-    true
+    Ok(true)
 }
 
 #[tauri::command]
-fn get_version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
+fn get_version() -> Result<String, String> {
+    Ok(env!("CARGO_PKG_VERSION").to_string())
 }
 
 /// Apply a received clipboard item to the local clipboard.
@@ -294,6 +299,12 @@ async fn apply_clipboard(item: &glide_core::clipboard::ClipboardItem) -> Result<
                         .output()
                         .await
                         .map_err(|e| e.to_string())?;
+                    return Ok(());
+                }
+
+                #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+                {
+                    let _ = text;
                     return Ok(());
                 }
             }
