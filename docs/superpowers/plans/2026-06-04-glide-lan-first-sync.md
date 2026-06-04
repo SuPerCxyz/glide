@@ -1,132 +1,120 @@
-# Glide LAN-First Sync Implementation Plan
+# Glide LAN-First Sync — 实施计划与进度
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Goal:** Build Glide, a LAN-first, server-fallback cross-node clipboard sync tool with optional keyboard/mouse sharing.
-
-**Architecture:** Rust core owns protocol, device identity, discovery, routing, clipboard model, CLI, and platform adapters. Tauri wraps the desktop app for Linux/Windows. The Docker server provides registration, device registry, relay/fallback storage, temporary auth, cleanup, and optional input relay.
-
-**Tech Stack:** Rust workspace, Tauri desktop, SQLite server metadata, filesystem object store, WebSocket/HTTP APIs, mDNS/UDP multicast LAN discovery, TLS/WSS transport.
+> **设计文档：** [docs/design.md](../design.md)
+>
+> **已完成任务标记 `[x]`，待完成标记 `[ ]`**
 
 ---
 
-## Summary
+## 已完成任务
 
-Glide uses full-node sync: copying on any trusted node syncs to all other trusted nodes according to policy. Normal nodes prefer LAN direct transfer, then LAN reverse pull, then server fallback. Temporary CLI sessions are for occasional use on unfamiliar machines and use command-provided auth without persisting credentials.
+### 基础架构
 
-User-visible clipboard types are simple: text, image, file/folder. Internally, text may carry plain text, HTML/RTF rich text, URL, or color representations so paste fidelity is preserved without exposing extra product complexity.
+- [x] 创建 Rust workspace (glide-core, glide-server, glide-cli, glide-desktop)
+- [x] 定义核心类型：device identity, clipboard item, MIME representation, payload reference, transfer session, sync event, input event
+- [x] 实现服务器数据库 schema (devices, clipboard_items, payloads, temp_tokens, input_sessions, cleanup_log)
+- [x] 实现服务器 API: device registration, token validation, WebSocket sync, HTTP payload upload/download, history query, devices query, cleanup
+- [x] 实现临时 token 支持 (TTL, max uses, allowed operations, max item size)
+- [x] 实现 mDNS 和 UDP 多播 LAN 发现
+- [x] 实现剪贴板路由选择 (LAN direct → LAN reverse pull → server fallback)
+- [x] 实现输入路由选择 (LAN direct → server relay → disconnect)
+- [x] 实现输入中继安全机制 (heartbeat, latency measurement, rate limiting, disconnect release, emergency release)
 
-Keyboard/mouse sharing is optional and disabled by default. It prefers LAN direct mode for low latency, but can fall back to server relay when devices are not on the same LAN or direct connection fails. Server relay mode must show degraded-latency status and keep emergency release controls available.
+### CLI
 
-## Key Changes
+- [x] 实现 CLI 持久化模式 (local config)
+- [x] 实现 CLI 临时认证模式 (--server + --token)
+- [x] 实现 `glide copy` (text, image, file, folder)
+- [x] 实现 `glide paste` (stdout + --output)
+- [x] 实现 `glide history` 和 `glide devices`
 
-- Create a Rust workspace with `glide-core`, `glide-server`, `glide-cli`, and `glide-desktop`.
-- Implement a MIME representation model for clipboard items.
-- Implement persistent device registration for trusted clients and temporary token auth for one-off CLI use.
-- Implement LAN-first routing for trusted clipboard nodes and server-only routing for temporary CLI sessions.
-- Implement optional keyboard/mouse routing with priority: LAN direct -> server relay.
-- Implement Linux/Windows clipboard adapters with headless CLI support on Linux.
-- Implement Docker deployment for the server with retention and capacity cleanup.
-- Implement desktop UI controls for sync status, device status, clipboard policy, and input-sharing policy.
+### 桌面客户端
 
-## Public Interfaces
+- [x] 实现 Linux 剪贴板适配器 (xclip/xsel for X11, wl-clipboard for Wayland, headless in-memory)
+- [x] 实现 Windows 剪贴板适配器 (winapi, CF_UNICODETEXT/CF_HTML/CF_DIB/CF_HDROP)
+- [x] 实现 Tauri 2.x 桌面 GUI (system tray, background running, clipboard policy UI)
+- [x] 实现 LAN 自动组网引擎 (UDP multicast discovery, direct WebSocket, peer-to-peer clipboard sync)
+- [x] 实现 per-device 和 per-type 同步策略
 
-- CLI commands: `glide copy`, `glide paste`, `glide history`, `glide devices`.
-- Common CLI examples:
-  - `glide copy "hello"`
-  - `glide copy --file ./a.zip`
-  - `glide copy --dir ./docs`
-  - `glide copy --image ./pic.png`
-  - `glide paste`
-  - `glide paste --output ./recv`
-  - `glide copy --server https://glide.example.com --token TEMP_TOKEN "hello"`
-  - `glide paste --server https://glide.example.com --token TEMP_TOKEN --output ./recv`
-- Server env:
-  - `GLIDE_DATA_DIR`
-  - `GLIDE_MAX_STORAGE_BYTES`
-  - `GLIDE_RETENTION_DAYS`
-  - `GLIDE_MAX_ITEM_BYTES`
-  - `GLIDE_PUBLIC_URL`
-  - `GLIDE_ADMIN_TOKEN`
-  - `GLIDE_REGISTRATION_TOKEN`
-  - `GLIDE_TEMP_TOKEN_DEFAULT_TTL`
-  - `GLIDE_INPUT_RELAY_ENABLED`
-  - `GLIDE_INPUT_RELAY_MAX_LATENCY_MS`
-- Clipboard event fields:
-  - `item_id`
-  - `source_device_id`
-  - `source_session_type`
-  - `kind`
-  - `representations`
-  - `size`
-  - `created_at`
-  - `payload_refs`
-  - `checksum`
-  - `delivery_policy`
-- Clipboard route priority:
-  - Local loop prevention
-  - LAN direct
-  - LAN reverse pull
-  - Server fallback
-- Input route priority:
-  - LAN direct
-  - Server relay
-  - Disconnect and release input when both fail
+### 服务端
 
-## Implementation Tasks
+- [x] 实现 WebSocket 同步通道 (ClipboardCaptured event relay)
+- [x] 实现 Web 管理面板 (GET / → HTML dashboard)
+- [x] 实现定时清理 (retention + capacity cleanup)
+- [x] Dockerfile + docker-compose.yml
 
-- [ ] Create workspace structure and shared crate boundaries.
-- [ ] Define core types: device identity, clipboard item, MIME representation, payload reference, transfer session, sync event, input event.
-- [ ] Implement server database schema for devices, clipboard items, payload objects, temporary tokens, input relay sessions, and cleanup metadata.
-- [ ] Implement server APIs for device registration, token validation, WebSocket sync, HTTP payload upload/download, history query, devices query, and cleanup.
-- [ ] Implement server input relay API over authenticated WebSocket for trusted persistent devices only.
-- [ ] Implement temporary token support with TTL, max uses, allowed operations, and max item size.
-- [ ] Implement LAN discovery with mDNS and UDP multicast for trusted persistent clients.
-- [ ] Implement clipboard route selection: direct LAN, reverse LAN pull, server fallback.
-- [ ] Implement input route selection: direct LAN first, server relay fallback when enabled.
-- [ ] Implement input relay safeguards: heartbeat, latency measurement, rate limiting, disconnect release, emergency release.
-- [ ] Implement CLI persistent mode using local config when available.
-- [ ] Implement CLI single-use auth mode using `--server` and `--token` without writing credentials.
-- [ ] Implement `glide copy` for text, image, file, and folder.
-- [ ] Implement `glide paste` with stdout output for text and `--output` for binary/file payloads.
-- [ ] Implement `glide history` and `glide devices` as read-only commands.
-- [ ] Implement Linux clipboard adapter for X11/Wayland where available and headless fallback through CLI.
-- [ ] Implement Windows clipboard adapter for text, rich text representation, images, and file lists.
-- [ ] Implement desktop tray app with connection status, pause sync, recent history, device status, and settings.
-- [ ] Implement per-device and per-type sync policies.
-- [ ] Implement optional keyboard/mouse module with edge crossing, topology, hotkey switch, LAN mode, server relay mode, and emergency release.
-- [ ] Add Dockerfile and `docker-compose.yml` for server deployment.
-- [ ] Add package build targets for Windows `exe/msi` and Linux `deb/rpm/AppImage`.
-- [ ] Add user documentation for deployment, registration, CLI temporary use, Linux headless use, security model, and input relay latency tradeoff.
+### 打包与 CI
 
-## Test Plan
+- [x] GitHub Actions CI (Linux build+test, Windows build, Docker build, Package deb)
+- [x] Release workflow (deb, rpm, AppImage, NSIS, MSI, zip, Docker image)
+- [x] Docker 镜像标签: `dev-latest` + `YYYYMMDDHHmm`
+- [x] Docker 推送到 Docker Hub + GHCR
 
-- [ ] Unit test serialization and deserialization for all core protocol types.
-- [ ] Unit test MIME representation selection for plain text, rich text, URL, color, image, file, and folder.
-- [ ] Unit test temporary token expiry, max-use counting, allowed operation checks, and item size limits.
-- [ ] Unit test clipboard route selection priority and fallback behavior.
-- [ ] Unit test input route selection from LAN direct to server relay.
-- [ ] Integration test server startup, persistent device registration, WebSocket sync, and payload upload/download.
-- [ ] Integration test temporary CLI copy/paste with no config file written.
-- [ ] Integration test trusted-node LAN direct route and server fallback route.
-- [ ] CLI test `glide copy`, `glide paste`, `glide history`, and `glide devices` in headless Linux.
-- [ ] Desktop test Linux GNOME Wayland, GNOME X11, KDE Plasma, Windows 10/11.
-- [ ] Clipboard test text, internally preserved rich text, image, file, and folder across Linux/Windows.
-- [ ] Security test unregistered device rejection, revoked token rejection, path traversal rejection, checksum mismatch rejection.
-- [ ] Storage test retention cleanup, capacity cleanup, object/database consistency, and preserved latest usable item.
-- [ ] Input module test LAN direct, server relay fallback, edge crossing, hotkey switching, disconnect release, emergency release, and permission failure reporting.
-- [ ] Input relay test high-latency warning, relay disabled rejection, rate limiting, and trusted-device-only enforcement.
-- [ ] Packaging test Docker compose startup, Linux package install, AppImage run, and Windows installer run.
+### 测试
 
-## Assumptions
+- [x] 核心类型序列化/反序列化测试 (26 tests)
+- [x] mDNS/UDP 发现模块测试
+- [x] 路由选择逻辑测试
+- [x] 临时 token 过期/计数/操作限制/大小限制测试 (7 tests)
+- [x] 服务端 API 测试
+- [x] 剪贴板同步 WebSocket 测试 (Client A → Server → Client B)
+- [x] LAN 自动组网路由测试 (12 tests)
+- [x] Docker 部署验证 (server startup + API test)
+- [x] 虚拟环境 GUI 启动验证 (xvfb-run)
 
-- Glide is full-node sync only; no target-specific send command.
-- Product-level clipboard types are text, image, and file/folder.
-- Rich text, URL, and color are internal representations of text, not prominent user-facing categories.
-- Persistent clients may use LAN discovery and direct transfer.
-- Temporary CLI sessions never join the trusted device mesh and default to server-only clipboard transfer.
-- Temporary CLI tokens do not allow keyboard/mouse control.
-- Service-side clipboard storage is plaintext, but all client-server and client-client transport must be encrypted.
-- Keyboard/mouse sync is optional, disabled by default, and supports LAN direct plus server relay fallback.
-- Server-relayed keyboard/mouse sync is expected to have higher latency than LAN mode and must show that status to the user.
-- Android, iOS, macOS, and Chrome are future clients, but protocol and auth are designed to allow them later.
+---
+
+## 待完成任务
+
+### 高优先级
+
+- [ ] CLI `glide copy` 和 `glide paste` 与服务端完整集成测试
+- [ ] 键鼠共享真实端到端测试
+- [ ] 多客户端并发同步压力测试
+- [ ] Windows NSIS 安装器在真实 Windows 环境验证
+- [ ] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
+
+### 中优先级
+
+- [ ] macOS 剪贴板适配器 (pbcopy/pbpaste + AppKit)
+- [ ] macOS Tauri 构建 (cocoa/webkit2gtk)
+- [ ] 键鼠共享 Windows 输入注入 (SendInput API)
+- [ ] 剪贴板变更事件监听替代轮询 (inotify/fsevents/WinAPI)
+- [ ] 载荷分块传输 (大文件)
+- [ ] 断点续传
+
+### 低优先级
+
+- [ ] Android/iOS 客户端
+- [ ] Web 浏览器扩展
+- [ ] 端到端加密 (E2EE)
+- [ ] P2P 直传不经服务端存储
+- [ ] 剪贴板历史搜索
+- [ ] 剪贴板项目过期自动清理
+
+---
+
+## 测试矩阵
+
+| 场景 | 平台 | 状态 |
+|------|------|------|
+| CLI copy/paste text | Linux headless | ✅ |
+| WebSocket sync A→B | Python test | ✅ |
+| GUI start under Xvfb | Linux | ✅ |
+| Server Docker deploy | Linux | ✅ |
+| Deb install + verify | Docker | ✅ |
+| NSIS install + GUI | Windows | ✅ (CI builds, manual verify needed) |
+| CLI copy/paste text | Windows | 待验证 |
+| Multi-client concurrent | 待测试 | 待实现 |
+| LAN auto-discovery | 待测试 | 代码已实现 |
+| Keyboard/mouse sharing | 待测试 | 框架已实现 |
+
+---
+
+## 已知问题
+
+1. **WebSocket 同步格式** — serde 枚举变体名必须用 PascalCase (`Text` 不是 `text`)
+2. **Docker 文件权限** — 容器内以 root 运行，数据卷需要适当权限
+3. **SQLite URL** — 需要 `sqlite:` 前缀 + `?mode=rwc` 参数
+4. **Migration 顺序** — 必须在 cleanup 任务启动前完成 migration
+5. **cargo fmt 版本** — 本地 rustfmt 1.75 与 CI 最新版格式不同，CI 使用 auto-fix
