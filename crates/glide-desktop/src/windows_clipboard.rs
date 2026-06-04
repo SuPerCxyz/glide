@@ -154,10 +154,14 @@ fn close_clipboard() {
 }
 
 #[cfg(target_os = "windows")]
+fn get_last_error() -> u32 {
+    unsafe { winapi::um::errhandlingapi::GetLastError() }
+}
+
+#[cfg(target_os = "windows")]
 fn get_clipboard_text(format: u32) -> Result<String> {
     use winapi::um::winuser::{GetClipboardData, IsClipboardFormatAvailable};
     use winapi::um::winbase::{GlobalLock, GlobalUnlock};
-    use widestring::U16CString;
 
     unsafe {
         if IsClipboardFormatAvailable(format) == 0 {
@@ -310,10 +314,8 @@ fn is_format_available(format: u32) -> bool {
 #[cfg(target_os = "windows")]
 fn parse_hdrop(data: &[u8]) -> Result<Vec<String>> {
     // HDROP is a DROPFILES structure followed by null-terminated paths.
-    use winapi::shellapi::{DROPFILESW, DragQueryFileW};
+    use winapi::um::shellapi::{DROPFILESW, DragQueryFileW};
     use std::ptr::null_mut;
-    use winapi::um::winuser::CF_HDROP;
-    use widestring::U16CString;
 
     // The first 20 bytes are the DROPFILES header.
     if data.len() < 20 {
@@ -342,7 +344,7 @@ fn parse_hdrop(data: &[u8]) -> Result<Vec<String>> {
 
 #[cfg(target_os = "windows")]
 fn create_hdrop(paths: &[String]) -> Vec<u8> {
-    use winapi::shellapi::DROPFILESW;
+    use winapi::um::shellapi::DROPFILESW;
     use std::mem;
 
     // DROPFILES structure:
