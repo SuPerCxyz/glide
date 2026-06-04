@@ -174,6 +174,26 @@ jobs:
           chmod +x appimagetool
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "dist/glide-${VERSION}-x86_64.AppImage"
 
+      - name: Verify .deb package in Docker (GUI + CLI test)
+        run: |
+          mkdir -p /tmp/verify
+          cp dist/glide_0.1.0_amd64.deb /tmp/verify/
+          cat > /tmp/verify/Dockerfile <<'DEOF'
+          FROM ubuntu:24.04
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && apt-get install -y \
+              libwebkit2gtk-4.1-0 libgtk-3-0 libayatana-appindicator3-1 \
+              librsvg2-2 xvfb dbus-x11 file \
+              && rm -rf /var/lib/apt/lists/*
+          COPY glide_0.1.0_amd64.deb /tmp/glide.deb
+          RUN dpkg -i /tmp/glide.deb && rm /tmp/glide.deb
+          RUN ls -la /usr/bin/glide /usr/bin/glide-cli /usr/bin/glide-server
+          RUN file /usr/bin/glide
+          RUN /usr/bin/glide-cli --help
+          CMD xvfb-run --auto-servernum timeout 5 /usr/bin/glide; echo "GUI EXIT: $?"
+          DEOF
+          cd /tmp/verify && docker build -t glide-verify . && docker run --rm glide-verify
+
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
@@ -201,14 +221,15 @@ jobs:
           key: ${{ runner.os }}-win-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-win-release-
 
-      - name: Build CLI and server for Windows
+      - name: Build Tauri GUI client + CLI + server for Windows
         run: |
-          cargo build --release --package glide-server --package glide-cli
+          cargo build --release --package glide-tauri --package glide-server --package glide-cli
 
       - name: Create Windows zip package
         run: |
           VERSION="${{ github.event.inputs.version || '0.1.0' }}"
           mkdir -p "dist/glide-${VERSION}-windows"
+          cp target/release/glide-tauri.exe "dist/glide-${VERSION}-windows/glide.exe"
           cp target/release/glide-server.exe "dist/glide-${VERSION}-windows/glide-server.exe"
           cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows/glide-cli.exe"
           cp README.md "dist/glide-${VERSION}-windows/"
@@ -224,6 +245,7 @@ jobs:
       - name: Create MSI installer
         run: |
           mkdir -p wix
+          cp target/release/glide-tauri.exe wix/glide.exe
           cp target/release/glide-server.exe wix/glide-server.exe
           cp target/release/glide-cli.exe wix/glide-cli.exe
 
@@ -236,6 +258,9 @@ jobs:
               <Directory Id="TARGETDIR" Name="SourceDir">
                 <Directory Id="ProgramFiles64Folder">
                   <Directory Id="INSTALLFOLDER" Name="Glide">
+                    <Component Id="GlideApp" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+                      <File Id="GlideExe" Source="wix/glide.exe" KeyPath="yes" />
+                    </Component>
                     <Component Id="GlideServer" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
                       <File Id="GlideServerExe" Source="wix/glide-server.exe" KeyPath="yes" />
                     </Component>
@@ -247,18 +272,27 @@ jobs:
                 <Directory Id="ProgramMenuFolder">
                   <Directory Id="GlideStartMenu" Name="Glide">
                     <Component Id="StartMenuShortcuts" Guid="c3d4e5f6-a7b8-9012-cdef-123456789012">
+                      <Shortcut Id="GlideAppShortcut" Name="Glide" Target="[INSTALLFOLDER]glide.exe" WorkingDirectory="INSTALLFOLDER" Icon="glide.ico" />
                       <Shortcut Id="GlideCliShortcut" Name="Glide CLI" Target="[INSTALLFOLDER]glide-cli.exe" WorkingDirectory="INSTALLFOLDER" />
-                      <Shortcut Id="GlideServerShortcut" Name="Glide Server" Target="[INSTALLFOLDER]glide-server.exe" WorkingDirectory="INSTALLFOLDER" />
                       <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall" />
                       <RegistryValue Root="HKCU" Key="Software\Glide" Name="installed" Type="integer" Value="1" KeyPath="yes" />
                     </Component>
                   </Directory>
                 </Directory>
+                <Directory Id="DesktopFolder">
+                  <Component Id="DesktopShortcut" Guid="e5f6a7b8-c9d0-1234-ef56-7890abcdef12">
+                    <Shortcut Id="GlideDesktopShortcut" Name="Glide" Target="[INSTALLFOLDER]glide.exe" WorkingDirectory="INSTALLFOLDER" Icon="glide.ico" />
+                    <RegistryValue Root="HKCU" Key="Software\Glide" Name="desktop_shortcut" Type="integer" Value="1" KeyPath="yes" />
+                  </Component>
+                </Directory>
               </Directory>
+              <Icon Id="glide.ico" SourceFile="wix/glide.exe" />
               <Feature Id="MainFeature" Title="Glide" Level="1">
+                <ComponentRef Id="GlideApp" />
                 <ComponentRef Id="GlideServer" />
                 <ComponentRef Id="GlideCli" />
                 <ComponentRef Id="StartMenuShortcuts" />
+                <ComponentRef Id="DesktopShortcut" />
               </Feature>
             </Package>
           </Wix>

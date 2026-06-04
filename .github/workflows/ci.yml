@@ -109,11 +109,15 @@ jobs:
       - name: Build glide-cli
         run: cargo build --package glide-cli --verbose
 
+      - name: Build glide-tauri (GUI)
+        run: cargo build --package glide-tauri --verbose
+
       - name: Upload Windows binaries
         uses: actions/upload-artifact@v4
         with:
           name: windows-binaries
           path: |
+            target/debug/glide-tauri.exe
             target/debug/glide-cli.exe
             target/debug/glide-server.exe
           retention-days: 30
@@ -149,42 +153,29 @@ jobs:
       - name: Build release binaries
         run: cargo build --release --workspace
 
-      - name: Create .deb package for glide-cli
+      - name: Create .deb package (GUI desktop client)
         run: |
           mkdir -p dist
-          CLI_DIR="glide-cli_0.1.0_amd64"
-          mkdir -p "$CLI_DIR/DEBIAN"
-          mkdir -p "$CLI_DIR/usr/bin"
-          cat > "$CLI_DIR/DEBIAN/control" <<EOF
-          Package: glide-cli
+          DEB="glide_0.1.0_amd64"
+          mkdir -p "$DEB/DEBIAN" "$DEB/usr/bin" "$DEB/usr/share/applications" "$DEB/usr/share/icons/hicolor/256x256/apps" "$DEB/usr/share/doc/glide"
+          cat > "$DEB/DEBIAN/control" <<EOF
+          Package: glide
           Version: 0.1.0
           Section: utils
           Priority: optional
           Architecture: amd64
+          Depends: libwebkit2gtk-4.1-0, libgtk-3-0, libayatana-appindicator3-1, librsvg2-2
           Maintainer: SuPerC <superc@soocoo.xyz>
-          Description: LAN-first clipboard sync CLI tool
-           Glide is a cross-node clipboard synchronization tool.
+          Description: LAN-first clipboard sync desktop client
+           Glide synchronizes clipboard content across devices with GUI.
           EOF
-          cp target/release/glide-cli "$CLI_DIR/usr/bin/glide"
-          dpkg-deb --build "$CLI_DIR" dist/
-
-      - name: Create .deb package for glide-server
-        run: |
-          SERVER_DIR="glide-server_0.1.0_amd64"
-          mkdir -p "$SERVER_DIR/DEBIAN"
-          mkdir -p "$SERVER_DIR/usr/bin"
-          mkdir -p "$SERVER_DIR/etc/glide"
-          cat > "$SERVER_DIR/DEBIAN/control" <<EOF
-          Package: glide-server
-          Version: 0.1.0
-          Section: net
-          Priority: optional
-          Architecture: amd64
-          Maintainer: SuPerC <superc@soocoo.xyz>
-          Description: LAN-first clipboard sync server
-          EOF
-          cp target/release/glide-server "$SERVER_DIR/usr/bin/glide-server"
-          dpkg-deb --build "$SERVER_DIR" dist/
+          cp target/release/glide-tauri "$DEB/usr/bin/glide"
+          cp target/release/glide-server "$DEB/usr/bin/glide-server"
+          cp target/release/glide-cli "$DEB/usr/bin/glide-cli"
+          printf '[Desktop Entry]\nName=Glide\nComment=LAN-first clipboard sync\nExec=/usr/bin/glide\nIcon=glide\nType=Application\nCategories=Utility;\nTerminal=false\nStartupNotify=true\nX-GNOME-Autostart-enabled=true\n' > "$DEB/usr/share/applications/glide.desktop"
+          python3 scripts/gen-icon.py "$DEB/usr/share/icons/hicolor/256x256/apps/glide.png" 256
+          cp README.md "$DEB/usr/share/doc/glide/"
+          dpkg-deb --build "$DEB" dist/
 
       - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
