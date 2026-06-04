@@ -180,3 +180,58 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 ## 七、结论
 
 当前虚拟环境下 **124 个测试全部通过**，0 失败。
+
+---
+
+## 八、客户端验证矩阵 (C01-C08)
+
+| 编号 | 客户端 A | 客户端 B | 测试内容 | 状态 |
+|------|----------|----------|----------|------|
+| C01 | Linux CLI | Linux CLI | 英文/中文/Emoji/多行/空/大文本同步 + 双向 + 循环抑制 | ✅ 8/8 |
+| C02 | Linux GUI (Xvfb) | Linux CLI | GUI→CLI + CLI→GUI (英文/中文/Emoji) | ✅ 4/4 |
+| C03 | Linux GUI (Xvfb) | Linux GUI (Xvfb) | GUI→GUI 同步 | ✅ 1/1 |
+| C04 | Windows GUI (模拟) | Linux CLI | Win→Linux + Linux→Win (英文/中文/Emoji/多行) | ✅ 8/8 |
+| C05 | Windows GUI (模拟) | Linux GUI | WinGUI→LinuxGUI + LinuxGUI→WinGUI | ✅ 2/2 |
+| C06 | Windows CLI (模拟) | Linux CLI | WinCLI→LinCLI (英文/中文/Emoji/多行) | ✅ 4/4 |
+| C07 | Windows GUI (模拟) | Windows GUI (模拟) | WinGUI↔WinGUI 同步 | ✅ 1/1 |
+| C08 | Windows GUI + Linux CLI + Linux GUI | 多客户端 | 广播到所有客户端 | ✅ 2/2 |
+
+**客户端验证总计: 30/30 通过**
+
+## 九、异常场景验证
+
+| 场景 | 状态 |
+|------|------|
+| 错误 token 拒绝 | ✅ |
+| 错误端口拒绝 | ✅ |
+| 连接后关闭再重连 | ✅ |
+| 5 个客户端同时连接 | ✅ |
+| 多客户端广播 | ✅ |
+| 服务端重启后恢复 | ✅ |
+| 客户端重连服务端重启 | ✅ |
+
+**异常场景总计: 7/7 通过**
+
+## 十、验证方式说明
+
+| 客户端 | 验证方式 | 说明 |
+|--------|----------|------|
+| Linux CLI | 真实执行 | WebSocket 协议层测试 |
+| Linux GUI | Xvfb + xclip | 无头 X11 环境验证 |
+| Windows GUI | WebSocket 模拟 | 同协议验证 + PowerShell/AHK 脚本生成 |
+| Windows CLI | WebSocket 模拟 | 同协议验证 |
+| 服务端 | Docker 容器 | 真实运行验证 |
+
+## 十一、测试命令
+
+```bash
+make test-all               # 运行全部测试
+python3 scripts/test-e2e.py # E2E 测试
+bash scripts/test-network.sh
+bash scripts/test-clipboard-cli.sh
+bash scripts/test-keyboard-mouse-protocol.sh
+bash scripts/test-reconnect.sh
+bash scripts/test-tc-network.sh
+bash scripts/test-gui-linux.sh
+bash scripts/test-docker-network.sh
+```
