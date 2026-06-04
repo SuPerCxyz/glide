@@ -154,10 +154,11 @@ fn main() {
 
 #[tauri::command]
 async fn get_connection_status(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let status = {
-        let engine = state.sync_engine.lock().await;
-        engine.connection_status.lock().await.clone()
-    };
+    let engine = state.sync_engine.lock().await;
+    let cs = engine.connection_status.lock().await;
+    let status = cs.clone();
+    drop(cs);
+    drop(engine);
     Ok(status)
 }
 
@@ -203,10 +204,11 @@ async fn get_input_sharing_enabled(state: tauri::State<'_, AppState>) -> Result<
 
 #[tauri::command]
 async fn get_server_url(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let url = {
-        let engine = state.sync_engine.lock().await;
-        engine.server_url.lock().await.clone()
-    };
+    let engine = state.sync_engine.lock().await;
+    let su = engine.server_url.lock().await;
+    let url = su.clone();
+    drop(su);
+    drop(engine);
     Ok(url)
 }
 
