@@ -248,13 +248,17 @@ jobs:
       - name: Create WiX project for MSI
         run: |
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
-          mkdir -p wix
 
-          # Create WiX source file
-          cat > wix/glide.wxs <<'WIXEOF'
+          # Copy binaries to wix folder
+          mkdir -p wix
+          cp target/release/glide-cli.exe wix/glide.exe
+          cp target/release/glide-server.exe wix/glide-server.exe
+
+          # Create WiX source file with absolute paths
+          cat > wix/glide.wxs <<WIXEOF
           <?xml version="1.0" encoding="UTF-8"?>
           <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-            <Package Name="Glide" Version="$(var.Version)" Manufacturer="SuPerC" UpgradeCode="8e3c5e2a-1b4d-4f6e-9a8c-7d2e1f3a5b6c" Language="1033" InstallerVersion="500">
+            <Package Name="Glide" Version="$VERSION" Manufacturer="SuPerC" UpgradeCode="8e3c5e2a-1b4d-4f6e-9a8c-7d2e1f3a5b6c" Language="1033" InstallerVersion="500">
               <MajorUpgrade DowngradeErrorMessage="A newer version of Glide is already installed." />
               <MediaTemplate EmbedCab="yes" />
 
@@ -262,10 +266,10 @@ jobs:
                 <Directory Id="ProgramFiles64Folder">
                   <Directory Id="INSTALLFOLDER" Name="Glide">
                     <Component Id="GlideCli" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
-                      <File Id="GlideExe" Source="glide.exe" KeyPath="yes" />
+                      <File Id="GlideExe" Source="wix/glide.exe" KeyPath="yes" />
                     </Component>
                     <Component Id="GlideServer" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
-                      <File Id="GlideServerExe" Source="glide-server.exe" KeyPath="yes" />
+                      <File Id="GlideServerExe" Source="wix/glide-server.exe" KeyPath="yes" />
                     </Component>
                   </Directory>
                 </Directory>
@@ -289,12 +293,8 @@ jobs:
           </Wix>
           WIXEOF
 
-          # Copy binaries to wix folder
-          cp target/release/glide-cli.exe wix/glide.exe
-          cp target/release/glide-server.exe wix/glide-server.exe
-
           # Build MSI
-          wix build -arch x64 -d Version="$VERSION" -out "dist/glide-${VERSION}-x64.msi" wix/glide.wxs
+          wix build -arch x64 -out "dist/glide-${VERSION}-x64.msi" wix/glide.wxs
         shell: bash
 
       - name: Upload Windows packages
