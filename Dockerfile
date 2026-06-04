@@ -1,8 +1,8 @@
-FROM rust:1.79-slim AS builder
+FROM rust:1.87-slim AS builder
 
 WORKDIR /app
 COPY . .
-RUN cargo build --release --package glide-server
+RUN cargo build --release --package glide-server --package glide-cli
 
 FROM debian:bookworm-slim
 
@@ -18,6 +18,7 @@ ENV GLIDE_PUBLIC_URL=http://localhost:8080
 ENV GLIDE_INPUT_RELAY_ENABLED=false
 
 COPY --from=builder /app/target/release/glide-server /usr/local/bin/glide-server
+COPY --from=builder /app/target/release/glide-cli /usr/local/bin/glide-cli
 
 EXPOSE 8080
 
