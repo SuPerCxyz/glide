@@ -9,3 +9,4 @@
 pub mod clipboard_adapter;
 pub mod input_adapter;
 pub mod policy_ui;
+pub mod linux_backends;
