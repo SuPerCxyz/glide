@@ -19,7 +19,7 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # --- Linux: Build release binaries and packages ---
+  # --- Linux: Build GUI desktop client + server + CLI ---
   linux-packages:
     name: Linux Packages
     runs-on: ubuntu-latest
@@ -33,7 +33,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev \
-            fuse libfuse2 desktop-file-utils
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev fuse libfuse2 desktop-file-utils
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -45,159 +46,162 @@ jobs:
           key: ${{ runner.os }}-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-release-
 
-      - name: Build release binaries
+      - name: Build workspace (CLI + server)
         run: cargo build --release --workspace
 
-      - name: Create .deb package for glide-cli
+      - name: Build Tauri desktop client
         run: |
-          mkdir -p dist
-          CLI_DIR="glide-cli_${VERSION}_amd64"
-          mkdir -p "$CLI_DIR/DEBIAN" "$CLI_DIR/usr/bin" "$CLI_DIR/usr/share/doc/glide-cli"
-          cat > "$CLI_DIR/DEBIAN/control" <<EOF
-          Package: glide-cli
+          cd crates/glide-tauri
+          cargo build --release
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+
+      - name: Create .deb package (desktop GUI client)
+        run: |
+          VERSION="${{ github.event.inputs.version || '0.1.0' }}"
+          DEB_DIR="glide_${VERSION}_amd64"
+          mkdir -p dist "$DEB_DIR/DEBIAN" "$DEB_DIR/usr/bin" \
+                   "$DEB_DIR/usr/share/applications" \
+                   "$DEB_DIR/usr/share/icons/hicolor/256x256/apps" \
+                   "$DEB_DIR/etc/glide" \
+                   "$DEB_DIR/usr/share/doc/glide"
+
+          cat > "$DEB_DIR/DEBIAN/control" <<EOF
+          Package: glide
           Version: ${VERSION}
           Section: utils
           Priority: optional
           Architecture: amd64
+          Depends: libwebkit2gtk-4.1-0, libgtk-3-0, libayatana-appindicator3-1, librsvg2-2
           Maintainer: SuPerC <superc@soocoo.xyz>
-          Description: LAN-first clipboard sync CLI tool
-           Glide synchronizes clipboard content across devices.
+          Description: LAN-first clipboard sync desktop client
+           Glide synchronizes clipboard content across trusted devices.
+           Features LAN-first routing, server fallback, and background running.
           EOF
-          cp target/release/glide-cli "$CLI_DIR/usr/bin/glide"
-          cp README.md "$CLI_DIR/usr/share/doc/glide-cli/"
-          dpkg-deb --build "$CLI_DIR" dist/
-        env:
-          VERSION: ${{ github.event.inputs.version || github.ref_name }}
 
-      - name: Create .deb package for glide-server
-        run: |
-          SERVER_DIR="glide-server_${VERSION}_amd64"
-          mkdir -p "$SERVER_DIR/DEBIAN" "$SERVER_DIR/usr/bin" "$SERVER_DIR/etc/glide" "$SERVER_DIR/usr/share/doc/glide-server"
-          cat > "$SERVER_DIR/DEBIAN/control" <<EOF
-          Package: glide-server
-          Version: ${VERSION}
-          Section: net
-          Priority: optional
-          Architecture: amd64
-          Maintainer: SuPerC <superc@soocoo.xyz>
-          Description: LAN-first clipboard sync server
-           Glide server provides clipboard relay and device management.
-          EOF
-          cp target/release/glide-server "$SERVER_DIR/usr/bin/glide-server"
-          cp docker-compose.yml "$SERVER_DIR/etc/glide/"
-          cp README.md "$SERVER_DIR/usr/share/doc/glide-server/"
-          dpkg-deb --build "$SERVER_DIR" dist/
-        env:
-          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+          # Desktop client (Tauri GUI)
+          cp target/release/glide-tauri "$DEB_DIR/usr/bin/glide"
+          # Server (headless)
+          cp target/release/glide-server "$DEB_DIR/usr/bin/glide-server"
+          # CLI tool
+          cp target/release/glide-cli "$DEB_DIR/usr/bin/glide-cli"
 
-      - name: Create .rpm package for glide-cli
+          # Desktop entry
+          cat > "$DEB_DIR/usr/share/applications/glide.desktop" <<DESKTOP
+          [Desktop Entry]
+          Name=Glide
+          Comment=LAN-first clipboard sync
+          Exec=/usr/bin/glide
+          Icon=glide
+          Type=Application
+          Categories=Utility;
+          Terminal=false
+          StartupNotify=true
+          X-GNOME-Autostart-enabled=true
+          DESKTOP
+
+          # Generate icon
+          python3 -c "
+          import struct, zlib
+          sig = b'\x89PNG\r\n\x1a\n'
+          ihdr = struct.pack('>IIBBBBB', 256, 256, 8, 2, 0, 0, 0)
+          ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr) & 0xffffffff)
+          raw = b''
+          for y in range(256):
+              raw += b'\x00' + b'\x00\x80\xff' * 256
+          compressed = zlib.compress(raw)
+          idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed) & 0xffffffff)
+          iend_crc = struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
+          png = sig + struct.pack('>I',13) + b'IHDR' + ihdr + ihdr_crc + \
+                struct.pack('>I',len(compressed)) + b'IDAT' + compressed + idat_crc + \
+                struct.pack('>I',0) + b'IEND' + iend_crc
+          open('$DEB_DIR/usr/share/icons/hicolor/256x256/apps/glide.png','wb').write(png)
+          "
+
+          cp README.md "$DEB_DIR/usr/share/doc/glide/"
+          dpkg-deb --build "$DEB_DIR" dist/
+
+      - name: Create .rpm package (desktop GUI client)
         run: |
-          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          VERSION="${{ github.event.inputs.version || '0.1.0' }}"
           RPMBUILD=$HOME/rpmbuild
           mkdir -p "$RPMBUILD"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cat > "$RPMBUILD/SPECS/glide-cli.spec" <<EOF
-          Name:           glide-cli
+
+          cat > "$RPMBUILD/SPECS/glide.spec" <<EOF
+          Name:           glide
           Version:        ${VERSION}
           Release:        1%{?dist}
-          Summary:        LAN-first clipboard sync CLI tool
+          Summary:        LAN-first clipboard sync desktop client
           License:        MIT
           URL:            https://github.com/SuPerCxyz/glide
           BuildArch:      x86_64
+          Requires:       gtk3 webkit2gtk4.1 libayatana-appindicator librsvg2
 
           %description
-          Glide synchronizes clipboard content across devices.
+          Glide synchronizes clipboard content across trusted devices.
 
           %install
-          mkdir -p %{buildroot}/usr/bin
+          mkdir -p %{buildroot}/usr/bin %{buildroot}/usr/share/applications
           cp %{_sourcedir}/glide %{buildroot}/usr/bin/glide
+          cp %{_sourcedir}/glide-server %{buildroot}/usr/bin/glide-server
+          cp %{_sourcedir}/glide-cli %{buildroot}/usr/bin/glide-cli
 
           %files
           /usr/bin/glide
-          EOF
-          cp target/release/glide-cli "$RPMBUILD/SOURCES/glide"
-          rpmbuild -bb --define "_topdir $RPMBUILD" "$RPMBUILD/SPECS/glide-cli.spec"
-          mkdir -p dist
-          cp "$RPMBUILD/RPMS/x86_64/glide-cli-${VERSION}-1.x86_64.rpm" dist/
-
-      - name: Create .rpm package for glide-server
-        run: |
-          VERSION=${{ github.event.inputs.version || github.ref_name }}
-          RPMBUILD=$HOME/rpmbuild
-          mkdir -p "$RPMBUILD"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cat > "$RPMBUILD/SPECS/glide-server.spec" <<EOF
-          Name:           glide-server
-          Version:        ${VERSION}
-          Release:        1%{?dist}
-          Summary:        LAN-first clipboard sync server
-          License:        MIT
-          URL:            https://github.com/SuPerCxyz/glide
-          BuildArch:      x86_64
-
-          %description
-          Glide server provides clipboard relay and device management.
-
-          %install
-          mkdir -p %{buildroot}/usr/bin %{buildroot}/etc/glide
-          cp %{_sourcedir}/glide-server %{buildroot}/usr/bin/glide-server
-          cp %{_sourcedir}/docker-compose.yml %{buildroot}/etc/glide/
-
-          %files
           /usr/bin/glide-server
-          /etc/glide/docker-compose.yml
+          /usr/bin/glide-cli
           EOF
+
+          cp target/release/glide-tauri "$RPMBUILD/SOURCES/glide"
           cp target/release/glide-server "$RPMBUILD/SOURCES/glide-server"
-          cp docker-compose.yml "$RPMBUILD/SOURCES/docker-compose.yml"
-          rpmbuild -bb --define "_topdir $RPMBUILD" "$RPMBUILD/SPECS/glide-server.spec"
+          cp target/release/glide-cli "$RPMBUILD/SOURCES/glide-cli"
+          rpmbuild -bb --define "_topdir $RPMBUILD" "$RPMBUILD/SPECS/glide.spec"
           mkdir -p dist
-          cp "$RPMBUILD/RPMS/x86_64/glide-server-${VERSION}-1.x86_64.rpm" dist/
+          cp "$RPMBUILD/RPMS/x86_64/"*.rpm dist/
 
-      - name: Create AppImage for glide-cli
+      - name: Create AppImage (desktop GUI client)
         run: |
-          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          VERSION="${{ github.event.inputs.version || '0.1.0' }}"
           APPDIR=AppDir
-          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" \
+                   "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
-          cp target/release/glide-cli "$APPDIR/usr/bin/glide"
+          cp target/release/glide-tauri "$APPDIR/usr/bin/glide"
+          cp target/release/glide-server "$APPDIR/usr/bin/glide-server"
 
-          # Create desktop entry
-          cat > "$APPDIR/glide-cli.desktop" <<EOF
+          cat > "$APPDIR/glide.desktop" <<DESKTOP
           [Desktop Entry]
-          Name=Glide CLI
+          Name=Glide
           Exec=glide
           Icon=glide
           Type=Application
           Categories=Utility;
-          EOF
+          Terminal=false
+          DESKTOP
 
-          # Create icon placeholder (128x128 PNG)
-          convert -size 128x128 xc:blue \
-            -fill white -gravity center -pointsize 48 \
-            -annotate 0 '📋' "$APPDIR/glide.png" 2>/dev/null || \
-            python3 -c "
+          python3 -c "
           import struct, zlib
-          # minimal valid 1x1 PNG
-          sig = b'\\x89PNG\\r\\n\\x1a\\n'
-          # IHDR
-          ihdr_data = struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
-          ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff)
-          ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + ihdr_crc
-          # IDAT (1 pixel, filter=0, RGB)
-          raw = b'\\x00\\x00\\x00\\xff'
+          sig = b'\x89PNG\r\n\x1a\n'
+          ihdr = struct.pack('>IIBBBBB', 256, 256, 8, 2, 0, 0, 0)
+          ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr) & 0xffffffff)
+          raw = b''
+          for y in range(256):
+              raw += b'\x00' + b'\x00\x80\xff' * 256
           compressed = zlib.compress(raw)
           idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed) & 0xffffffff)
-          idat = struct.pack('>I', len(compressed)) + b'IDAT' + compressed + idat_crc
-          # IEND
           iend_crc = struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
-          iend = struct.pack('>I', 0) + b'IEND' + iend_crc
-          open('$APPDIR/glide.png', 'wb').write(sig + ihdr + idat + iend)
+          png = sig + struct.pack('>I',13) + b'IHDR' + ihdr + ihdr_crc + \
+                struct.pack('>I',len(compressed)) + b'IDAT' + compressed + idat_crc + \
+                struct.pack('>I',0) + b'IEND' + iend_crc
+          open('$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png','wb').write(png)
           "
-          cp "$APPDIR/glide.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png"
-          cp "$APPDIR/glide-cli.desktop" "$APPDIR/usr/share/applications/"
 
-          # Download AppImageTool
+          cp "$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png" "$APPDIR/glide.png"
+          cp "$APPDIR/glide.desktop" "$APPDIR/usr/share/applications/"
+
           wget -q -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool
-          ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "dist/glide-cli-${VERSION}-x86_64.AppImage"
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "dist/glide-${VERSION}-x86_64.AppImage"
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
@@ -206,7 +210,7 @@ jobs:
           path: dist/*
           retention-days: 90
 
-  # --- Windows: Build and create installer ---
+  # --- Windows: Build GUI desktop client + server + CLI ---
   windows-packages:
     name: Windows Packages
     runs-on: windows-latest
@@ -226,15 +230,21 @@ jobs:
           key: ${{ runner.os }}-win-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-win-release-
 
-      - name: Build release binaries
+      - name: Build workspace (CLI + server)
         run: cargo build --release --workspace
+
+      - name: Build Tauri desktop client
+        run: cd crates/glide-tauri && cargo build --release
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
 
       - name: Create Windows zip package
         run: |
-          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${{ github.event.inputs.version || '0.1.0' }}"
           mkdir -p "dist/glide-${VERSION}-windows"
-          cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows/glide.exe"
+          cp target/release/glide-tauri.exe "dist/glide-${VERSION}-windows/glide.exe"
           cp target/release/glide-server.exe "dist/glide-${VERSION}-windows/glide-server.exe"
+          cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows/glide-cli.exe"
           cp README.md "dist/glide-${VERSION}-windows/"
           7z a "dist/glide-${VERSION}-windows.zip" "dist/glide-${VERSION}-windows/"
         shell: bash
@@ -245,56 +255,56 @@ jobs:
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
         shell: bash
 
-      - name: Create WiX project for MSI
+      - name: Create MSI installer
         run: |
-          VERSION="${{ github.event.inputs.version || github.ref_name }}"
-
-          # Copy binaries to wix folder
           mkdir -p wix
-          cp target/release/glide-cli.exe wix/glide.exe
+          cp target/release/glide-tauri.exe wix/glide.exe
           cp target/release/glide-server.exe wix/glide-server.exe
+          cp target/release/glide-cli.exe wix/glide-cli.exe
 
-          # Create WiX source file with absolute paths
           cat > wix/glide.wxs <<WIXEOF
           <?xml version="1.0" encoding="UTF-8"?>
           <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-            <Package Name="Glide" Version="$VERSION" Manufacturer="SuPerC" UpgradeCode="8e3c5e2a-1b4d-4f6e-9a8c-7d2e1f3a5b6c" Language="1033" InstallerVersion="500">
+            <Package Name="Glide" Version="0.1.0" Manufacturer="SuPerC" UpgradeCode="8e3c5e2a-1b4d-4f6e-9a8c-7d2e1f3a5b6c" Language="1033" InstallerVersion="500">
               <MajorUpgrade DowngradeErrorMessage="A newer version of Glide is already installed." />
               <MediaTemplate EmbedCab="yes" />
-
               <Directory Id="TARGETDIR" Name="SourceDir">
                 <Directory Id="ProgramFiles64Folder">
                   <Directory Id="INSTALLFOLDER" Name="Glide">
-                    <Component Id="GlideCli" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+                    <Component Id="GlideApp" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
                       <File Id="GlideExe" Source="wix/glide.exe" KeyPath="yes" />
                     </Component>
                     <Component Id="GlideServer" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
                       <File Id="GlideServerExe" Source="wix/glide-server.exe" KeyPath="yes" />
+                    </Component>
+                    <Component Id="GlideCli" Guid="d4e5f6a7-b8c9-0123-def0-123456789012">
+                      <File Id="GlideCliExe" Source="wix/glide-cli.exe" KeyPath="yes" />
                     </Component>
                   </Directory>
                 </Directory>
                 <Directory Id="ProgramMenuFolder">
                   <Directory Id="GlideStartMenu" Name="Glide">
                     <Component Id="StartMenuShortcuts" Guid="c3d4e5f6-a7b8-9012-cdef-123456789012">
-                      <Shortcut Id="GlideShortcut" Name="Glide CLI" Target="[INSTALLFOLDER]glide.exe" WorkingDirectory="INSTALLFOLDER" />
+                      <Shortcut Id="GlideAppShortcut" Name="Glide" Target="[INSTALLFOLDER]glide.exe" WorkingDirectory="INSTALLFOLDER" />
+                      <Shortcut Id="GlideCliShortcut" Name="Glide CLI" Target="[INSTALLFOLDER]glide-cli.exe" WorkingDirectory="INSTALLFOLDER" />
                       <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall" />
                       <RegistryValue Root="HKCU" Key="Software\Glide" Name="installed" Type="integer" Value="1" KeyPath="yes" />
                     </Component>
                   </Directory>
                 </Directory>
               </Directory>
-
               <Feature Id="MainFeature" Title="Glide" Level="1">
-                <ComponentRef Id="GlideCli" />
+                <ComponentRef Id="GlideApp" />
                 <ComponentRef Id="GlideServer" />
+                <ComponentRef Id="GlideCli" />
                 <ComponentRef Id="StartMenuShortcuts" />
               </Feature>
             </Package>
           </Wix>
           WIXEOF
 
-          # Build MSI
-          wix build -arch x64 -out "dist/glide-${VERSION}-x64.msi" wix/glide.wxs
+          mkdir -p dist
+          wix build -arch x64 -out "dist/glide-0.1.0-x64.msi" wix/glide.wxs
         shell: bash
 
       - name: Upload Windows packages

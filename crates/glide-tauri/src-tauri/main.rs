@@ -3,6 +3,9 @@
 use glide_core::clipboard::ClipboardKind;
 use glide_core::policy::Policy;
 use std::sync::Mutex;
+use tauri::{
+    CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
+};
 
 /// Shared app state.
 struct AppState {
@@ -11,6 +14,24 @@ struct AppState {
     server_url: Mutex<String>,
     sync_paused: Mutex<bool>,
     input_sharing_enabled: Mutex<bool>,
+}
+
+/// Build the system tray menu.
+fn build_system_tray() -> SystemTray {
+    let quit = CustomMenuItem::new("quit".to_string(), "退出");
+    let show = CustomMenuItem::new("show".to_string(), "显示窗口");
+    let pause = CustomMenuItem::new("pause".to_string(), "暂停同步");
+    let input_toggle = CustomMenuItem::new("input_toggle".to_string(), "键鼠共享");
+
+    let tray_menu = SystemTrayMenu::new()
+        .add_item(show)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(pause)
+        .add_item(input_toggle)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(quit);
+
+    SystemTray::new().with_menu(tray_menu).with_tooltip("Glide - 剪贴板同步")
 }
 
 fn main() {
@@ -24,6 +45,61 @@ fn main() {
 
     tauri::Builder::default()
         .manage(state)
+        .system_tray(build_system_tray())
+        .on_system_tray_event(|app, event| match event {
+            SystemTrayEvent::LeftClick { .. } => {
+                // Single click on tray icon shows the window.
+                if let Some(window) = app.get_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
+                "quit" => {
+                    app.exit(0);
+                }
+                "show" => {
+                    if let Some(window) = app.get_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                "pause" => {
+                    let state = app.state::<AppState>();
+                    let mut paused = state.sync_paused.lock().unwrap();
+                    *paused = !*paused;
+                    let tray = app.tray_handle();
+                    let item = tray.get_item("pause");
+                    if *paused {
+                        let _ = item.set_title("恢复同步");
+                    } else {
+                        let _ = item.set_title("暂停同步");
+                    }
+                }
+                "input_toggle" => {
+                    let state = app.state::<AppState>();
+                    let mut enabled = state.input_sharing_enabled.lock().unwrap();
+                    *enabled = !*enabled;
+                    let tray = app.tray_handle();
+                    let item = tray.get_item("input_toggle");
+                    if *enabled {
+                        let _ = item.set_title("键鼠共享: 开启");
+                    } else {
+                        let _ = item.set_title("键鼠共享");
+                    }
+                }
+                _ => {}
+            }),
+            _ => {}
+        })
+        .on_window_event(|event| match event.event() {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                // Don't close the window, just hide it (background running).
+                event.window().hide().unwrap();
+                api.prevent_close();
+            }
+            _ => {}
+        })
         .invoke_handler(tauri::generate_handler![
             get_connection_status,
             get_clipboard_history,
@@ -50,12 +126,12 @@ fn get_connection_status(state: tauri::State<AppState>) -> String {
 
 #[tauri::command]
 fn get_clipboard_history(_state: tauri::State<AppState>, _limit: usize) -> serde_json::Value {
-    serde_json::json!({ "items": [], "message": "Connect to server to view history" })
+    serde_json::json!({ "items": [], "message": "连接服务器后显示剪贴板历史" })
 }
 
 #[tauri::command]
 fn get_devices(_state: tauri::State<AppState>) -> serde_json::Value {
-    serde_json::json!({ "devices": [], "message": "Connect to server to view devices" })
+    serde_json::json!({ "devices": [], "message": "连接服务器后显示设备列表" })
 }
 
 #[tauri::command]

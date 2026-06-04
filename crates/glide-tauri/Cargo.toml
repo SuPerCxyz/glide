@@ -2,7 +2,10 @@
 name = "glide-tauri"
 version = "0.1.0"
 edition = "2021"
-default-run = "glide-tauri"
+
+[[bin]]
+name = "glide-tauri"
+path = "src-tauri/main.rs"
 
 [dependencies]
 glide-core = { path = "../glide-core" }
@@ -10,7 +13,7 @@ glide-desktop = { path = "../glide-desktop" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
-tauri = { version = "1", features = ["shell-open"] }
+tauri = { version = "1", features = ["shell-open", "system-tray"] }
 
 [build-dependencies]
 tauri-build = { version = "1" }
