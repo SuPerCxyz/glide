@@ -1,0 +1,19 @@
+[package]
+name = "glide-tauri"
+version = "0.1.0"
+edition = "2021"
+default-run = "glide-tauri"
+
+[dependencies]
+glide-core = { path = "../glide-core" }
+glide-desktop = { path = "../glide-desktop" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+tauri = { version = "1", features = ["shell-open"] }
+
+[build-dependencies]
+tauri-build = { version = "1" }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
