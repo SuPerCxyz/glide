@@ -14,9 +14,9 @@ uuid.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-async-trait = "=0.1.77"
-base64 = "=0.21.7"
-sha2 = "=0.10.8"
+async-trait = "0.1"
+base64 = "0.21"
+sha2 = "0.10"
 
 # Windows clipboard (only on Windows)
 [target.'cfg(target_os = "windows")'.dependencies]

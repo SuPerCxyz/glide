@@ -34,7 +34,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev fuse libfuse2 desktop-file-utils
+            librsvg2-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev \
+            fuse libfuse2 desktop-file-utils
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -100,23 +101,8 @@ jobs:
           X-GNOME-Autostart-enabled=true
           DESKTOP
 
-          # Generate icon
-          python3 -c "
-          import struct, zlib
-          sig = b'\x89PNG\r\n\x1a\n'
-          ihdr = struct.pack('>IIBBBBB', 256, 256, 8, 2, 0, 0, 0)
-          ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr) & 0xffffffff)
-          raw = b''
-          for y in range(256):
-              raw += b'\x00' + b'\x00\x80\xff' * 256
-          compressed = zlib.compress(raw)
-          idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed) & 0xffffffff)
-          iend_crc = struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
-          png = sig + struct.pack('>I',13) + b'IHDR' + ihdr + ihdr_crc + \
-                struct.pack('>I',len(compressed)) + b'IDAT' + compressed + idat_crc + \
-                struct.pack('>I',0) + b'IEND' + iend_crc
-          open('$DEB_DIR/usr/share/icons/hicolor/256x256/apps/glide.png','wb').write(png)
-          "
+          # Generate RGBA icon
+          python3 scripts/gen-icon.py "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/glide.png" 256
 
           cp README.md "$DEB_DIR/usr/share/doc/glide/"
           dpkg-deb --build "$DEB_DIR" dist/
@@ -179,22 +165,7 @@ jobs:
           Terminal=false
           DESKTOP
 
-          python3 -c "
-          import struct, zlib
-          sig = b'\x89PNG\r\n\x1a\n'
-          ihdr = struct.pack('>IIBBBBB', 256, 256, 8, 2, 0, 0, 0)
-          ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr) & 0xffffffff)
-          raw = b''
-          for y in range(256):
-              raw += b'\x00' + b'\x00\x80\xff' * 256
-          compressed = zlib.compress(raw)
-          idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed) & 0xffffffff)
-          iend_crc = struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
-          png = sig + struct.pack('>I',13) + b'IHDR' + ihdr + ihdr_crc + \
-                struct.pack('>I',len(compressed)) + b'IDAT' + compressed + idat_crc + \
-                struct.pack('>I',0) + b'IEND' + iend_crc
-          open('$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png','wb').write(png)
-          "
+          python3 scripts/gen-icon.py "$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png" 256
 
           cp "$APPDIR/usr/share/icons/hicolor/256x256/apps/glide.png" "$APPDIR/glide.png"
           cp "$APPDIR/glide.desktop" "$APPDIR/usr/share/applications/"

@@ -4,7 +4,9 @@ use glide_core::clipboard::ClipboardKind;
 use glide_core::policy::Policy;
 use std::sync::Mutex;
 use tauri::{
-    CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager,
 };
 
 /// Shared app state.
@@ -14,24 +16,6 @@ struct AppState {
     server_url: Mutex<String>,
     sync_paused: Mutex<bool>,
     input_sharing_enabled: Mutex<bool>,
-}
-
-/// Build the system tray menu.
-fn build_system_tray() -> SystemTray {
-    let quit = CustomMenuItem::new("quit".to_string(), "退出");
-    let show = CustomMenuItem::new("show".to_string(), "显示窗口");
-    let pause = CustomMenuItem::new("pause".to_string(), "暂停同步");
-    let input_toggle = CustomMenuItem::new("input_toggle".to_string(), "键鼠共享");
-
-    let tray_menu = SystemTrayMenu::new()
-        .add_item(show)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(pause)
-        .add_item(input_toggle)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(quit);
-
-    SystemTray::new().with_menu(tray_menu).with_tooltip("Glide - 剪贴板同步")
 }
 
 fn main() {
@@ -44,61 +28,66 @@ fn main() {
     };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .manage(state)
-        .system_tray(build_system_tray())
-        .on_system_tray_event(|app, event| match event {
-            SystemTrayEvent::LeftClick { .. } => {
-                // Single click on tray icon shows the window.
-                if let Some(window) = app.get_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
-            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-                "quit" => {
-                    app.exit(0);
-                }
-                "show" => {
-                    if let Some(window) = app.get_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
+        .setup(|app| {
+            // Build system tray menu.
+            let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
+            let pause = MenuItem::with_id(app, "pause", "暂停同步", true, None::<&str>)?;
+            let input_toggle = MenuItem::with_id(app, "input_toggle", "键鼠共享", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &pause, &input_toggle, &quit])?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .tooltip("Glide - 剪贴板同步")
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
                     }
-                }
-                "pause" => {
-                    let state = app.state::<AppState>();
-                    let mut paused = state.sync_paused.lock().unwrap();
-                    *paused = !*paused;
-                    let tray = app.tray_handle();
-                    let item = tray.get_item("pause");
-                    if *paused {
-                        let _ = item.set_title("恢复同步");
-                    } else {
-                        let _ = item.set_title("暂停同步");
+                    "pause" => {
+                        let state = app.state::<AppState>();
+                        let mut paused = state.sync_paused.lock().unwrap();
+                        *paused = !*paused;
                     }
-                }
-                "input_toggle" => {
-                    let state = app.state::<AppState>();
-                    let mut enabled = state.input_sharing_enabled.lock().unwrap();
-                    *enabled = !*enabled;
-                    let tray = app.tray_handle();
-                    let item = tray.get_item("input_toggle");
-                    if *enabled {
-                        let _ = item.set_title("键鼠共享: 开启");
-                    } else {
-                        let _ = item.set_title("键鼠共享");
+                    "input_toggle" => {
+                        let state = app.state::<AppState>();
+                        let mut enabled = state.input_sharing_enabled.lock().unwrap();
+                        *enabled = !*enabled;
                     }
-                }
-                _ => {}
-            }),
-            _ => {}
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            Ok(())
         })
-        .on_window_event(|event| match event.event() {
-            tauri::WindowEvent::CloseRequested { api, .. } => {
-                // Don't close the window, just hide it (background running).
-                event.window().hide().unwrap();
+        .on_window_event(|window, event| {
+            // Hide window instead of closing (background running).
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
                 api.prevent_close();
             }
-            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             get_connection_status,

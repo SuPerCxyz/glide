@@ -3,20 +3,17 @@ name = "glide-tauri"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "glide-tauri"
-path = "src-tauri/main.rs"
-
 [dependencies]
 glide-core = { path = "../glide-core" }
 glide-desktop = { path = "../glide-desktop" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
-tauri = { version = "1", features = ["shell-open", "system-tray"] }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
 
 [build-dependencies]
-tauri-build = { version = "1" }
+tauri-build = { version = "2" }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
