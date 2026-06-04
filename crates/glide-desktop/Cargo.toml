@@ -1,0 +1,19 @@
+[package]
+name = "glide-desktop"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+glide-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+async-trait = "=0.1.77"
+base64 = "=0.21.7"
+sha2 = "=0.10.8"
