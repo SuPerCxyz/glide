@@ -20,5 +20,4 @@ sha2 = "=0.10.8"
 
 # Windows clipboard (only on Windows)
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "winbase", "shellapi", "errhandlingapi", "winnt"] }
-widestring = "1.0"
+winapi = { version = "0.3", features = ["winuser", "winbase"] }
