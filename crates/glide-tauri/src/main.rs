@@ -253,13 +253,14 @@ fn main() {
             }
 
             // Start clipboard monitor and incoming handler.
-            // Must use app_handle.spawn() — tokio::spawn panics before Tauri's
-            // embedded runtime is fully initialized.
+            // Must use tauri::async_runtime::spawn — plain tokio::spawn panics
+            // with 'there is no reactor running' before Tauri's embedded
+            // runtime is fully initialized.
             let sync_engine_for_monitor = app.state::<AppState>().sync_engine.clone();
             let sync_engine_for_recv = app.state::<AppState>().sync_engine.clone();
             let app_handle = app.handle().clone();
 
-            app_handle.spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 let mut rx = {
                     let engine = sync_engine_for_recv.lock().await;
                     engine.take_incoming().await
