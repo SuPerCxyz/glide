@@ -253,11 +253,13 @@ fn main() {
             }
 
             // Start clipboard monitor and incoming handler.
+            // Must use app_handle.spawn() — tokio::spawn panics before Tauri's
+            // embedded runtime is fully initialized.
             let sync_engine_for_monitor = app.state::<AppState>().sync_engine.clone();
             let sync_engine_for_recv = app.state::<AppState>().sync_engine.clone();
             let app_handle = app.handle().clone();
 
-            tokio::spawn(async move {
+            app_handle.spawn(async move {
                 let mut rx = {
                     let engine = sync_engine_for_recv.lock().await;
                     engine.take_incoming().await
@@ -269,10 +271,11 @@ fn main() {
                     engine.device_id.clone()
                 };
 
-                tokio::spawn(async move {
+                let se_for_monitor = se_monitor.clone();
+                tauri::async_runtime::spawn(async move {
                     sync_engine::monitor_clipboard(monitor_device_id, move |item| {
-                        let se = se_monitor.clone();
-                        tokio::spawn(async move {
+                        let se = se_for_monitor.clone();
+                        tauri::async_runtime::spawn(async move {
                             let engine = se.lock().await;
                             if let Err(e) = engine.send_clipboard(&item).await {
                                 tracing::warn!("Failed to send clipboard: {}", e);
