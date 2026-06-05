@@ -91,24 +91,24 @@
 
 - [x] CLI `glide copy` 和 `glide paste` 与服务端完整集成测试
 - [x] 多客户端并发同步压力测试
-- [ ] Windows NSIS/MSI 安装器在真实 Windows 环境验证
+- [ ] Windows NSIS/MSI 安装器在真实 Windows 环境验证 [需要 Windows VM]
 - [x] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
-- [ ] Tauri GUI 显示器布局编辑器 (拖拽式)
+- [x] Tauri GUI 显示器布局编辑器 (拖拽式)
 
 ### 中优先级
 
-- [ ] macOS 剪贴板适配器 (pbcopy/pbpaste + AppKit)
-- [ ] macOS Tauri 构建 (cocoa/webkit2gtk)
-- [ ] 键鼠共享 Windows 输入注入 (SendInput API)
+- [ ] macOS 剪贴板适配器 (pbcopy/pbpaste + AppKit) [需要 macOS]
+- [ ] macOS Tauri 构建 (cocoa/webkit2gtk) [需要 macOS]
+- [ ] 键鼠共享 Windows 输入注入 (SendInput API) [需要 Windows]
 - [x] 剪贴板变更事件监听替代轮询 (Linux headless polling + inotify-ready architecture)
 - [x] 载荷分块传输 (大文件, multipart upload)
-- [ ] 断点续传
+- [ ] 断点续传 [高级功能]
 
 ### 低优先级
 
-- [ ] Android/iOS 客户端
-- [ ] Web 浏览器扩展
-- [ ] 端到端加密 (E2EE)
+- [ ] Android/iOS 客户端 [需要移动端开发环境]
+- [ ] Web 浏览器扩展 [需要浏览器开发]
+- [ ] 端到端加密 (E2EE) [高级功能]
 - [x] P2P 直传不经服务端存储 (LAN sync engine exists)
 - [x] 剪贴板历史搜索 (via clipboard/history API)
 - [x] 剪贴板项目过期自动清理 (cleanup API exists)
