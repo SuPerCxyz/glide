@@ -60,6 +60,10 @@ Implemented in `crates/glide-gui`:
 The backend is currently `MockBackend`. It is deliberately isolated from
 network, clipboard and input internals so it can be replaced with daemon IPC.
 
+`crates/glide-daemon` now provides a first-stage daemon skeleton with status,
+settings, connect/disconnect state, clipboard/input switches and log tailing.
+It does not yet own real network, clipboard, input or file transfer execution.
+
 ## Platform Notes
 
 Windows:
@@ -73,7 +77,7 @@ Linux:
 - First phase prioritizes X11.
 - Wayland may start the GUI, but global input control is limited by compositor
   permissions and must be shown as limited.
-- Linux packages are generated as `.deb` and `.AppImage`.
+- Linux packages are generated as `.deb`, `.rpm` and `.AppImage`.
 
 macOS:
 
@@ -88,12 +92,14 @@ grow past 200 MB. The Slint GUI should be distributed as a native executable
 without WebView2. The expected first-stage artifact is the portable zip; final
 size must be measured in CI and compared against the previous Tauri package.
 
-Local Linux build result on 2026-06-05:
+Local Linux build result on 2026-06-06:
 
 | Artifact | Size |
 |----------|------|
 | `target/release/glide-gui` | 24 MB |
+| `target/release/glide-daemon` | 2.1 MB |
 | `dist-test/glide_0.1.0_amd64.deb` | 11 MB |
+| `dist-test/glide-0.1.0-1.x86_64.rpm` | 15 MB |
 | `dist-test/glide-0.1.0-x86_64.AppImage` | 15 MB |
 
 The previous Windows offline package size is not available in this workspace;
@@ -102,7 +108,7 @@ Windows portable zip.
 
 ## Follow-up Roadmap
 
-1. Add `glide-daemon` as the long-running service.
+1. Replace the daemon skeleton with a real long-running service.
 2. Move real connection, clipboard, input and file transfer control behind
    daemon IPC.
 3. Add a lightweight Windows installer without WebView2.

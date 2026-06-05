@@ -6,6 +6,7 @@ DIST_DIR="${DIST_DIR:-dist}"
 TARGET_DIR="${TARGET_DIR:-target/release}"
 APP_NAME="glide"
 ARCH="${ARCH:-x86_64}"
+RPM_ARCH="${RPM_ARCH:-x86_64}"
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dist_dir="$root_dir/$DIST_DIR"
@@ -15,9 +16,10 @@ work_dir="$root_dir/target/package-linux"
 gui_bin="$target_dir/glide-gui"
 cli_bin="$target_dir/glide-cli"
 server_bin="$target_dir/glide-server"
+daemon_bin="$target_dir/glide-daemon"
 icon_src="$root_dir/crates/glide-gui/assets/128x128.png"
 
-for path in "$gui_bin" "$cli_bin" "$server_bin" "$icon_src"; do
+for path in "$gui_bin" "$cli_bin" "$server_bin" "$daemon_bin" "$icon_src"; do
     if [[ ! -f "$path" ]]; then
         echo "Missing required file: $path" >&2
         exit 1
@@ -33,7 +35,7 @@ Name=Glide
 Comment=LAN-first clipboard and input sharing
 Exec=glide-gui
 Icon=glide
-Categories=Utility;Network;
+Categories=Utility;
 Terminal=false
 "
 
@@ -47,6 +49,7 @@ mkdir -p \
 install -m 0755 "$gui_bin" "$deb_root/usr/bin/glide-gui"
 install -m 0755 "$cli_bin" "$deb_root/usr/bin/glide-cli"
 install -m 0755 "$server_bin" "$deb_root/usr/bin/glide-server"
+install -m 0755 "$daemon_bin" "$deb_root/usr/bin/glide-daemon"
 install -m 0644 "$icon_src" "$deb_root/usr/share/icons/hicolor/128x128/apps/glide.png"
 printf "%s" "$desktop_file_content" > "$deb_root/usr/share/applications/glide.desktop"
 
@@ -61,11 +64,77 @@ Maintainer: Glide Maintainers <noreply@example.com>
 Installed-Size: $installed_size
 Depends: libc6, libgcc-s1, libfontconfig1, libfreetype6, libxkbcommon0, libxkbcommon-x11-0, libxcb1, libxcb-render0, libxcb-shape0, libxcb-xfixes0, libssl3 | libssl1.1
 Description: LAN-first clipboard and input sharing
- Glide provides a lightweight Slint GUI, CLI and server for LAN-first
+ Glide provides a lightweight Slint GUI, daemon, CLI and server for LAN-first
  clipboard synchronization and input sharing.
 EOF
 
 dpkg-deb --root-owner-group --build "$deb_root" "$dist_dir/glide_${VERSION}_amd64.deb"
+
+if ! command -v rpmbuild >/dev/null 2>&1; then
+    echo "Missing required tool: rpmbuild. Install the rpm package." >&2
+    exit 1
+fi
+
+rpm_top="$work_dir/rpmbuild"
+rpm_stage="$work_dir/rpm-stage"
+mkdir -p \
+    "$rpm_top/BUILD" \
+    "$rpm_top/RPMS" \
+    "$rpm_top/SOURCES" \
+    "$rpm_top/SPECS" \
+    "$rpm_top/SRPMS" \
+    "$rpm_stage/usr/bin" \
+    "$rpm_stage/usr/share/applications" \
+    "$rpm_stage/usr/share/icons/hicolor/128x128/apps"
+
+install -m 0755 "$gui_bin" "$rpm_stage/usr/bin/glide-gui"
+install -m 0755 "$cli_bin" "$rpm_stage/usr/bin/glide-cli"
+install -m 0755 "$server_bin" "$rpm_stage/usr/bin/glide-server"
+install -m 0755 "$daemon_bin" "$rpm_stage/usr/bin/glide-daemon"
+install -m 0644 "$icon_src" "$rpm_stage/usr/share/icons/hicolor/128x128/apps/glide.png"
+printf "%s" "$desktop_file_content" > "$rpm_stage/usr/share/applications/glide.desktop"
+
+cat > "$rpm_top/SPECS/glide.spec" <<EOF
+Name: glide
+Version: $VERSION
+Release: 1%{?dist}
+Summary: LAN-first clipboard and input sharing
+License: MIT
+URL: https://github.com/SuPerCxyz/glide
+Requires: glibc, libgcc, fontconfig, freetype, libxkbcommon, libxkbcommon-x11, libxcb, openssl-libs
+
+%description
+Glide provides a lightweight Slint GUI, daemon, CLI and server for LAN-first clipboard
+synchronization and input sharing.
+
+%prep
+
+%build
+
+%install
+mkdir -p %{buildroot}
+cp -a $rpm_stage/* %{buildroot}/
+
+%files
+/usr/bin/glide-gui
+/usr/bin/glide-daemon
+/usr/bin/glide-cli
+/usr/bin/glide-server
+/usr/share/applications/glide.desktop
+/usr/share/icons/hicolor/128x128/apps/glide.png
+
+%changelog
+* Sat Jun 06 2026 Glide Maintainers <noreply@example.com> - $VERSION-1
+- Package Slint GUI, daemon, CLI and server.
+EOF
+
+rpmbuild \
+    --define "_topdir $rpm_top" \
+    --define "_buildrootdir $rpm_top/BUILDROOT" \
+    --target "$RPM_ARCH" \
+    -bb "$rpm_top/SPECS/glide.spec"
+
+find "$rpm_top/RPMS" -type f -name "*.rpm" -print -exec cp {} "$dist_dir/" \;
 
 appdir="$work_dir/Glide.AppDir"
 mkdir -p \
@@ -76,6 +145,7 @@ mkdir -p \
 install -m 0755 "$gui_bin" "$appdir/usr/bin/glide-gui"
 install -m 0755 "$cli_bin" "$appdir/usr/bin/glide-cli"
 install -m 0755 "$server_bin" "$appdir/usr/bin/glide-server"
+install -m 0755 "$daemon_bin" "$appdir/usr/bin/glide-daemon"
 install -m 0644 "$icon_src" "$appdir/usr/share/icons/hicolor/128x128/apps/glide.png"
 printf "%s" "$desktop_file_content" > "$appdir/usr/share/applications/glide.desktop"
 cp "$appdir/usr/share/applications/glide.desktop" "$appdir/glide.desktop"

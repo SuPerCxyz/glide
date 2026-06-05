@@ -162,8 +162,9 @@ Windows 安装包依赖策略详见 [Windows Packaging Design](windows-packaging
 
 | 平台 | 格式 | 包含内容 | 状态 |
 |------|------|----------|------|
-| Linux | deb | GUI + CLI + Server | ✅ |
-| Linux | AppImage | GUI + CLI + Server | ✅ |
+| Linux | deb | GUI + Daemon + CLI + Server | ✅ |
+| Linux | rpm | GUI + Daemon + CLI + Server | ✅ |
+| Linux | AppImage | GUI + Daemon + CLI + Server | ✅ |
 | Windows | portable zip | Slint GUI + CLI + Server | ✅ |
 | Windows | NSIS/MSI | 后续安装器阶段 | ⏳ |
 | Windows | zip | GUI + CLI + Server | ✅ |
@@ -185,7 +186,7 @@ Release workflow 中构建。手动触发 Release 时可通过 `build_linux`、
 | Build & Test (Linux) | 构建 + 测试 + Clippy |
 | Build & Test (Windows) | 构建 glide-core/server/cli/gui |
 | Verify Docker Build | 构建并验证 Docker 镜像 |
-| Linux Packages (Release) | deb + AppImage |
+| Linux Packages (Release) | deb + rpm + AppImage |
 | Windows Packages (Release) | portable zip |
 | Docker Image (Release) | 构建并验证发布镜像 |
 

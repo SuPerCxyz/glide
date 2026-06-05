@@ -147,7 +147,7 @@ jobs:
             libfontconfig1-dev libfreetype6-dev libxkbcommon-dev \
             libxkbcommon-x11-dev libxcb1-dev libxcb-render0-dev \
             libxcb-shape0-dev libxcb-xfixes0-dev fuse libfuse2 \
-            desktop-file-utils curl
+            desktop-file-utils curl rpm
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -159,13 +159,14 @@ jobs:
           key: ${{ runner.os }}-linux-package-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-linux-package-
 
-      - name: Build Slint GUI, server and CLI
-        run: cargo build --release --package glide-gui --package glide-server --package glide-cli
+      - name: Build Slint GUI, daemon, server and CLI
+        run: cargo build --release --package glide-gui --package glide-daemon --package glide-server --package glide-cli
 
       - name: Collect Linux packages
         run: |
           VERSION="0.1.0" ./scripts/package-linux.sh
           test -n "$(find dist -name '*.deb' -print -quit)"
+          test -n "$(find dist -name '*.rpm' -print -quit)"
           test -n "$(find dist -name '*.AppImage' -print -quit)"
 
       - name: Upload Linux packages
@@ -207,6 +208,9 @@ jobs:
       - name: Build glide-cli
         run: cargo build --package glide-cli --verbose
 
+      - name: Build glide-daemon
+        run: cargo build --package glide-daemon --verbose
+
       - name: Build glide-gui (Slint GUI)
         run: cargo build --package glide-gui --verbose
 
@@ -216,6 +220,7 @@ jobs:
           name: windows-binaries
           path: |
             target/debug/glide-gui.exe
+            target/debug/glide-daemon.exe
             target/debug/glide-cli.exe
             target/debug/glide-server.exe
           retention-days: 30

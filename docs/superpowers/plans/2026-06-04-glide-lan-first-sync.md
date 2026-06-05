@@ -16,7 +16,7 @@
 
 ### 基础架构
 
-- [x] 创建 Rust workspace (glide-core, glide-server, glide-cli, glide-desktop, glide-tauri)
+- [x] 创建 Rust workspace (glide-core, glide-server, glide-cli, glide-desktop, glide-gui)
 - [x] 定义核心类型：device identity, clipboard item, MIME representation, payload reference, transfer session, sync event, input event
 - [x] 实现服务器数据库 schema (devices, clipboard_items, payloads, temp_tokens, input_sessions, cleanup_log)
 - [x] 实现服务器 API: device registration, token validation, WebSocket sync, HTTP payload upload/download, history query, devices query, cleanup
@@ -38,7 +38,7 @@
 
 - [x] 实现 Linux 剪贴板适配器 (xclip/xsel for X11, wl-clipboard for Wayland, headless in-memory)
 - [x] 实现 Windows 剪贴板适配器 (winapi, CF_UNICODETEXT/CF_HTML/CF_DIB/CF_HDROP)
-- [x] 实现 Tauri 2.x 桌面 GUI (system tray, background running, clipboard policy UI)
+- [x] 实现 Slint 桌面 GUI 第一阶段 (status/devices/pairing/logs/settings/platform/about)
 - [x] 实现 LAN 自动组网引擎 (UDP multicast discovery, direct WebSocket, peer-to-peer clipboard sync)
 - [x] 实现 per-device 和 per-type 同步策略
 - [x] 实现跨节点键盘/鼠标共享 (LanInputEngine, xdotool Linux backend, WebSocket input relay)
@@ -61,11 +61,11 @@
 ### 打包与 CI
 
 - [x] GitHub Actions CI (Linux build+test, Windows build, Docker build verification)
-- [x] Release workflow (deb, rpm, AppImage, MSI, zip, Docker image)
+- [x] Release workflow (deb, rpm, AppImage, Windows portable zip, Docker image)
 - [x] Docker 镜像标签: `dev-latest` + `YYYYMMDDHHmm`
-- [x] Tauri 2.x 构建流程 (cargo tauri build)
-- [x] NSIS/MSI 安装器构建
-- [x] WebView2 检测 (启动前诊断)
+- [x] Slint GUI 构建流程 (`cargo build --package glide-gui`)
+- [x] Linux deb/rpm/AppImage 打包脚本
+- [x] Windows portable zip 构建
 
 ### 测试
 
@@ -97,12 +97,12 @@
 - [x] 多客户端并发同步压力测试
 - [ ] Windows NSIS/MSI 安装器在真实 Windows 环境验证 [需要 Windows VM]
 - [x] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
-- [x] Tauri GUI 显示器布局编辑器 (拖拽式)
+- [x] 旧 Tauri GUI 显示器布局编辑器 (已被 Slint 迁移取代)
 
 ### 中优先级
 
 - [ ] macOS 剪贴板适配器 (pbcopy/pbpaste + AppKit) [需要 macOS]
-- [ ] macOS Tauri 构建 (cocoa/webkit2gtk) [需要 macOS]
+- [ ] macOS Slint 构建和权限引导验证 [需要 macOS]
 - [ ] 键鼠共享 Windows 输入注入 (SendInput API) [需要 Windows]
 - [x] 剪贴板变更事件监听替代轮询 (Linux headless polling + inotify-ready architecture)
 - [x] 载荷分块传输 (大文件, multipart upload)

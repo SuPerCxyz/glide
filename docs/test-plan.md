@@ -1,7 +1,7 @@
 # Glide 测试计划
 
 > 最后更新：2026-06-05
-> 当前虚拟环境执行结果：198 通过 / 0 失败
+> 当前虚拟环境执行结果：203 通过 / 0 失败
 > Windows GUI 真实桌面执行：当前环境无 Windows VM / Wine / PowerShell，已生成 VM 脚本，需在 Windows VM 执行
 
 ## 1. 测试环境
@@ -35,10 +35,12 @@
 ```bash
 cargo test --package glide-core --package glide-server --package glide-desktop
 cargo test --package glide-gui
+cargo test --package glide-daemon
 cargo check --workspace
-cargo build --release --package glide-gui --package glide-cli --package glide-server
+cargo build --release --package glide-gui --package glide-daemon --package glide-cli --package glide-server
 cargo clippy --package glide-gui --no-deps -- -D warnings
 VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh
+rpm -qpl dist-test/glide-0.1.0-1.x86_64.rpm
 bash scripts/test-e2e-linux.sh
 bash scripts/test-network.sh
 bash scripts/test-clipboard-cli.sh
@@ -62,10 +64,11 @@ bash scripts/test-tc-network.sh
 | 认证重连 | `bash scripts/test-reconnect.sh` | 正确/错误/缺失 token、WebSocket 重连、5 客户端、5 客户端同步、设备注册表 | 7/7 通过 |
 | Linux GUI | `bash scripts/test-gui-linux.sh` | Xvfb、xclip 写读、中文、xdotool 鼠标/键盘/点击 | 6/6 通过 |
 | Slint GUI | `cargo test --package glide-gui` | GUI backend trait mock、连接状态、空 URL 拒绝、剪贴板/键鼠开关 | 3/3 通过 |
+| Daemon skeleton | `cargo test --package glide-daemon` | 状态、连接、空 URL 拒绝、能力开关、token URL 脱敏 | 5/5 通过 |
 | Slint 构建 | `cargo check --workspace` | 全 workspace 编译检查；GUI 不依赖 Tauri/WebView2 | 通过，既有 crate 有 unused warnings |
 | Slint clippy | `cargo clippy --package glide-gui --no-deps -- -D warnings` | 新 GUI crate 自身 lint | 通过 |
-| Rust workspace | `cargo test --workspace` | core、desktop、server、cli、gui 单元/集成/doc tests | 107/107 通过，既有 crate 有 unused warnings |
-| Linux 打包 | `VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh` | deb/AppImage 生成、root owner、GUI/CLI/server 内容 | deb 11MB，AppImage 15MB |
+| Rust workspace | `cargo test --workspace` | core、desktop、daemon、server、cli、gui 单元/集成/doc tests | 112/112 通过，既有 crate 有 unused warnings |
+| Linux 打包 | `VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh` | deb/rpm/AppImage 生成、root owner、GUI/daemon/CLI/server 内容 | deb 11MB，rpm 15MB，AppImage 15MB |
 | 网络异常 | `bash scripts/test-tc-network.sh` | 服务端重启、坏 IP 超时后恢复、快速连接/断开、1MB payload、IPv4、端口绑定 | 7/7 通过 |
 
 ## 5. 已修复问题
