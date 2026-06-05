@@ -37,24 +37,39 @@
         .btn:hover{background:#30363d}
         .btn.primary{background:#238636;border-color:#238636;color:#fff}
         .btn.primary:hover{background:#2ea043}
+        .btn.danger{background:#b91c1c;border-color:#b91c1c;color:#fff}
+        .btn.danger:hover{background:#dc2626}
         .env-table{width:100%}
         .env-table td:first-child{font-family:monospace;color:#58a6ff;width:40%}
         .env-table td:last-child{color:#c9d1d9}
         .footer{text-align:center;padding:20px;color:#484f58;font-size:12px}
+        .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center}
+        .modal.active{display:flex}
+        .modal-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;min-width:360px;max-width:480px}
+        .modal-box h3{margin-bottom:16px;font-size:16px;color:#58a6ff}
+        .form-group{margin-bottom:12px}
+        .form-group label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px}
+        .form-group input{width:100%;padding:8px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px}
+        .form-group input:focus{outline:none;border-color:#58a6ff}
+        .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+        .token-result{background:#0d1117;border:1px solid #238636;border-radius:6px;padding:12px;font-family:monospace;font-size:13px;color:#3fb950;margin-top:12px;word-break:break-all}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         .pulse{animation:pulse 2s infinite}
+        .login-bar{display:flex;align-items:center;gap:8px;font-size:12px}
+        .login-bar .user{color:#58a6ff;font-weight:600}
     </style>
 </head>
 <body>
     <div class="header">
         <h1>📋 Glide Server <span>v0.1.0</span></h1>
-        <div style="display:flex;gap:8px">
-            <button class="btn" onclick="refresh()">🔄 刷新</button>
-            <button class="btn primary" onclick="createToken()">🔑 创建临时令牌</button>
+        <div class="login-bar">
+            <span id="loginStatus" style="color:#8b949e">未登录</span>
+            <button class="btn" id="loginBtn" onclick="showLogin()">🔑 登录</button>
+            <button class="btn" id="logoutBtn" onclick="doLogout()" style="display:none">退出</button>
         </div>
     </div>
 
-    <div class="container">
+    <div class="container" id="mainContent">
         <div class="stats">
             <div class="stat">
                 <div class="label">服务状态</div>
@@ -100,17 +115,73 @@
             </div>
         </div>
 
+        <div class="section" id="tokenSection">
+            <div class="section-header">
+                <h2>临时令牌</h2>
+                <button class="btn primary" onclick="showCreateToken()">🔑 创建令牌</button>
+            </div>
+            <div class="section-body" id="tokenList">
+                <div class="empty">登录后可创建临时令牌</div>
+            </div>
+        </div>
+
         <div class="section">
             <div class="section-header">
                 <h2>环境变量配置</h2>
             </div>
             <div class="section-body" style="padding:16px 20px">
                 <table class="env-table">
-                    <tr><td>GLIDE_DATA_DIR</td><td id="envDataDir">-</td></tr>
-                    <tr><td>GLIDE_MAX_STORAGE_BYTES</td><td id="envMaxStorage">-</td></tr>
-                    <tr><td>GLIDE_RETENTION_DAYS</td><td id="envRetention">-</td></tr>
-                    <tr><td>GLIDE_INPUT_RELAY_ENABLED</td><td id="envInputRelay">-</td></tr>
+                    <tr><td>GLIDE_USERNAME</td><td>admin</td></tr>
+                    <tr><td>GLIDE_DATA_DIR</td><td>/data</td></tr>
+                    <tr><td>GLIDE_MAX_STORAGE_BYTES</td><td>1 GB</td></tr>
+                    <tr><td>GLIDE_RETENTION_DAYS</td><td>30 天</td></tr>
+                    <tr><td>GLIDE_INPUT_RELAY_ENABLED</td><td>false</td></tr>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-box">
+            <h3>🔑 登录</h3>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="loginUser" placeholder="admin" value="admin">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="loginPass" placeholder="密码">
+            </div>
+            <div id="loginError" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('loginModal')">取消</button>
+                <button class="btn primary" onclick="doLogin()">登录</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Token Modal -->
+    <div class="modal" id="tokenModal">
+        <div class="modal-box">
+            <h3>🔑 创建临时令牌</h3>
+            <div class="form-group">
+                <label>有效期（秒）</label>
+                <input type="number" id="tokenTTL" value="3600">
+            </div>
+            <div class="form-group">
+                <label>最大使用次数</label>
+                <input type="number" id="tokenMaxUses" value="10">
+            </div>
+            <div class="form-group">
+                <label>最大文件大小（字节）</label>
+                <input type="number" id="tokenMaxSize" value="10485760">
+            </div>
+            <div id="tokenResult" class="token-result" style="display:none"></div>
+            <div id="tokenError" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('tokenModal')">关闭</button>
+                <button class="btn primary" id="tokenSubmitBtn" onclick="doCreateToken()">创建</button>
             </div>
         </div>
     </div>
@@ -120,21 +191,105 @@
     <script>
         const API = window.location.origin;
         let startTime = Date.now();
+        let authToken = null;
+
+        function showModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function showLogin() { showModal('loginModal'); }
+
+        async function doLogin() {
+            const user = document.getElementById('loginUser').value;
+            const pass = document.getElementById('loginPass').value;
+            const errEl = document.getElementById('loginError');
+            errEl.style.display = 'none';
+
+            try {
+                const r = await fetch(API + '/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: user, password: pass})
+                });
+                const data = await r.json();
+                if (r.ok && data.token) {
+                    authToken = data.token;
+                    document.getElementById('loginStatus').innerHTML = '<span class="user">👤 ' + user + '</span>';
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = '';
+                    closeModal('loginModal');
+                    refresh();
+                } else {
+                    errEl.textContent = data.error || '登录失败';
+                    errEl.style.display = 'block';
+                }
+            } catch(e) {
+                errEl.textContent = '连接失败: ' + e.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function doLogout() {
+            authToken = null;
+            document.getElementById('loginStatus').textContent = '未登录';
+            document.getElementById('loginBtn').style.display = '';
+            document.getElementById('logoutBtn').style.display = 'none';
+            refresh();
+        }
+
+        function showCreateToken() {
+            if (!authToken) { showLogin(); return; }
+            document.getElementById('tokenResult').style.display = 'none';
+            document.getElementById('tokenError').style.display = 'none';
+            showModal('tokenModal');
+        }
+
+        async function doCreateToken() {
+            const errEl = document.getElementById('tokenError');
+            const resultEl = document.getElementById('tokenResult');
+            errEl.style.display = 'none';
+            resultEl.style.display = 'none';
+
+            try {
+                const r = await fetch(API + '/api/v1/tokens/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({
+                        ttl_secs: parseInt(document.getElementById('tokenTTL').value),
+                        max_uses: parseInt(document.getElementById('tokenMaxUses').value),
+                        max_item_size: parseInt(document.getElementById('tokenMaxSize').value),
+                    })
+                });
+                const data = await r.json();
+                if (r.ok && data.token) {
+                    resultEl.textContent = 'Token: ' + data.token + '\n\n有效期: ' + data.ttl_secs + 's\n最大使用: ' + data.max_uses + ' 次';
+                    resultEl.style.display = 'block';
+                } else {
+                    errEl.textContent = data.error || '创建失败';
+                    errEl.style.display = 'block';
+                }
+            } catch(e) {
+                errEl.textContent = '连接失败: ' + e.message;
+                errEl.style.display = 'block';
+            }
+        }
 
         async function fetchJSON(path) {
             try {
-                const r = await fetch(API + path);
+                const headers = {};
+                if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+                const r = await fetch(API + path, {headers});
                 return await r.json();
             } catch(e) { return null; }
         }
 
         async function refresh() {
-            // Health
             const health = await fetchJSON('/api/v1/health');
             document.getElementById('status').textContent = health ? '运行中' : '离线';
             document.getElementById('status').className = health ? 'value green' : 'value red';
 
-            // Devices
             const devData = await fetchJSON('/api/v1/devices');
             const devices = devData?.devices || [];
             document.getElementById('deviceCount').textContent = devices.length;
@@ -158,7 +313,6 @@
                 }).join('');
             }
 
-            // History
             const histData = await fetchJSON('/api/v1/clipboard/history?limit=20');
             const items = histData?.items || [];
             document.getElementById('itemCount').textContent = items.length;
@@ -184,22 +338,9 @@
                 }).join('');
             }
 
-            // Uptime
             const sec = Math.floor((Date.now() - startTime) / 1000);
             const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
             document.getElementById('uptime').textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
-
-            // Env
-            document.getElementById('envDataDir').textContent = '/data';
-            document.getElementById('envMaxStorage').textContent = '1 GB';
-            document.getElementById('envRetention').textContent = '30 天';
-            document.getElementById('envInputRelay').textContent = '关闭';
-        }
-
-        async function createToken() {
-            const ttl = prompt('临时令牌有效期（秒）:', '3600');
-            if (!ttl) return;
-            alert('功能开发中：创建临时令牌');
         }
 
         refresh();

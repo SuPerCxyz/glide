@@ -14,6 +14,8 @@ pub fn router() -> Router<ServerState> {
     Router::new()
         .route("/", get(admin_page))
         .route("/api/v1/health", get(health))
+        .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/tokens/create", post(create_token))
         .route("/api/v1/devices/register", post(device_register))
         .route("/api/v1/devices", get(list_devices))
         .route("/api/v1/tokens/validate", post(validate_token))
@@ -36,6 +38,72 @@ async fn health() -> Json<serde_json::Value> {
 
 async fn admin_page() -> axum::response::Html<&'static str> {
     axum::response::Html(include_str!("../static/index.html"))
+}
+
+/// Login endpoint: authenticate with username/password.
+/// Returns a session token on success.
+async fn login(
+    State(state): State<ServerState>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let username = req.get("username").and_then(|v| v.as_str()).ok_or_else(|| {
+        (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "username required"})),
+        )
+    })?;
+    let password = req.get("password").and_then(|v| v.as_str()).ok_or_else(|| {
+        (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "password required"})),
+        )
+    })?;
+
+    // Check environment variable credentials.
+    let admin_user = std::env::var("GLIDE_USERNAME").unwrap_or_else(|_| "admin".to_string());
+    let admin_pass = std::env::var("GLIDE_PASSWORD").unwrap_or_else(|_| "admin".to_string());
+
+    if username == admin_user && password == admin_pass {
+        // Generate session token.
+        let token = format!("session_{}", uuid::Uuid::new_v4());
+        Ok(Json(serde_json::json!({
+            "status": "ok",
+            "token": token,
+            "username": username,
+        })))
+    } else {
+        Err((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid username or password"})),
+        ))
+    }
+}
+
+/// Create a temporary token (requires admin auth).
+async fn create_token(
+    State(state): State<ServerState>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let ttl_secs = req.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(3600);
+    let max_uses = req.get("max_uses").and_then(|v| v.as_i64()).unwrap_or(10);
+    let max_item_size = req.get("max_item_size").and_then(|v| v.as_i64()).unwrap_or(10_485_760);
+    let allowed = req.get("allowed_operations")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<_>>())
+        .unwrap_or_else(|| vec!["copy".to_string(), "paste".to_string()]);
+
+    match crate::temp_token::create_temp_token(&state.db, ttl_secs, max_uses, allowed, max_item_size).await {
+        Ok(token) => Ok(Json(serde_json::json!({
+            "status": "ok",
+            "token": token,
+            "ttl_secs": ttl_secs,
+            "max_uses": max_uses,
+        }))),
+        Err(e) => Err((
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )),
+    }
 }
 
 async fn device_register(
