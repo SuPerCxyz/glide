@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
+use futures::{SinkExt, StreamExt};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
