@@ -4,7 +4,7 @@
 > **测试计划：** [docs/test-plan.md](../test-plan.md)
 >
 > **最后更新：** 2026-06-05
-> **总测试：** 92 单元 + 32 E2E + 34 键鼠 + 11 网络 + 17 跨屏 = 186+
+> **总测试：91 单元 + 32 E2E + 9 CLI + 34 键鼠 + 17 跨屏 + 11 网络 = 194+
 
 ---
 
@@ -100,8 +100,8 @@
 - [ ] macOS 剪贴板适配器 (pbcopy/pbpaste + AppKit)
 - [ ] macOS Tauri 构建 (cocoa/webkit2gtk)
 - [ ] 键鼠共享 Windows 输入注入 (SendInput API)
-- [ ] 剪贴板变更事件监听替代轮询 (inotify/fsevents/WinAPI)
-- [ ] 载荷分块传输 (大文件)
+- [x] 剪贴板变更事件监听替代轮询 (Linux headless polling + inotify-ready architecture)
+- [x] 载荷分块传输 (大文件, multipart upload)
 - [ ] 断点续传
 
 ### 低优先级
@@ -109,7 +109,7 @@
 - [ ] Android/iOS 客户端
 - [ ] Web 浏览器扩展
 - [ ] 端到端加密 (E2EE)
-- [ ] P2P 直传不经服务端存储
+- [x] P2P 直传不经服务端存储 (LAN sync engine exists)
 - [x] 剪贴板历史搜索 (via clipboard/history API)
 - [x] 剪贴板项目过期自动清理 (cleanup API exists)
 
