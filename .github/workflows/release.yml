@@ -167,7 +167,7 @@ jobs:
 
       - name: Check Windows package dependencies
         run: |
-          VERSION="${{ github.event.inputs.version || '0.1.0' }}"
+          $VERSION = "${{ github.event.inputs.version || '0.1.0' }}"
           pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-windows-package-deps.ps1 `
             -InstallDir "dist/glide-${VERSION}-windows" `
             -MainExe "glide.exe" `

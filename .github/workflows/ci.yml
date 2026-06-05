@@ -67,6 +67,17 @@ jobs:
       - name: Test
         run: cargo test --workspace --verbose
 
+      - name: Upload Linux binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: |
+            target/debug/glide-tauri
+            target/debug/glide-cli
+            target/debug/glide-server
+          if-no-files-found: warn
+          retention-days: 30
+
   # --- Verify Docker Image ---
   build-docker:
     name: Verify Docker Build
