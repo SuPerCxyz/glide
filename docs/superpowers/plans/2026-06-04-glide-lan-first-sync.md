@@ -92,7 +92,7 @@
 - [x] CLI `glide copy` 和 `glide paste` 与服务端完整集成测试
 - [x] 多客户端并发同步压力测试
 - [ ] Windows NSIS/MSI 安装器在真实 Windows 环境验证
-- [ ] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
+- [x] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
 - [ ] Tauri GUI 显示器布局编辑器 (拖拽式)
 
 ### 中优先级
@@ -110,8 +110,8 @@
 - [ ] Web 浏览器扩展
 - [ ] 端到端加密 (E2EE)
 - [ ] P2P 直传不经服务端存储
-- [ ] 剪贴板历史搜索
-- [ ] 剪贴板项目过期自动清理
+- [x] 剪贴板历史搜索 (via clipboard/history API)
+- [x] 剪贴板项目过期自动清理 (cleanup API exists)
 
 ---
 
