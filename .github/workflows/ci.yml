@@ -71,6 +71,7 @@ jobs:
   build-docker:
     name: Verify Docker Build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [test-linux]
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +101,22 @@ jobs:
         run: docker build -t glide-server:latest .
 
       - name: Verify
-        run: docker run --rm glide-server:latest glide-server --help 2>/dev/null || echo "OK"
+        run: |
+          docker rm -f glide-server-verify >/dev/null 2>&1 || true
+          docker run -d --name glide-server-verify \
+            -p 18080:8080 \
+            -e GLIDE_DATA_DIR=/tmp/glide-data \
+            glide-server:latest
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:18080/ >/dev/null; then
+              docker rm -f glide-server-verify
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs glide-server-verify
+          docker rm -f glide-server-verify
+          exit 1
 
   # --- Native Windows Build ---
   build-windows-native:

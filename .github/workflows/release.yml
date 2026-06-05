@@ -10,6 +10,21 @@ on:
         description: 'Release version (e.g. 0.1.0)'
         required: true
         default: '0.1.0'
+      build_linux:
+        description: 'Build Linux packages'
+        required: false
+        type: boolean
+        default: false
+      build_windows:
+        description: 'Build Windows packages'
+        required: false
+        type: boolean
+        default: false
+      build_docker:
+        description: 'Build Docker image'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -23,6 +38,8 @@ jobs:
   linux-packages:
     name: Linux Packages
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'workflow_dispatch' || inputs.build_linux
     steps:
       - uses: actions/checkout@v4
 
@@ -100,6 +117,8 @@ jobs:
   windows-packages:
     name: Windows Packages
     runs-on: windows-latest
+    timeout-minutes: 35
+    if: github.event_name != 'workflow_dispatch' || inputs.build_windows
     steps:
       - uses: actions/checkout@v4
 
@@ -157,6 +176,8 @@ jobs:
   docker-image:
     name: Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name != 'workflow_dispatch' || inputs.build_docker
     steps:
       - uses: actions/checkout@v4
 
@@ -184,13 +205,23 @@ jobs:
       - name: Build Docker image (runtime only)
         run: docker build -t glide-server:dev-latest .
 
-      - name: Verify
-        run: docker run --rm glide-server:dev-latest glide-server --help 2>/dev/null || echo "OK"
-
       - name: Verify Docker image
         run: |
-          docker images glide-server
-          docker run --rm glide-server:dev-latest /usr/local/bin/glide-server --help 2>/dev/null || echo "Server binary OK"
+          docker rm -f glide-server-verify >/dev/null 2>&1 || true
+          docker run -d --name glide-server-verify \
+            -p 18080:8080 \
+            -e GLIDE_DATA_DIR=/tmp/glide-data \
+            glide-server:dev-latest
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:18080/ >/dev/null; then
+              docker rm -f glide-server-verify
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs glide-server-verify
+          docker rm -f glide-server-verify
+          exit 1
 
   # --- Create GitHub Release ---
   create-release:

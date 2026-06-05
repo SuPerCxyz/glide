@@ -174,6 +174,10 @@ glide devices                            # 列出设备
 
 ### 6.3 GitHub Actions CI
 
+普通 CI 只做快速验证；Linux/Windows 安装包和 Docker 发布镜像在
+Release workflow 中构建。手动触发 Release 时可通过 `build_linux`、
+`build_windows`、`build_docker` 按需选择产物；tag `v*` 发布时全量构建。
+
 | Job | 说明 |
 |-----|------|
 | Build & Test (Linux) | 构建 + 测试 + Clippy |
