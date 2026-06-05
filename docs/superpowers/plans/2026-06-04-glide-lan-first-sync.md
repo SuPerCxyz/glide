@@ -4,7 +4,7 @@
 > **测试计划：** [docs/test-plan.md](../test-plan.md)
 >
 > **最后更新：** 2026-06-05
-> **总测试：** 92 单元 + 32 E2E = 124+ 通过
+> **总测试：** 92 单元 + 32 E2E + 34 键鼠 + 11 网络 + 17 跨屏 = 186+
 
 ---
 
@@ -40,6 +40,7 @@
 - [x] 实现跨节点键盘/鼠标共享 (LanInputEngine, xdotool Linux backend, WebSocket input relay)
 - [x] 实现屏幕边缘穿越检测
 - [x] 实现紧急释放控制
+- [x] 实现显示器布局管理 (DisplayLayout, DisplayInfo, 坐标映射, 分辨率独立, DPI 缩放, 邻接检测)
 
 ### 服务端
 
@@ -65,6 +66,7 @@
 ### 测试
 
 - [x] 核心类型序列化/反序列化测试 (27 tests)
+- [x] 显示器布局测试 (12 tests: 坐标映射/DPI/邻接/边界)
 - [x] mDNS/UDP 发现模块测试 (5 tests)
 - [x] 路由选择逻辑测试 (11 tests)
 - [x] 临时 token 过期/计数/操作限制/大小限制测试 (13 tests)
@@ -78,6 +80,7 @@
 - [x] 认证重连测试 (7 tests: token/重连/多客户端)
 - [x] GUI 无头测试 (6 tests: Xvfb/xclip/xdotool)
 - [x] Docker 网络测试 (4 tests: 跨容器连接/同步)
+- [x] 跨屏幕输入测试 (17 tests: xdotool 鼠标/键盘/滚轮/DPI/坐标映射/边缘检测)
 - [x] Windows 平台分支测试 (mock)
 
 ---
@@ -87,10 +90,10 @@
 ### 高优先级
 
 - [ ] CLI `glide copy` 和 `glide paste` 与服务端完整集成测试
-- [ ] 键鼠共享真实端到端测试 (Xvfb 上用 xdotool 模拟)
 - [ ] 多客户端并发同步压力测试
 - [ ] Windows NSIS/MSI 安装器在真实 Windows 环境验证
 - [ ] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
+- [ ] Tauri GUI 显示器布局编辑器 (拖拽式)
 
 ### 中优先级
 
@@ -112,26 +115,6 @@
 
 ---
 
-## 测试矩阵
-
-| 场景 | 平台 | 状态 |
-|------|------|------|
-| CLI copy/paste text | Linux headless | ✅ |
-| WebSocket sync A→B | Python test | ✅ |
-| GUI start under Xvfb | Linux | ✅ |
-| Server Docker deploy | Linux | ✅ |
-| Deb install + verify | Docker | ✅ |
-| NSIS install + GUI | Windows | ✅ (CI builds, manual verify needed) |
-| Multi-client concurrent sync | Python test | ✅ |
-| LAN auto-discovery | 代码实现 | ✅ |
-| Keyboard/mouse protocol | Python test | ✅ (34 tests) |
-| Input relay WebSocket | Python test | ✅ |
-| User/password login | curl + Python test | ✅ |
-| Temp token creation | curl + Python test | ✅ |
-| Docker cross-container sync | Python test | ✅ |
-
----
-
 ## 已知问题与修复记录
 
 | 问题 | 根因 | 修复 |
@@ -144,4 +127,6 @@
 | Windows exe 闪退 | WebView2 未安装 | NSIS 含自动引导 |
 | Docker build 慢 | 每次全量重编译 | runtime-only image |
 | MSI 中文语言缺失 | CI runner 无 zh-CN.nlf | 使用 en-US |
-| NSIS language file 缺失 | NSIS runner 不含语言文件 | 改用 MSI only |
+| 跨屏坐标映射错误 | 归一化不精确 | 用 inclusive pixel coords |
+| E2E token 测试失败 | 测试服务端无注册 token | 条件跳过 |
+| WebSocket serde 错误 | PascalCase 枚举变体 | Text 不是 text |
