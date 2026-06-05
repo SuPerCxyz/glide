@@ -9,6 +9,7 @@
 mod x11;
 mod wayland;
 mod headless;
+pub mod linux_input;
 
 pub use headless::HeadlessClipboard;
 pub use wayland::WaylandClipboard;

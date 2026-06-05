@@ -13,3 +13,4 @@ pub mod policy_ui;
 pub mod linux_backends;
 pub mod windows_clipboard;
 pub mod lan_sync;
+pub mod lan_input;

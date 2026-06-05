@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock, Mutex};
 use tracing::{info, warn, error};
@@ -7,7 +6,7 @@ use futures::{SinkExt, StreamExt};
 
 use glide_core::clipboard::ClipboardItem;
 use glide_core::sync_event::SyncEvent;
-use glide_core::discovery::{PeerRegistry, DiscoveredPeer, PeerState};
+use glide_core::discovery::{PeerRegistry};
 use glide_core::discovery::{UdpMulticastDiscovery, UdpMulticastConfig};
 use glide_core::route::ClipboardRouteSelector;
 
