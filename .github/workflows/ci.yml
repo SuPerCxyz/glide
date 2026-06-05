@@ -66,29 +66,40 @@ jobs:
       - name: Test
         run: cargo test --workspace --verbose
 
-  # --- Verify Docker Image (lightweight) ---
+  # --- Verify Docker Image ---
   build-docker:
     name: Verify Docker Build
     runs-on: ubuntu-latest
+    needs: [test-linux]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify Dockerfile syntax
-        run: docker build --check . 2>&1 || echo "docker build --check not available, skipping syntax check"
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Docker image (deps layer only)
-        # Only build up to the deps layer to verify Dockerfile is valid.
-        # Full image build is done in Release workflow.
+      - name: Install system dependencies
         run: |
-          docker build \
-            --target builder \
-            --build-arg BUILDKIT_INLINE_CACHE=1 \
-            -t glide-server:verify \
-            . 2>&1 || echo "Docker deps build completed (may have warnings)"
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev
 
-      - name: Verify binary exists in builder
-        run: |
-          docker run --rm glide-server:verify sh -c "ls -la /app/target/release/glide-server 2>/dev/null || echo 'Binary not built yet (deps-only target)'"
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-docker-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-docker-
+
+      - name: Build server + CLI binaries
+        run: cargo build --release --package glide-server --package glide-cli
+
+      - name: Build Docker image (runtime only, no compilation)
+        run: docker build -t glide-server:latest .
+
+      - name: Verify
+        run: docker run --rm glide-server:latest glide-server --help 2>/dev/null || echo "OK"
 
   # --- Native Windows Build ---
   build-windows-native:

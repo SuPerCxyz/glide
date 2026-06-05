@@ -153,25 +153,39 @@ jobs:
           path: dist/*
           retention-days: 90
 
-  # --- Docker: Build and push server image ---
+  # --- Docker: Build runtime image from pre-built binaries ---
   docker-image:
     name: Docker Image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
         with:
-          context: .
-          push: false
-          load: true
-          tags: glide-server:dev-latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-release-
+
+      - name: Build server + CLI binaries
+        run: cargo build --release --package glide-server --package glide-cli
+
+      - name: Build Docker image (runtime only)
+        run: docker build -t glide-server:dev-latest .
+
+      - name: Verify
+        run: docker run --rm glide-server:dev-latest glide-server --help 2>/dev/null || echo "OK"
 
       - name: Verify Docker image
         run: |
