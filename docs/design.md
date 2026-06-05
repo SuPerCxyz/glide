@@ -155,6 +155,8 @@ glide devices                            # 列出设备
 
 ## 6. 打包与部署
 
+Windows 安装包依赖策略详见 [Windows Packaging Design](windows-packaging.md)。
+
 ### 6.1 安装包
 
 | 平台 | 格式 | 包含内容 | 状态 |
@@ -164,7 +166,7 @@ glide devices                            # 列出设备
 | Linux | AppImage | GUI（自包含） | ✅ |
 | Windows | NSIS (.exe) | GUI + CLI + Server + WebView2 | ✅ |
 | Windows | MSI | GUI + CLI + Server | ✅ |
-| Windows | zip | CLI + Server | ✅ |
+| Windows | zip | GUI + CLI + Server | ✅ |
 | Docker | 镜像 | Server + CLI | ✅ |
 
 ### 6.2 Docker 镜像标签

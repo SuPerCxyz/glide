@@ -147,7 +147,34 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 
 ---
 
-## 四、Windows VM 待验证
+## 四、Windows 安装包验证
+
+| 测试项 | 脚本 | 状态 |
+|--------|------|------|
+| Windows package dependency scan | `scripts/check-windows-package-deps.ps1` | CI 接入 |
+| Windows NSIS/MSI 静默安装 | `scripts/test-windows-installer.ps1` | 待干净 VM 执行 |
+| Installed GUI startup/config/log dirs | `scripts/test-windows-installed-client.ps1` | 待干净 VM 执行 |
+| Windows 连接测试 | `scripts/test-windows-connect.ps1` | 待干净 VM 执行 |
+| Windows 剪贴板测试 | `scripts/test-windows-clipboard.ps1` | 待干净 VM 执行 |
+| Windows GUI 自动化 | `scripts/test-windows-gui.ahk` | 待干净 VM 执行 |
+
+### Windows 安装包依赖检查范围
+
+| 检查项 | 状态 |
+|--------|------|
+| NSIS 和 MSI 输出存在 | 脚本化 |
+| portable zip 包含 GUI/CLI/Server | 脚本化 |
+| Tauri 配置使用 WebView2 offline installer | 脚本化 |
+| MSVC runtime 静态链接或不暴露 VC runtime 依赖 | 脚本化，依赖 dumpbin |
+| 构建机路径泄露检查 | 脚本化 |
+| GUI 启动 smoke test | 脚本支持，需 Windows 桌面环境 |
+| 干净 Windows 10 x64 安装后启动 | 待执行 |
+| 干净 Windows 11 x64 安装后启动 | 待执行 |
+| Windows GUI ↔ Linux CLI 剪贴板同步 | 待执行 |
+| Windows GUI ↔ Linux GUI 剪贴板同步 | 待执行 |
+| 卸载后快捷方式/自启动/防火墙残留 | 待执行 |
+
+## 五、Windows VM 待验证
 
 | 测试项 | 脚本 |
 |--------|------|
@@ -157,7 +184,7 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 
 ---
 
-## 五、竞品参考
+## 六、竞品参考
 
 | 产品 | 借鉴功能 | 测试点 |
 |------|----------|--------|
@@ -170,20 +197,20 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 
 ---
 
-## 六、当前限制
+## 七、当前限制
 
 1. Windows GUI 无法在 Linux 本地真实执行
 2. Wayland GUI 测试需 weston headless（未安装）
 3. mDNS 真实网络发现需多机环境
 4. 跨屏键鼠真实测试需多显示器
 
-## 七、结论
+## 八、结论
 
 当前虚拟环境下 **124 个测试全部通过**，0 失败。
 
 ---
 
-## 八、客户端验证矩阵 (C01-C08)
+## 九、客户端验证矩阵 (C01-C08)
 
 | 编号 | 客户端 A | 客户端 B | 测试内容 | 状态 |
 |------|----------|----------|----------|------|
@@ -198,7 +225,7 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 
 **客户端验证总计: 30/30 通过**
 
-## 九、异常场景验证
+## 十、异常场景验证
 
 | 场景 | 状态 |
 |------|------|
@@ -212,7 +239,7 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 
 **异常场景总计: 7/7 通过**
 
-## 十、验证方式说明
+## 十一、验证方式说明
 
 | 客户端 | 验证方式 | 说明 |
 |--------|----------|------|
@@ -222,7 +249,7 @@ cargo test --package glide-core --package glide-server --package glide-desktop
 | Windows CLI | WebSocket 模拟 | 同协议验证 |
 | 服务端 | Docker 容器 | 真实运行验证 |
 
-## 十一、测试命令
+## 十二、测试命令
 
 ```bash
 make test-all               # 运行全部测试

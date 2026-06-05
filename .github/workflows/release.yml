@@ -71,7 +71,7 @@ jobs:
         run: cargo build --release --package glide-server --package glide-cli
 
       - name: Build Tauri desktop client (deb + AppImage)
-        run: cargo tauri build
+        run: cargo tauri build --bundles deb,appimage
         working-directory: crates/glide-tauri
 
       - name: Collect Linux packages
@@ -142,7 +142,7 @@ jobs:
         run: cargo build --release --package glide-server --package glide-cli
 
       - name: Build Tauri installer (NSIS + MSI)
-        run: cargo tauri build
+        run: cargo tauri build --bundles nsis,msi
         working-directory: crates/glide-tauri
 
       - name: Collect Windows packages
@@ -158,12 +158,22 @@ jobs:
           # Create zip with all binaries
           VERSION="${{ github.event.inputs.version || '0.1.0' }}"
           mkdir -p "dist/glide-${VERSION}-windows"
+          cp target/release/glide-tauri.exe "dist/glide-${VERSION}-windows/glide.exe"
           cp target/release/glide-server.exe "dist/glide-${VERSION}-windows/"
           cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows/"
-          find target/release/bundle -name "*.exe" | head -1 | xargs -I{} cp {} "dist/glide-${VERSION}-windows/glide.exe"
           cp README.md "dist/glide-${VERSION}-windows/"
           7z a "dist/glide-${VERSION}-windows.zip" "dist/glide-${VERSION}-windows/"
         shell: bash
+
+      - name: Check Windows package dependencies
+        run: |
+          VERSION="${{ github.event.inputs.version || '0.1.0' }}"
+          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-windows-package-deps.ps1 `
+            -InstallDir "dist/glide-${VERSION}-windows" `
+            -MainExe "glide.exe" `
+            -RequireWebView2OfflineInstaller `
+            -BundleRoot "target/release/bundle"
+        shell: pwsh
 
       - name: Upload Windows packages
         uses: actions/upload-artifact@v4

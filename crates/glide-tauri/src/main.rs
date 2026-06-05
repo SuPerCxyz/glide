@@ -2,19 +2,81 @@ mod sync_engine;
 
 use glide_core::clipboard::ClipboardKind;
 use glide_core::policy::Policy;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tokio::sync::Mutex;
 
 struct AppState {
     sync_engine: Arc<Mutex<sync_engine::SyncEngine>>,
     policy: Mutex<Policy>,
     sync_paused: Mutex<bool>,
     input_sharing_enabled: Mutex<bool>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct DesktopConfig {
+    server_url: String,
+}
+
+fn app_config_dir() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            return PathBuf::from(appdata).join("Glide");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return PathBuf::from(home).join(".config").join("glide");
+        }
+    }
+
+    std::env::temp_dir().join("glide")
+}
+
+fn app_log_dir() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+            return PathBuf::from(localappdata).join("Glide").join("logs");
+        }
+    }
+    app_config_dir().join("logs")
+}
+
+fn ensure_runtime_dirs() -> Result<(), String> {
+    std::fs::create_dir_all(app_config_dir()).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(app_log_dir()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn config_path() -> PathBuf {
+    app_config_dir().join("config.json")
+}
+
+fn load_config() -> DesktopConfig {
+    let path = config_path();
+    match std::fs::read_to_string(path) {
+        Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
+        Err(_) => DesktopConfig::default(),
+    }
+}
+
+fn save_server_url(url: &str) -> Result<(), String> {
+    ensure_runtime_dirs()?;
+    let config = DesktopConfig {
+        server_url: url.to_string(),
+    };
+    let data = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    std::fs::write(config_path(), data).map_err(|e| e.to_string())
 }
 
 /// Check if WebView2 Runtime is available on Windows.
@@ -24,10 +86,7 @@ fn check_webview2() -> bool {
     use std::process::Command;
     // Check if WebView2 loader DLL exists or if Edge is installed.
     let program_files = std::env::var("PROGRAMFILES(x86)").unwrap_or_default();
-    let webview2_path = format!(
-        "{}\\Microsoft\\EdgeWebView\\Application",
-        program_files
-    );
+    let webview2_path = format!("{}\\Microsoft\\EdgeWebView\\Application", program_files);
     if std::path::Path::new(&webview2_path).exists() {
         return true;
     }
@@ -68,6 +127,10 @@ fn show_webview2_error() {
 fn show_webview2_error() {}
 
 fn main() {
+    if let Err(e) = ensure_runtime_dirs() {
+        tracing::warn!("Failed to create runtime directories: {}", e);
+    }
+
     // Check WebView2 availability before starting.
     if !check_webview2() {
         show_webview2_error();
@@ -83,6 +146,12 @@ fn main() {
         device_id.clone(),
         device_name,
     )));
+    let saved_config = load_config();
+    if !saved_config.server_url.is_empty() {
+        let engine = sync_engine.blocking_lock();
+        let mut server_url = engine.server_url.blocking_lock();
+        *server_url = saved_config.server_url;
+    }
 
     let state = AppState {
         sync_engine,
@@ -214,13 +283,20 @@ async fn get_connection_status(state: tauri::State<'_, AppState>) -> Result<Stri
 }
 
 #[tauri::command]
-async fn connect_to_server(state: tauri::State<'_, AppState>, url: String) -> Result<String, String> {
+async fn connect_to_server(
+    state: tauri::State<'_, AppState>,
+    url: String,
+) -> Result<String, String> {
     let engine = state.sync_engine.lock().await;
-    engine.connect(url).await.map(|_| "connected".to_string())
+    engine.connect(url.clone()).await?;
+    save_server_url(&url)?;
+    Ok("connected".to_string())
 }
 
 #[tauri::command]
-async fn get_clipboard_history(_state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+async fn get_clipboard_history(
+    _state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "items": [], "message": "连接服务器后显示剪贴板历史" }))
 }
 
@@ -268,7 +344,8 @@ async fn set_server_url(state: tauri::State<'_, AppState>, url: String) -> Resul
     let engine = state.sync_engine.lock().await;
     let mut server = engine.server_url.lock().await;
     if url.is_empty() || url.starts_with("http://") || url.starts_with("https://") {
-        *server = url;
+        *server = url.clone();
+        save_server_url(&url)?;
         Ok(true)
     } else {
         Ok(false)
@@ -290,12 +367,16 @@ async fn set_device_policy(
 ) -> Result<bool, String> {
     if let Ok(device_uuid) = device_id.parse() {
         let mut policy = state.policy.lock().await;
-        policy.device_policies.retain(|dp| dp.device_id != device_uuid);
-        policy.device_policies.push(glide_core::policy::DevicePolicy {
-            device_id: device_uuid,
-            sync_enabled,
-            input_enabled,
-        });
+        policy
+            .device_policies
+            .retain(|dp| dp.device_id != device_uuid);
+        policy
+            .device_policies
+            .push(glide_core::policy::DevicePolicy {
+                device_id: device_uuid,
+                sync_enabled,
+                input_enabled,
+            });
         Ok(true)
     } else {
         Ok(false)
@@ -345,7 +426,10 @@ async fn apply_clipboard(item: &glide_core::clipboard::ClipboardItem) -> Result<
 
                     if let Some(mut stdin) = child.stdin.take() {
                         use tokio::io::AsyncWriteExt;
-                        stdin.write_all(text.as_bytes()).await.map_err(|e| e.to_string())?;
+                        stdin
+                            .write_all(text.as_bytes())
+                            .await
+                            .map_err(|e| e.to_string())?;
                     }
                     child.wait().await.map_err(|e| e.to_string())?;
                     return Ok(());
@@ -354,7 +438,10 @@ async fn apply_clipboard(item: &glide_core::clipboard::ClipboardItem) -> Result<
                 #[cfg(target_os = "windows")]
                 {
                     tokio::process::Command::new("powershell")
-                        .args(["-command", &format!("Set-Clipboard -Value '{}'", text.replace('\'', "''"))])
+                        .args([
+                            "-command",
+                            &format!("Set-Clipboard -Value '{}'", text.replace('\'', "''")),
+                        ])
                         .output()
                         .await
                         .map_err(|e| e.to_string())?;
