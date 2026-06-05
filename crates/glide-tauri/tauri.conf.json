@@ -49,9 +49,9 @@
       },
       "nsis": {
         "installMode": "both",
-        "displayLanguageSelector": true,
+        "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
-        "languages": ["zh-CN", "en-US"]
+        "languages": ["en-US"]
       }
     }
   }
