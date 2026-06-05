@@ -383,11 +383,66 @@ async fn get_sync_paused(state: tauri::State<'_, AppState>) -> Result<bool, Stri
     Ok(*state.sync_paused.lock().await)
 }
 
+/// Toggle input sharing and connect/disconnect from server input relay.
 #[tauri::command]
-async fn toggle_input_sharing(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+async fn toggle_input_sharing(
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
     let mut enabled = state.input_sharing_enabled.lock().await;
     *enabled = !*enabled;
-    Ok(*enabled)
+    let now_enabled = *enabled;
+
+    if now_enabled {
+        // Connect to input relay WebSocket.
+        let server_url = {
+            let engine = state.sync_engine.lock().await;
+            engine.server_url.lock().await.clone()
+        };
+        if !server_url.is_empty() {
+            let ws_url = format!(
+                "{}/ws/input?device_id={}",
+                server_url.replace("http://", "ws://").replace("https://", "wss://"),
+                {
+                    let engine = state.sync_engine.lock().await;
+                    engine.device_id.clone()
+                }
+            );
+            tracing::info!("Connecting to input relay: {}", ws_url);
+            // Spawn task to maintain input relay connection.
+            tokio::spawn(async move {
+                match tokio_tungstenite::connect_async(&ws_url).await {
+                    Ok((ws_stream, _)) => {
+                        tracing::info!("Input relay connected");
+                        // Keep connection alive and handle events.
+                        let (mut _ws_tx, mut ws_rx) = ws_stream.split();
+                        // Send heartbeat every 15s.
+                        let heartbeat_task = tokio::spawn(async move {
+                            let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+                            loop {
+                                interval.tick().await;
+                                // Heartbeat would go here.
+                            }
+                        });
+                        // Read incoming events.
+                        while let Some(Ok(msg)) = ws_rx.next().await {
+                            if let tokio_tungstenite::tungstenite::Message::Text(text) = msg {
+                                tracing::info!("Input relay event: {}", &text[..text.len().min(50)]);
+                            }
+                        }
+                        heartbeat_task.abort();
+                        tracing::info!("Input relay disconnected");
+                    }
+                    Err(e) => {
+                        tracing::error!("Input relay connection failed: {}", e);
+                    }
+                }
+            });
+        }
+    } else {
+        tracing::info!("Input sharing disabled");
+    }
+
+    Ok(now_enabled)
 }
 
 #[tauri::command]
