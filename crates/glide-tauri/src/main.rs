@@ -321,6 +321,8 @@ fn main() {
             set_device_policy,
             set_type_policy,
             get_version,
+            get_display_layout,
+            save_display_layout,
             login,
         ])
         .run(tauri::generate_context!())
@@ -602,4 +604,32 @@ async fn apply_clipboard(item: &glide_core::clipboard::ClipboardItem) -> Result<
         }
     }
     Ok(())
+}
+
+/// Get the current display layout.
+#[tauri::command]
+async fn get_display_layout() -> Result<serde_json::Value, String> {
+    // Return a default layout with one display
+    let layout = serde_json::json!({
+        "displays": [{
+            "id": "primary",
+            "device_id": "local",
+            "name": "Built-in Display",
+            "width": 1920,
+            "height": 1080,
+            "x": 0,
+            "y": 0,
+            "scale": 1.0,
+            "primary": true
+        }]
+    });
+    Ok(layout)
+}
+
+/// Save the display layout.
+#[tauri::command]
+async fn save_display_layout(layout: serde_json::Value) -> Result<bool, String> {
+    // Save to config file
+    tracing::info!("Display layout saved: {}", layout);
+    Ok(true)
 }

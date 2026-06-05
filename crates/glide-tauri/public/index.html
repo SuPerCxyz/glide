@@ -133,6 +133,41 @@
                 </div>
             </div>
         </div>
+    
+        <div class="section">
+            <div class="section-title">显示器布局</div>
+            <div class="settings-group">
+                <div id="displayCanvas" style="width:100%;height:150px;background:#0d1117;border-radius:6px;position:relative;cursor:pointer;margin-bottom:8px"></div>
+                <div class="setting-row">
+                    <span class="setting-label">分辨率</span>
+                    <select id="resolutionSelect" style="background:#16213e;border:1px solid #333;color:#eee;padding:4px 8px;border-radius:4px;font-size:12px">
+                        <option value="1920x1080">1920x1080 (FHD)</option>
+                        <option value="2560x1440">2560x1440 (QHD)</option>
+                        <option value="3840x2160">3840x2160 (4K)</option>
+                        <option value="1280x720">1280x720 (HD)</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">DPI 缩放</span>
+                    <select id="dpiSelect" style="background:#16213e;border:1px solid #333;color:#eee;padding:4px 8px;border-radius:4px;font-size:12px">
+                        <option value="1.0">100%</option>
+                        <option value="1.25">125%</option>
+                        <option value="1.5">150%</option>
+                        <option value="2.0">200%</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">边缘</span>
+                    <select id="edgeSelect" style="background:#16213e;border:1px solid #333;color:#eee;padding:4px 8px;border-radius:4px;font-size:12px">
+                        <option value="right">右边</option>
+                        <option value="left">左边</option>
+                        <option value="top">上边</option>
+                        <option value="bottom">下边</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
     </div>
     <script>
         const{invoke}=window.__TAURI__.core;
@@ -217,6 +252,21 @@
         }
         async function updatePolicy(kind,enabled){await invoke('set_type_policy',{kind,syncEnabled:enabled,maxSize:null})}
         setInterval(async()=>updateStatus(await invoke('get_connection_status')),5000);
+        
+        // Display layout canvas
+        function drawDisplayLayout() {
+            const canvas = document.getElementById('displayCanvas');
+            if (!canvas) return;
+            canvas.innerHTML = '';
+            // Draw a simple display representation
+            const div = document.createElement('div');
+            div.style.cssText = 'position:absolute;left:10px;top:10px;width:200px;height:120px;background:#16213e;border:2px solid #00d4ff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#00d4ff';
+            div.textContent = '本机显示器\n1920x1080';
+            div.style.whiteSpace = 'pre-line';
+            canvas.appendChild(div);
+        }
+        drawDisplayLayout();
+
         loadState();
     </script>
 </body>
