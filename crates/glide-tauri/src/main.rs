@@ -394,19 +394,18 @@ async fn toggle_input_sharing(
     let now_enabled = *enabled;
 
     if now_enabled {
-        // Connect to input relay WebSocket.
-        let server_url = {
+        let server_url;
+        let device_id;
+        {
             let engine = state.sync_engine.lock().await;
-            engine.server_url.lock().await.clone()
-        };
+            server_url = engine.server_url.lock().await.clone();
+            device_id = engine.device_id.clone();
+        }
         if !server_url.is_empty() {
             let ws_url = format!(
                 "{}/ws/input?device_id={}",
                 server_url.replace("http://", "ws://").replace("https://", "wss://"),
-                {
-                    let engine = state.sync_engine.lock().await;
-                    engine.device_id.clone()
-                }
+                device_id
             );
             tracing::info!("Connecting to input relay: {}", ws_url);
             // Spawn task to maintain input relay connection.
