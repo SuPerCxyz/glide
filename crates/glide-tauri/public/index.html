@@ -22,6 +22,16 @@
         .server-input input{flex:1;padding:8px 12px;background:#16213e;border:1px solid #333;border-radius:6px;color:#eee;font-size:12px}
         .server-input input:focus{outline:none;border-color:#00d4ff}
         .server-input button{padding:8px 16px;background:#00d4ff;border:none;border-radius:6px;color:#1a1a2e;font-weight:bold;cursor:pointer;font-size:12px}
+        .login-form{background:#16213e;border-radius:8px;padding:12px;margin:8px 0;display:none}
+        .login-form.show{display:block}
+        .login-form input{width:100%;padding:8px 12px;background:#0d1117;border:1px solid #333;border-radius:6px;color:#eee;font-size:12px;margin-bottom:8px}
+        .login-form input:focus{outline:none;border-color:#00d4ff}
+        .login-form .login-btn{width:100%;padding:8px;background:#238636;border:none;border-radius:6px;color:#fff;font-weight:bold;cursor:pointer;font-size:12px}
+        .login-form .login-btn:hover{background:#2ea043}
+        .login-error{color:#f85149;font-size:11px;margin-top:4px;display:none}
+        .auth-tabs{display:flex;margin:8px 0;border:1px solid #333;border-radius:6px;overflow:hidden}
+        .auth-tab{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:12px;background:#16213e;color:#888;border:none}
+        .auth-tab.active{background:#0d1117;color:#00d4ff;font-weight:600}
         .token-input{margin:8px 0}
         .token-input input{width:100%;padding:8px 12px;background:#16213e;border:1px solid #333;border-radius:6px;color:#eee;font-size:12px}
         .token-input input:focus{outline:none;border-color:#00d4ff}
@@ -68,12 +78,27 @@
             <div class="status-dot disconnected" id="statusDot"></div>
             <span class="status-text" id="statusText">未连接</span>
         </div>
-        <div class="server-input">
-            <input type="text" id="serverUrl" placeholder="服务器地址 (如 http://localhost:8080)" />
-            <button onclick="connect()">连接</button>
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tabConnect" onclick="switchAuthTab('connect')">连接服务器</button>
+            <button class="auth-tab" id="tabLogin" onclick="switchAuthTab('login')">用户名密码</button>
         </div>
-        <div class="token-input">
-            <input type="password" id="registrationToken" placeholder="注册 Token（服务端要求时填写）" autocomplete="off" />
+        <div id="authConnect">
+            <div class="server-input">
+                <input type="text" id="serverUrl" placeholder="服务器地址 (如 http://localhost:8080)" />
+                <button onclick="connect()">连接</button>
+            </div>
+            <div class="token-input">
+                <input type="password" id="registrationToken" placeholder="注册 Token（服务端要求时填写）" autocomplete="off" />
+            </div>
+        </div>
+        <div id="authLogin" style="display:none">
+            <div class="login-form show">
+                <input type="text" id="loginUrl" placeholder="服务器地址 (如 http://localhost:8080)" />
+                <input type="text" id="loginUser" placeholder="用户名" />
+                <input type="password" id="loginPass" placeholder="密码" />
+                <div class="login-error" id="loginError"></div>
+                <button class="login-btn" onclick="doLogin()">登录</button>
+            </div>
         </div>
         <div class="controls">
             <button class="toggle-btn" id="pauseBtn" onclick="togglePause()">⏸ 暂停同步</button>
@@ -115,7 +140,10 @@
             const version=await invoke('get_version');
             document.getElementById('version').textContent='v'+version;
             const serverUrl=await invoke('get_server_url');
-            if(serverUrl)document.getElementById('serverUrl').value=serverUrl;
+            if(serverUrl){
+                document.getElementById('serverUrl').value=serverUrl;
+                document.getElementById('loginUrl').value=serverUrl;
+            }
             const registrationToken=await invoke('get_registration_token');
             if(registrationToken)document.getElementById('registrationToken').value=registrationToken;
             const paused=await invoke('get_sync_paused');
@@ -123,6 +151,12 @@
             const inputEnabled=await invoke('get_input_sharing_enabled');
             updateInputButton(inputEnabled);
             updateStatus(await invoke('get_connection_status'));
+        }
+        function switchAuthTab(tab){
+            document.getElementById('tabConnect').classList.toggle('active',tab==='connect');
+            document.getElementById('tabLogin').classList.toggle('active',tab==='login');
+            document.getElementById('authConnect').style.display=tab==='connect'?'block':'none';
+            document.getElementById('authLogin').style.display=tab==='login'?'block':'none';
         }
         async function connect(){
             const url=document.getElementById('serverUrl').value;
@@ -132,11 +166,32 @@
             try{
                 const result=await invoke('connect_to_server',{url,registrationToken});
                 updateStatus('connected');
-                // Start polling for status updates.
                 startStatusPoll();
             }catch(e){
                 updateStatus('error');
                 document.getElementById('statusText').textContent='连接失败: '+e;
+            }
+        }
+        async function doLogin(){
+            const url=document.getElementById('loginUrl').value;
+            const user=document.getElementById('loginUser').value;
+            const pass=document.getElementById('loginPass').value;
+            const errEl=document.getElementById('loginError');
+            errEl.style.display='none';
+            if(!url||!user||!pass){
+                errEl.textContent='请填写所有字段';
+                errEl.style.display='block';
+                return;
+            }
+            updateStatus('connecting');
+            try{
+                const token=await invoke('login',{url,username:user,password:pass});
+                updateStatus('connected');
+                startStatusPoll();
+            }catch(e){
+                updateStatus('error');
+                errEl.textContent=e||'登录失败';
+                errEl.style.display='block';
             }
         }
         let pollInterval=null;

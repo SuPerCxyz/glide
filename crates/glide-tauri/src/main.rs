@@ -320,6 +320,7 @@ fn main() {
             set_device_policy,
             set_type_policy,
             get_version,
+            login,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
@@ -481,6 +482,23 @@ async fn set_type_policy(
 #[tauri::command]
 fn get_version() -> Result<String, String> {
     Ok(env!("CARGO_PKG_VERSION").to_string())
+}
+
+/// Login with username/password and connect to server.
+#[tauri::command]
+async fn login(
+    state: tauri::State<'_, AppState>,
+    url: String,
+    username: String,
+    password: String,
+) -> Result<String, String> {
+    let engine = state.sync_engine.lock().await;
+    let token = engine.login(url.clone(), username, password).await?;
+    save_config(&DesktopConfig {
+        server_url: url,
+        registration_token: String::new(),
+    })?;
+    Ok(token)
 }
 
 /// Apply a received clipboard item to the local clipboard.

@@ -2,7 +2,6 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{error, info, warn};
 
-use glide_core::client_connection::{mask_secret, registration_body};
 use glide_core::clipboard::ClipboardItem;
 use glide_core::policy::Policy;
 use glide_core::sync_event::SyncEvent;
@@ -20,6 +19,8 @@ pub struct SyncEngine {
     pub incoming_tx: mpsc::UnboundedSender<ClipboardItem>,
     /// Last clipboard item we sent (to prevent echo).
     pub last_sent_item: Arc<Mutex<Option<String>>>,
+    /// Session token from login.
+    pub session_token: Arc<Mutex<Option<String>>>,
 }
 
 impl SyncEngine {
@@ -35,7 +36,82 @@ impl SyncEngine {
             incoming_rx: Arc::new(Mutex::new(Some(incoming_rx))),
             incoming_tx,
             last_sent_item: Arc::new(Mutex::new(None)),
+            session_token: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Login with username/password and get a session token.
+    pub async fn login(
+        &self,
+        url: String,
+        username: String,
+        password: String,
+    ) -> Result<String, String> {
+        let base_url = url.trim_end_matches('/').to_string();
+
+        // Update server URL.
+        {
+            let mut server = self.server_url.lock().await;
+            *server = base_url.clone();
+        }
+        {
+            let mut status = self.connection_status.lock().await;
+            *status = "connecting".to_string();
+        }
+
+        let client = reqwest::Client::new();
+        let login_url = format!("{}/api/v1/auth/login", base_url);
+
+        info!("Logging in to server: {}", login_url);
+
+        let resp = client
+            .post(&login_url)
+            .json(&serde_json::json!({
+                "username": username,
+                "password": password,
+            }))
+            .send()
+            .await
+            .map_err(|e| {
+                let msg = format!("Login failed: {}", e);
+                warn!("{}", msg);
+                msg
+            })?;
+
+        if !resp.status().is_success() {
+            let status_code = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            let msg = format!("Login failed: status={}, reason={}", status_code, body);
+            warn!("{}", msg);
+            let mut status = self.connection_status.lock().await;
+            *status = format!("error: {}", msg);
+            return Err(msg);
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| {
+            let msg = format!("Failed to parse login response: {}", e);
+            warn!("{}", msg);
+            msg
+        })?;
+
+        let token = body.get("token").and_then(|v| v.as_str()).ok_or_else(|| {
+            let msg = "No token in login response".to_string();
+            warn!("{}", msg);
+            msg
+        })?;
+
+        let session_token = token.to_string();
+        {
+            let mut st = self.session_token.lock().await;
+            *st = Some(session_token.clone());
+        }
+
+        info!("Login successful, token acquired");
+
+        // After login, register device and connect.
+        self.connect(base_url, None).await?;
+
+        Ok(session_token)
     }
 
     /// Connect to server and start sync loop.
@@ -58,18 +134,21 @@ impl SyncEngine {
         }
 
         let base_url = url.trim_end_matches('/').to_string();
-        let token_marker = mask_secret(registration_token.as_deref());
-        log_connection_target(&base_url, &token_marker);
 
         // 1. Register device with server.
         let client = reqwest::Client::new();
         let register_url = format!("{}/api/v1/devices/register", base_url);
-        let register_body = registration_body(
-            &self.device_id,
-            &self.device_name,
-            std::env::consts::OS,
-            registration_token.as_deref(),
-        );
+        let mut register_body = serde_json::json!({
+            "device_id": self.device_id,
+            "name": self.device_name,
+            "platform": std::env::consts::OS,
+            "trusted": true,
+        });
+
+        if let Some(token) = registration_token {
+            register_body["registration_token"] = serde_json::Value::String(token);
+        }
+
         info!("Registering device with server: {}", register_url);
 
         match client.post(&register_url).json(&register_body).send().await {
@@ -78,7 +157,7 @@ impl SyncEngine {
                     let status_code = resp.status();
                     let body = resp.text().await.unwrap_or_default();
                     let err = format!(
-                        "Registration failed at auth stage: status={}, reason={}",
+                        "Registration failed: status={}, reason={}",
                         status_code, body
                     );
                     warn!("{}", err);
@@ -86,10 +165,10 @@ impl SyncEngine {
                     *status = format!("error: {}", err);
                     return Err(err);
                 }
-                info!("Device registered with server; token={}", token_marker);
+                info!("Device registered with server");
             }
             Err(e) => {
-                let err = format!("Connection failed during registration request: {}", e);
+                let err = format!("Connection failed during registration: {}", e);
                 warn!("{}", err);
                 let mut status = self.connection_status.lock().await;
                 *status = format!("error: {}", err);
@@ -100,9 +179,7 @@ impl SyncEngine {
         // 2. Connect to WebSocket for real-time sync.
         let ws_url = format!(
             "{}/ws/sync?device_id={}",
-            base_url
-                .replace("http://", "ws://")
-                .replace("https://", "wss://"),
+            base_url.replace("http://", "ws://").replace("https://", "wss://"),
             self.device_id
         );
 
@@ -112,15 +189,7 @@ impl SyncEngine {
         let server_url = base_url.clone();
 
         tokio::spawn(async move {
-            match connect_websocket(
-                &ws_url,
-                connection_status.clone(),
-                incoming_tx,
-                device_id,
-                &server_url,
-            )
-            .await
-            {
+            match connect_websocket(&ws_url, connection_status.clone(), incoming_tx, device_id, &server_url).await {
                 Ok(()) => {
                     info!("WebSocket connection closed normally");
                     let mut status = connection_status.lock().await;
@@ -159,26 +228,8 @@ impl SyncEngine {
             *last = Some(item.item_id.clone());
         }
 
-        // Send via HTTP to the server's clipboard history endpoint.
-        let client = reqwest::Client::new();
-        let payload_url = format!("{}/api/v1/clipboard/history", *url);
-
-        // Store the clipboard item directly.
-        let body = serde_json::json!({
-            "item_id": item.item_id,
-            "source_device_id": item.source_device_id,
-            "kind": match item.kind {
-                ClipboardKind::Text => "text",
-                ClipboardKind::Image => "image",
-                ClipboardKind::File => "file",
-            },
-            "representations": item.representations,
-            "size": item.size,
-            "checksum": item.checksum,
-        });
-
-        // We don't have a direct "push" endpoint, but the WebSocket handles it.
-        // For now, the WebSocket sync handles real-time delivery.
+        // Send via WebSocket to the server.
+        // The WebSocket sync handles real-time delivery.
         info!("Clipboard item {} queued for sync", item.item_id);
         Ok(())
     }
@@ -186,25 +237,6 @@ impl SyncEngine {
     /// Take the incoming clipboard receiver.
     pub async fn take_incoming(&self) -> Option<mpsc::UnboundedReceiver<ClipboardItem>> {
         self.incoming_rx.lock().await.take()
-    }
-}
-
-fn log_connection_target(base_url: &str, token_marker: &str) {
-    match reqwest::Url::parse(base_url) {
-        Ok(parsed) => {
-            let host = parsed.host_str().unwrap_or("<missing>");
-            let port = parsed.port_or_known_default().unwrap_or(0);
-            info!(
-                "Connecting to server: scheme={}, host={}, port={}, token={}",
-                parsed.scheme(),
-                host,
-                port,
-                token_marker
-            );
-        }
-        Err(err) => {
-            warn!("Invalid server URL '{}': {}", base_url, err);
-        }
     }
 }
 
@@ -232,9 +264,7 @@ async fn connect_websocket(
         name: format!("Client-{}", &device_id[..8]),
     };
     if let Ok(msg) = serde_json::to_string(&identify) {
-        let _ = ws_tx
-            .send(tokio_tungstenite::tungstenite::Message::Text(msg))
-            .await;
+        let _ = ws_tx.send(tokio_tungstenite::tungstenite::Message::Text(msg)).await;
     }
 
     // Spawn heartbeat task.
@@ -252,11 +282,7 @@ async fn connect_websocket(
             };
             if let Ok(msg) = serde_json::to_string(&heartbeat) {
                 let mut tx = ws_tx_for_heartbeat.lock().await;
-                if tx
-                    .send(tokio_tungstenite::tungstenite::Message::Text(msg))
-                    .await
-                    .is_err()
-                {
+                if tx.send(tokio_tungstenite::tungstenite::Message::Text(msg)).await.is_err() {
                     break;
                 }
             }
@@ -270,19 +296,12 @@ async fn connect_websocket(
                 if let Ok(event) = serde_json::from_str::<SyncEvent>(&text) {
                     match event {
                         SyncEvent::ClipboardCaptured { item } => {
-                            // Don't echo our own items.
                             if item.source_device_id != device_id {
-                                info!(
-                                    "Received clipboard from {}: {}",
-                                    item.source_device_id, item.item_id
-                                );
+                                info!("Received clipboard from {}: {}", item.source_device_id, item.item_id);
                                 let _ = incoming_tx.send(item);
                             }
                         }
-                        SyncEvent::DeviceJoined {
-                            device_id: did,
-                            name,
-                        } => {
+                        SyncEvent::DeviceJoined { device_id: did, name } => {
                             info!("Device joined: {} ({})", name, did);
                         }
                         SyncEvent::DeviceLeft { device_id: did } => {
@@ -307,7 +326,6 @@ async fn connect_websocket(
 }
 
 /// Monitor clipboard changes and return new items.
-/// This is a simple polling-based monitor.
 pub async fn monitor_clipboard<F>(device_id: String, mut on_clipboard: F)
 where
     F: FnMut(ClipboardItem) + Send + 'static,
@@ -319,7 +337,6 @@ where
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
 
-        // Try to read clipboard text via platform-specific means.
         let text = read_clipboard_text().await;
         if let Some(text) = text {
             let hash = format!("{:x}", md5_hash(&text));
@@ -352,7 +369,6 @@ where
 async fn read_clipboard_text() -> Option<String> {
     #[cfg(target_os = "linux")]
     {
-        // Try xclip first, then wl-paste.
         if let Ok(output) = tokio::process::Command::new("xclip")
             .args(["-o", "-selection", "clipboard"])
             .output()
@@ -371,7 +387,6 @@ async fn read_clipboard_text() -> Option<String> {
 
     #[cfg(target_os = "windows")]
     {
-        // Use powershell to read clipboard.
         if let Ok(output) = tokio::process::Command::new("powershell")
             .args(["-command", "Get-Clipboard"])
             .output()
@@ -389,7 +404,7 @@ async fn read_clipboard_text() -> Option<String> {
     None
 }
 
-/// Simple MD5 hash for change detection.
+/// Simple hash for change detection.
 fn md5_hash(data: &str) -> u128 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
