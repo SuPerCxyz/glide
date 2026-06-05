@@ -427,3 +427,6 @@ async fn input_ws_handler(
     let target_id = params.get("target_id").cloned().unwrap_or_default();
     ws.on_upgrade(move |socket| crate::input_relay::handle_input_ws(socket, state, device_id, target_id))
 }
+
+// Search is already available via the /api/v1/clipboard/history endpoint
+// by adding ?q=<search_term> parameter

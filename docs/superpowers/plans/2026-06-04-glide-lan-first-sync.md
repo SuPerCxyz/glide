@@ -89,8 +89,8 @@
 
 ### 高优先级
 
-- [ ] CLI `glide copy` 和 `glide paste` 与服务端完整集成测试
-- [ ] 多客户端并发同步压力测试
+- [x] CLI `glide copy` 和 `glide paste` 与服务端完整集成测试
+- [x] 多客户端并发同步压力测试
 - [ ] Windows NSIS/MSI 安装器在真实 Windows 环境验证
 - [ ] 服务端 TLS/HTTPS 支持文档 (反向代理配置)
 - [ ] Tauri GUI 显示器布局编辑器 (拖拽式)
