@@ -178,11 +178,10 @@ glide devices                            # 列出设备
 |-----|------|
 | Build & Test (Linux) | 构建 + 测试 + Clippy |
 | Build & Test (Windows) | 构建 glide-core/server/cli/tauri |
-| Build Docker Image | 构建并验证 Docker 镜像 |
-| Package Linux (deb) | Tauri 构建 deb + AppImage |
+| Verify Docker Build | 构建并验证 Docker 镜像 |
 | Linux Packages (Release) | deb + rpm + AppImage |
 | Windows Packages (Release) | NSIS + MSI + zip |
-| Docker Image (Release) | 推送到 Docker Hub + GHCR |
+| Docker Image (Release) | 构建并验证发布镜像 |
 
 ---
 

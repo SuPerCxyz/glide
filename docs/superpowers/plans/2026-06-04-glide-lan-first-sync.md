@@ -45,7 +45,7 @@
 
 ### 打包与 CI
 
-- [x] GitHub Actions CI (Linux build+test, Windows build, Docker build, Package deb)
+- [x] GitHub Actions CI (Linux build+test, Windows build, Docker build verification)
 - [x] Release workflow (deb, rpm, AppImage, NSIS, MSI, zip, Docker image)
 - [x] Docker 镜像标签: `dev-latest` + `YYYYMMDDHHmm`
 - [x] Docker 推送到 Docker Hub + GHCR
