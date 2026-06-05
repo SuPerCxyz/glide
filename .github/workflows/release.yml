@@ -141,8 +141,8 @@ jobs:
       - name: Build server and CLI
         run: cargo build --release --package glide-server --package glide-cli
 
-      - name: Build Tauri installer (NSIS + MSI)
-        run: cargo tauri build --bundles nsis,msi
+      - name: Build Tauri installer (MSI)
+        run: cargo tauri build --bundles msi
         working-directory: crates/glide-tauri
 
       - name: Collect Windows packages
