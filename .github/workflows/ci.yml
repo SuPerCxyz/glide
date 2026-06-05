@@ -127,6 +127,67 @@ jobs:
           docker rm -f glide-server-verify
           exit 1
 
+  # --- Linux installable packages for CI downloads ---
+  linux-packages:
+    name: Linux Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [test-linux]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev \
+            fuse libfuse2 desktop-file-utils rpm
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-tauri
+            target
+          key: ${{ runner.os }}-linux-package-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-linux-package-
+
+      - name: Install Tauri CLI
+        run: |
+          if ! command -v cargo-tauri >/dev/null 2>&1; then
+            cargo install tauri-cli --version "^2" --locked
+          fi
+
+      - name: Build server and CLI
+        run: cargo build --release --package glide-server --package glide-cli
+
+      - name: Build Tauri packages (.deb + .AppImage)
+        run: cargo tauri build --bundles deb,appimage
+        working-directory: crates/glide-tauri
+
+      - name: Collect Linux packages
+        run: |
+          mkdir -p dist
+          find target/release/bundle \( -name "*.deb" -o -name "*.AppImage" \) -print -exec cp {} dist/ \;
+          cp target/release/glide-server dist/
+          cp target/release/glide-cli dist/
+          ls -lh dist
+          test -n "$(find dist -name '*.deb' -print -quit)"
+          test -n "$(find dist -name '*.AppImage' -print -quit)"
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/*
+          retention-days: 30
+
   # --- Native Windows Build ---
   build-windows-native:
     name: Build & Test (Windows)
