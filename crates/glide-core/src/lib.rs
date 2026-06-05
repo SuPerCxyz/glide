@@ -15,6 +15,7 @@ pub mod policy;
 pub mod error;
 pub mod discovery;
 pub mod route;
+pub mod display;
 
 pub use clipboard::*;
 pub use client_connection::*;
