@@ -107,13 +107,11 @@ jobs:
             -p 18080:8080 \
             -e GLIDE_DATA_DIR=/tmp/glide-data \
             glide-server:latest
-          for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:18080/ >/dev/null; then
-              docker rm -f glide-server-verify
-              exit 0
-            fi
-            sleep 1
-          done
+          sleep 10
+          if curl -fsS http://127.0.0.1:18080/ >/dev/null; then
+            docker rm -f glide-server-verify
+            exit 0
+          fi
           docker logs glide-server-verify
           docker rm -f glide-server-verify
           exit 1
