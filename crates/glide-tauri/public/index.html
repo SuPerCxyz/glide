@@ -135,7 +135,7 @@
         </div>
     </div>
     <script>
-        const{invoke}=window.__TAURI__.tauri;
+        const{invoke}=window.__TAURI__.core;
         async function loadState(){
             const version=await invoke('get_version');
             document.getElementById('version').textContent='v'+version;

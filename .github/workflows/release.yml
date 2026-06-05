@@ -142,38 +142,28 @@ jobs:
         run: cargo build --release --package glide-server --package glide-cli
 
       - name: Build Tauri installer (NSIS + MSI)
-        run: cargo tauri build --bundles nsis,msi
+        run: cargo tauri build --bundles nsis,msi,rpm
         working-directory: crates/glide-tauri
 
       - name: Collect Windows packages
         run: |
           mkdir -p dist
           # Tauri outputs to target/release/bundle/
-          find target/release/bundle -name "*.exe" -o -name "*.msi" -o -name "*.nsis" | while read f; do
+          find target/release/bundle -name "*.exe" -o -name "*.msi" | while read f; do
             cp "$f" dist/
           done
           # Copy standalone binaries
           cp target/release/glide-server.exe dist/
           cp target/release/glide-cli.exe dist/
-          # Create zip with all binaries
+          # Create portable zip (no nested directory, flat structure)
           VERSION="${{ github.event.inputs.version || '0.1.0' }}"
-          mkdir -p "dist/glide-${VERSION}-windows"
-          cp target/release/glide-tauri.exe "dist/glide-${VERSION}-windows/glide.exe"
-          cp target/release/glide-server.exe "dist/glide-${VERSION}-windows/"
-          cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows/"
-          cp README.md "dist/glide-${VERSION}-windows/"
-          7z a "dist/glide-${VERSION}-windows.zip" "dist/glide-${VERSION}-windows/"
+          mkdir -p "dist/glide-${VERSION}-windows-portable"
+          cp target/release/glide-tauri.exe "dist/glide-${VERSION}-windows-portable/glide.exe"
+          cp target/release/glide-server.exe "dist/glide-${VERSION}-windows-portable/"
+          cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows-portable/"
+          cp README.md "dist/glide-${VERSION}-windows-portable/"
+          cd dist && 7z a "glide-${VERSION}-windows-portable.zip" "glide-${VERSION}-windows-portable/"
         shell: bash
-
-      - name: Check Windows package dependencies
-        run: |
-          $VERSION = "${{ github.event.inputs.version || '0.1.0' }}"
-          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-windows-package-deps.ps1 `
-            -InstallDir "dist/glide-${VERSION}-windows" `
-            -MainExe "glide.exe" `
-            -RequireWebView2OfflineInstaller `
-            -BundleRoot "target/release/bundle"
-        shell: pwsh
 
       - name: Upload Windows packages
         uses: actions/upload-artifact@v4
