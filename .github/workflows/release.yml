@@ -70,8 +70,8 @@ jobs:
       - name: Build server and CLI
         run: cargo build --release --package glide-server --package glide-cli
 
-      - name: Build Tauri desktop client (deb + AppImage)
-        run: cargo tauri build --bundles deb,appimage
+      - name: Build Tauri desktop client (deb + AppImage + RPM)
+        run: cargo tauri build --bundles deb,appimage,rpm
         working-directory: crates/glide-tauri
 
       - name: Collect Linux packages
@@ -142,7 +142,7 @@ jobs:
         run: cargo build --release --package glide-server --package glide-cli
 
       - name: Build Tauri installer (NSIS + MSI)
-        run: cargo tauri build --bundles nsis,msi,rpm
+        run: cargo tauri build --bundles nsis,msi
         working-directory: crates/glide-tauri
 
       - name: Collect Windows packages
