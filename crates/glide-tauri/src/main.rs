@@ -3,6 +3,7 @@ mod sync_engine;
 use glide_core::clipboard::ClipboardKind;
 use glide_core::policy::Policy;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{
@@ -58,6 +59,26 @@ fn ensure_runtime_dirs() -> Result<(), String> {
     std::fs::create_dir_all(app_config_dir()).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(app_log_dir()).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn write_startup_log(message: &str) {
+    let _ = ensure_runtime_dirs();
+    let path = app_log_dir().join("startup.log");
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(file, "{} {}", chrono::Utc::now().to_rfc3339(), message);
+    }
+}
+
+fn install_panic_logger() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        write_startup_log(&format!("panic: {}", info));
+        default_hook(info);
+    }));
 }
 
 fn config_path() -> PathBuf {
@@ -121,9 +142,74 @@ fn check_webview2() -> bool {
     true // Non-Windows platforms always pass this check
 }
 
+#[cfg(target_os = "windows")]
+fn show_startup_error(message: &str) {
+    let escaped = message.replace('\'', "''");
+    let command = format!(
+        "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('{}', 'Glide startup error', 'OK', 'Error')",
+        escaped
+    );
+    let _ = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", &command])
+        .output();
+}
+
+#[cfg(not(target_os = "windows"))]
+fn show_startup_error(_message: &str) {}
+
+fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
+    let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
+    let pause = MenuItem::with_id(app, "pause", "暂停同步", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &pause, &quit])?;
+
+    let mut tray = TrayIconBuilder::new()
+        .menu(&menu)
+        .tooltip("Glide - 剪贴板同步")
+        .on_menu_event(move |app, event| match event.id().as_ref() {
+            "show" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+            "pause" => {
+                let state = app.state::<AppState>();
+                let mut paused = state.sync_paused.blocking_lock();
+                *paused = !*paused;
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                if let Some(w) = tray.app_handle().get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+        });
+
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    } else {
+        tracing::warn!("Default window icon is unavailable; creating tray without icon");
+    }
+
+    tray.build(app).map(|_| ())
+}
+
 fn main() {
+    install_panic_logger();
+
     if let Err(e) = ensure_runtime_dirs() {
         tracing::warn!("Failed to create runtime directories: {}", e);
+        write_startup_log(&format!("failed to create runtime directories: {}", e));
     }
 
     // Do not exit on a diagnostic false negative. Win11 and packaged installs
@@ -161,45 +247,10 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(state)
         .setup(move |app| {
-            // System tray.
-            let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
-            let pause = MenuItem::with_id(app, "pause", "暂停同步", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &pause, &quit])?;
-
-            let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .tooltip("Glide - 剪贴板同步")
-                .on_menu_event(move |app, event| match event.id().as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    "pause" => {
-                        let state = app.state::<AppState>();
-                        let mut paused = state.sync_paused.blocking_lock();
-                        *paused = !*paused;
-                    }
-                    "quit" => app.exit(0),
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        if let Some(w) = tray.app_handle().get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                })
-                .build(app)?;
+            if let Err(e) = setup_tray(app) {
+                tracing::warn!("Failed to initialize tray: {}", e);
+                write_startup_log(&format!("failed to initialize tray: {}", e));
+            }
 
             // Start clipboard monitor and incoming handler.
             let sync_engine_for_monitor = app.state::<AppState>().sync_engine.clone();
@@ -267,7 +318,13 @@ fn main() {
             get_version,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            let message = format!("error while running tauri application: {}", e);
+            write_startup_log(&message);
+            show_startup_error(&message);
+            eprintln!("{}", message);
+            std::process::exit(1);
+        });
 }
 
 #[tauri::command]
