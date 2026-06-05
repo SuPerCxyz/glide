@@ -61,25 +61,29 @@ async def main():
         except Exception as e:
             check(f'Register {name}', False, str(e))
 
-    # Wrong token
-    try:
-        req = urllib.request.Request(f'{SERVER}/api/v1/devices/register',
-            data=json.dumps({'device_id':'bad','name':'bad','registration_token':'wrong'}).encode(),
-            headers={'Content-Type':'application/json'})
-        urllib.request.urlopen(req)
-        check('Wrong token rejected', False)
-    except:
-        check('Wrong token rejected', True)
+    # Wrong token - only test if server has registration token configured
+    # (When no GLIDE_REGISTRATION_TOKEN is set, all registrations succeed)
+    has_reg_token = os.environ.get('GLIDE_REGISTRATION_TOKEN', '')
+    if has_reg_token:
+        try:
+            req = urllib.request.Request(f'{SERVER}/api/v1/devices/register',
+                data=json.dumps({'device_id':'bad','name':'bad','registration_token':'wrong'}).encode(),
+                headers={'Content-Type':'application/json'})
+            urllib.request.urlopen(req)
+            check('Wrong token rejected', False)
+        except:
+            check('Wrong token rejected', True)
 
-    # No token
-    try:
-        req = urllib.request.Request(f'{SERVER}/api/v1/devices/register',
-            data=json.dumps({'device_id':'x','name':'x'}).encode(),
-            headers={'Content-Type':'application/json'})
-        urllib.request.urlopen(req)
-        check('Missing token rejected', False)
-    except:
-        check('Missing token rejected', True)
+        try:
+            req = urllib.request.Request(f'{SERVER}/api/v1/devices/register',
+                data=json.dumps({'device_id':'x','name':'x'}).encode(),
+                headers={'Content-Type':'application/json'})
+            urllib.request.urlopen(req)
+            check('Missing token rejected', False)
+        except:
+            check('Missing token rejected', True)
+    else:
+        print('  ⏭ Token rejection tests skipped (no GLIDE_REGISTRATION_TOKEN)')
 
     # Device list
     try:
