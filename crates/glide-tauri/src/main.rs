@@ -1,5 +1,3 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 mod sync_engine;
 
 use glide_core::clipboard::ClipboardKind;
@@ -19,7 +17,63 @@ struct AppState {
     input_sharing_enabled: Mutex<bool>,
 }
 
+/// Check if WebView2 Runtime is available on Windows.
+/// If not, show a MessageBox with download instructions and exit.
+#[cfg(target_os = "windows")]
+fn check_webview2() -> bool {
+    use std::process::Command;
+    // Check if WebView2 loader DLL exists or if Edge is installed.
+    let program_files = std::env::var("PROGRAMFILES(x86)").unwrap_or_default();
+    let webview2_path = format!(
+        "{}\\Microsoft\\EdgeWebView\\Application",
+        program_files
+    );
+    if std::path::Path::new(&webview2_path).exists() {
+        return true;
+    }
+    // Check via registry (simpler approach)
+    let output = Command::new("reg")
+        .args(["query", "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BEB-235B8DB25D42}", "/v", "pv"])
+        .output();
+    if let Ok(out) = output {
+        if out.status.success() {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(not(target_os = "windows"))]
+fn check_webview2() -> bool {
+    true // Non-Windows platforms always pass this check
+}
+
+#[cfg(target_os = "windows")]
+fn show_webview2_error() {
+    use std::process::Command;
+    // Show a Windows MessageBox with download instructions.
+    let msg = "Glide requires WebView2 Runtime to run.\n\n\
+               Please download and install it from:\n\
+               https://developer.microsoft.com/en-us/microsoft-edge/webview2/\n\n\
+               After installing, restart Glide.";
+    let _ = Command::new("powershell")
+        .args(["-command", &format!(
+            "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('{}', 'Glide - Missing Component', 'OK', 'Error')",
+            msg.replace('\'', "''")
+        )])
+        .output();
+}
+
+#[cfg(not(target_os = "windows"))]
+fn show_webview2_error() {}
+
 fn main() {
+    // Check WebView2 availability before starting.
+    if !check_webview2() {
+        show_webview2_error();
+        std::process::exit(1);
+    }
+
     let device_id = uuid::Uuid::new_v4().to_string();
     let device_name = hostname::get()
         .map(|h| h.to_string_lossy().to_string())
@@ -87,13 +141,11 @@ fn main() {
             let app_handle = app.handle().clone();
 
             tokio::spawn(async move {
-                // Take the incoming receiver before starting monitor.
                 let mut rx = {
                     let engine = sync_engine_for_recv.lock().await;
                     engine.take_incoming().await
                 };
 
-                // Start clipboard monitor in background.
                 let se_monitor = sync_engine_for_monitor.clone();
                 let monitor_device_id = {
                     let engine = se_monitor.lock().await;
@@ -113,7 +165,6 @@ fn main() {
                     .await;
                 });
 
-                // Process incoming clipboard items.
                 if let Some(ref mut rx) = rx {
                     while let Some(item) = rx.recv().await {
                         if let Err(e) = apply_clipboard(&item).await {
