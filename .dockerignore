@@ -1,5 +1,5 @@
-target/
 .git/
 *.db
+*.log
 /data/
 /tmp/
