@@ -3,7 +3,7 @@
 test: test-e2e
 
 test-e2e:
-	python3 scripts/test-e2e.py
+	bash scripts/test-e2e-linux.sh
 
 test-network:
 	bash scripts/test-network.sh
@@ -27,7 +27,7 @@ test-all:
 	@echo "=== Running all tests ==="
 	. "$(HOME)/.cargo/env" && cargo test --package glide-core --package glide-server --package glide-desktop 2>&1 | grep "test result"
 	@echo ""
-	python3 scripts/test-e2e.py 2>&1 | tail -3
+	bash scripts/test-e2e-linux.sh 2>&1 | tail -3
 	@echo ""
 	bash scripts/test-network.sh 2>&1 | tail -3
 	@echo ""

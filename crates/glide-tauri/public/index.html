@@ -22,6 +22,9 @@
         .server-input input{flex:1;padding:8px 12px;background:#16213e;border:1px solid #333;border-radius:6px;color:#eee;font-size:12px}
         .server-input input:focus{outline:none;border-color:#00d4ff}
         .server-input button{padding:8px 16px;background:#00d4ff;border:none;border-radius:6px;color:#1a1a2e;font-weight:bold;cursor:pointer;font-size:12px}
+        .token-input{margin:8px 0}
+        .token-input input{width:100%;padding:8px 12px;background:#16213e;border:1px solid #333;border-radius:6px;color:#eee;font-size:12px}
+        .token-input input:focus{outline:none;border-color:#00d4ff}
         .controls{display:flex;gap:8px;margin:12px 0}
         .toggle-btn{flex:1;padding:10px;border-radius:8px;border:1px solid #333;background:#16213e;color:#eee;cursor:pointer;font-size:12px;text-align:center;transition:all .2s}
         .toggle-btn:hover{border-color:#00d4ff}
@@ -69,6 +72,9 @@
             <input type="text" id="serverUrl" placeholder="服务器地址 (如 http://localhost:8080)" />
             <button onclick="connect()">连接</button>
         </div>
+        <div class="token-input">
+            <input type="password" id="registrationToken" placeholder="注册 Token（服务端要求时填写）" autocomplete="off" />
+        </div>
         <div class="controls">
             <button class="toggle-btn" id="pauseBtn" onclick="togglePause()">⏸ 暂停同步</button>
             <button class="toggle-btn" id="inputBtn" onclick="toggleInput()">🖱️ 键鼠共享</button>
@@ -110,6 +116,8 @@
             document.getElementById('version').textContent='v'+version;
             const serverUrl=await invoke('get_server_url');
             if(serverUrl)document.getElementById('serverUrl').value=serverUrl;
+            const registrationToken=await invoke('get_registration_token');
+            if(registrationToken)document.getElementById('registrationToken').value=registrationToken;
             const paused=await invoke('get_sync_paused');
             updatePauseButton(paused);
             const inputEnabled=await invoke('get_input_sharing_enabled');
@@ -118,10 +126,11 @@
         }
         async function connect(){
             const url=document.getElementById('serverUrl').value;
+            const registrationToken=document.getElementById('registrationToken').value;
             if(!url)return;
             updateStatus('connecting');
             try{
-                const result=await invoke('connect_to_server',{url});
+                const result=await invoke('connect_to_server',{url,registrationToken});
                 updateStatus('connected');
                 // Start polling for status updates.
                 startStatusPoll();

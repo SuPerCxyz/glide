@@ -11,6 +11,7 @@ import json
 import urllib.request
 import sys
 import os
+from urllib.parse import urlparse
 
 PASS = FAIL = SKIP = 0
 
@@ -179,7 +180,10 @@ async def main():
     # ── Phase 5: Error Handling ──
     print('\n=== Phase 5: Error Handling ===')
     try:
-        await asyncio.wait_for(websockets.connect(f'{WS_SERVER.replace("8080","9999")}/ws/sync'), timeout=2)
+        parsed_ws = urlparse(WS_SERVER)
+        wrong_port = (parsed_ws.port or 8080) + 1
+        wrong_ws = parsed_ws._replace(netloc=f'{parsed_ws.hostname}:{wrong_port}').geturl()
+        await asyncio.wait_for(websockets.connect(f'{wrong_ws}/ws/sync'), timeout=2)
         check('Wrong port fails', False)
     except: check('Wrong port fails', True)
 

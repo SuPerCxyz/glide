@@ -65,16 +65,29 @@ pub async fn validate_and_use_token(
         None => return Err(GlideError::InvalidToken("token not found".to_string())),
     };
 
-    let (_id, _token, expires_at, _ttl_secs, max_uses, use_count, max_item_size, allowed_ops, _created_at, revoked) = row;
+    let (
+        _id,
+        _token,
+        expires_at,
+        _ttl_secs,
+        max_uses,
+        use_count,
+        max_item_size,
+        allowed_ops,
+        _created_at,
+        revoked,
+    ) = row;
 
     // Check revoked.
     if revoked {
-        return Err(GlideError::InvalidToken("token has been revoked".to_string()));
+        return Err(GlideError::InvalidToken(
+            "token has been revoked".to_string(),
+        ));
     }
 
     // Check expiry.
     let now = Utc::now().timestamp_millis();
-    if now > expires_at {
+    if now >= expires_at {
         return Err(GlideError::TokenExpired);
     }
 
@@ -164,7 +177,7 @@ pub async fn create_temp_token(
 /// Remove expired tokens.
 pub async fn cleanup_expired_tokens(pool: &Pool<Sqlite>) -> Result<i64> {
     let now = Utc::now().timestamp_millis();
-    let result = sqlx::query("DELETE FROM temp_tokens WHERE expires_at < ? OR revoked = TRUE")
+    let result = sqlx::query("DELETE FROM temp_tokens WHERE expires_at <= ? OR revoked = TRUE")
         .bind(now)
         .execute(pool)
         .await

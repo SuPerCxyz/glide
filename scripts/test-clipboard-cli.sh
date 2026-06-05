@@ -1,16 +1,24 @@
 #!/bin/bash
 # scripts/test-clipboard-cli.sh — Linux CLI clipboard tests
 set +e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/test-lib.sh"
+export GLIDE_TEST_MANAGED_SERVER="${GLIDE_TEST_MANAGED_SERVER:-1}"
+start_managed_server || exit 1
+set +e
+
 echo "=== Linux CLI Clipboard Tests ==="
 python3 -c "
-import json, urllib.request, asyncio, websockets
+import json, os, sys, urllib.request, asyncio, websockets
+
+WS_SERVER = os.environ['GLIDE_WS_SERVER']
 
 async def test():
     # Connect receiver FIRST, then sender
-    ws_r = await websockets.connect('ws://localhost:8080/ws/sync?device_id=cli-receiver')
+    ws_r = await websockets.connect(f'{WS_SERVER}/ws/sync?device_id=cli-receiver')
     await ws_r.send(json.dumps({'event_type':'DeviceJoined','data':{'device_id':'cli-receiver','name':'Receiver'}}))
     
-    ws_s = await websockets.connect('ws://localhost:8080/ws/sync?device_id=cli-sender')
+    ws_s = await websockets.connect(f'{WS_SERVER}/ws/sync?device_id=cli-sender')
     await ws_s.send(json.dumps({'event_type':'DeviceJoined','data':{'device_id':'cli-sender','name':'Sender'}}))
     await asyncio.sleep(0.3)
     
@@ -64,5 +72,7 @@ async def test():
     
     await ws_s.close(); await ws_r.close()
     print(f'\n  Results: {passed} passed, {failed} failed')
-asyncio.run(test())
+    return failed
+sys.exit(1 if asyncio.run(test()) else 0)
 " 2>&1
+exit ${PIPESTATUS[0]}

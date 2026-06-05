@@ -3,9 +3,9 @@
 /// This crate owns all shared data types: device identity, clipboard items,
 /// MIME representations, payload references, transfer sessions, sync events,
 /// and input events.
-
 pub mod device;
 pub mod clipboard;
+pub mod client_connection;
 pub mod mime_rep;
 pub mod payload;
 pub mod transfer;
@@ -17,6 +17,7 @@ pub mod discovery;
 pub mod route;
 
 pub use clipboard::*;
+pub use client_connection::*;
 pub use device::*;
 pub use error::*;
 pub use input_event::*;

@@ -1,7 +1,16 @@
 #!/bin/bash
 # scripts/test-network.sh — Network anomaly tests for Glide server.
 set +e
-SERVER=${GLIDE_SERVER:-http://localhost:8080}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/test-lib.sh"
+export GLIDE_TEST_MANAGED_SERVER="${GLIDE_TEST_MANAGED_SERVER:-1}"
+start_managed_server || exit 1
+set +e
+
+SERVER=${GLIDE_SERVER}
+WS_SERVER=${GLIDE_WS_SERVER}
+SERVER_PORT=${SERVER##*:}
+SERVER_PORT=${SERVER_PORT%%/*}
 PASS=0; FAIL=0
 
 check() {
@@ -26,9 +35,9 @@ curl -sf "http://localhost:9999/api/v1/health" > /dev/null 2>&1; RESULT=$?
 # Phase 2: Port binding
 echo ""
 echo "--- Port Binding ---"
-ss -lntup 2>/dev/null | grep -q ":8080"; check "Port 8080 listening" $?
-ss -lntup 2>/dev/null | grep "8080" | grep -q "0.0.0.0"; check "Bound to 0.0.0.0" $?
-ss -lntup 2>/dev/null | grep "8080" | grep -q "\[::\]"; check "IPv6 listening" $?
+ss -lntup 2>/dev/null | grep -q "$SERVER_PORT"; check "Port $SERVER_PORT listening" $?
+ss -lntup 2>/dev/null | grep "$SERVER_PORT" | grep -q "127.0.0.1"; check "Bound to managed loopback" $?
+ss -lntup 2>/dev/null | grep "$SERVER_PORT" | grep -q "glide-server"; check "Glide server owns port" $?
 
 # Phase 3: Registration
 echo ""
@@ -55,7 +64,7 @@ echo "--- WebSocket ---"
 python3 -c "
 import asyncio, websockets, json
 async def t():
-    ws = await websockets.connect('ws://localhost:8080/ws/sync?device_id=ws-net')
+    ws = await websockets.connect('${WS_SERVER}/ws/sync?device_id=ws-net')
     await ws.send(json.dumps({'event_type':'DeviceJoined','data':{'device_id':'ws-net','name':'Test'}}))
     await ws.close()
 asyncio.run(t())

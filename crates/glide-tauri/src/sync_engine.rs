@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
+use glide_core::client_connection::{mask_secret, registration_body};
 use glide_core::clipboard::ClipboardItem;
-use glide_core::sync_event::SyncEvent;
 use glide_core::policy::Policy;
+use glide_core::sync_event::SyncEvent;
 
 /// Sync engine - manages server connection, clipboard monitoring, and sync.
 pub struct SyncEngine {
@@ -38,7 +39,11 @@ impl SyncEngine {
     }
 
     /// Connect to server and start sync loop.
-    pub async fn connect(&self, url: String) -> Result<(), String> {
+    pub async fn connect(
+        &self,
+        url: String,
+        registration_token: Option<String>,
+    ) -> Result<(), String> {
         if url.is_empty() {
             return Err("Server URL is empty".to_string());
         }
@@ -53,29 +58,39 @@ impl SyncEngine {
         }
 
         let base_url = url.trim_end_matches('/').to_string();
+        let token_marker = mask_secret(registration_token.as_deref());
+        log_connection_target(&base_url, &token_marker);
 
         // 1. Register device with server.
         let client = reqwest::Client::new();
         let register_url = format!("{}/api/v1/devices/register", base_url);
-        let register_body = serde_json::json!({
-            "device_id": self.device_id,
-            "name": self.device_name,
-            "platform": std::env::consts::OS,
-            "trusted": true,
-        });
+        let register_body = registration_body(
+            &self.device_id,
+            &self.device_name,
+            std::env::consts::OS,
+            registration_token.as_deref(),
+        );
+        info!("Registering device with server: {}", register_url);
 
         match client.post(&register_url).json(&register_body).send().await {
             Ok(resp) => {
                 if !resp.status().is_success() {
-                    let err = format!("Registration failed: {}", resp.status());
+                    let status_code = resp.status();
+                    let body = resp.text().await.unwrap_or_default();
+                    let err = format!(
+                        "Registration failed at auth stage: status={}, reason={}",
+                        status_code, body
+                    );
+                    warn!("{}", err);
                     let mut status = self.connection_status.lock().await;
                     *status = format!("error: {}", err);
                     return Err(err);
                 }
-                info!("Device registered with server");
+                info!("Device registered with server; token={}", token_marker);
             }
             Err(e) => {
-                let err = format!("Connection failed: {}", e);
+                let err = format!("Connection failed during registration request: {}", e);
+                warn!("{}", err);
                 let mut status = self.connection_status.lock().await;
                 *status = format!("error: {}", err);
                 return Err(err);
@@ -85,7 +100,9 @@ impl SyncEngine {
         // 2. Connect to WebSocket for real-time sync.
         let ws_url = format!(
             "{}/ws/sync?device_id={}",
-            base_url.replace("http://", "ws://").replace("https://", "wss://"),
+            base_url
+                .replace("http://", "ws://")
+                .replace("https://", "wss://"),
             self.device_id
         );
 
@@ -95,7 +112,15 @@ impl SyncEngine {
         let server_url = base_url.clone();
 
         tokio::spawn(async move {
-            match connect_websocket(&ws_url, connection_status.clone(), incoming_tx, device_id, &server_url).await {
+            match connect_websocket(
+                &ws_url,
+                connection_status.clone(),
+                incoming_tx,
+                device_id,
+                &server_url,
+            )
+            .await
+            {
                 Ok(()) => {
                     info!("WebSocket connection closed normally");
                     let mut status = connection_status.lock().await;
@@ -164,6 +189,25 @@ impl SyncEngine {
     }
 }
 
+fn log_connection_target(base_url: &str, token_marker: &str) {
+    match reqwest::Url::parse(base_url) {
+        Ok(parsed) => {
+            let host = parsed.host_str().unwrap_or("<missing>");
+            let port = parsed.port_or_known_default().unwrap_or(0);
+            info!(
+                "Connecting to server: scheme={}, host={}, port={}, token={}",
+                parsed.scheme(),
+                host,
+                port,
+                token_marker
+            );
+        }
+        Err(err) => {
+            warn!("Invalid server URL '{}': {}", base_url, err);
+        }
+    }
+}
+
 /// Connect to server WebSocket and handle sync events.
 async fn connect_websocket(
     ws_url: &str,
@@ -188,7 +232,9 @@ async fn connect_websocket(
         name: format!("Client-{}", &device_id[..8]),
     };
     if let Ok(msg) = serde_json::to_string(&identify) {
-        let _ = ws_tx.send(tokio_tungstenite::tungstenite::Message::Text(msg)).await;
+        let _ = ws_tx
+            .send(tokio_tungstenite::tungstenite::Message::Text(msg))
+            .await;
     }
 
     // Spawn heartbeat task.
@@ -206,7 +252,11 @@ async fn connect_websocket(
             };
             if let Ok(msg) = serde_json::to_string(&heartbeat) {
                 let mut tx = ws_tx_for_heartbeat.lock().await;
-                if tx.send(tokio_tungstenite::tungstenite::Message::Text(msg)).await.is_err() {
+                if tx
+                    .send(tokio_tungstenite::tungstenite::Message::Text(msg))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -222,11 +272,17 @@ async fn connect_websocket(
                         SyncEvent::ClipboardCaptured { item } => {
                             // Don't echo our own items.
                             if item.source_device_id != device_id {
-                                info!("Received clipboard from {}: {}", item.source_device_id, item.item_id);
+                                info!(
+                                    "Received clipboard from {}: {}",
+                                    item.source_device_id, item.item_id
+                                );
                                 let _ = incoming_tx.send(item);
                             }
                         }
-                        SyncEvent::DeviceJoined { device_id: did, name } => {
+                        SyncEvent::DeviceJoined {
+                            device_id: did,
+                            name,
+                        } => {
                             info!("Device joined: {} ({})", name, did);
                         }
                         SyncEvent::DeviceLeft { device_id: did } => {
@@ -252,10 +308,8 @@ async fn connect_websocket(
 
 /// Monitor clipboard changes and return new items.
 /// This is a simple polling-based monitor.
-pub async fn monitor_clipboard<F>(
-    device_id: String,
-    mut on_clipboard: F,
-) where
+pub async fn monitor_clipboard<F>(device_id: String, mut on_clipboard: F)
+where
     F: FnMut(ClipboardItem) + Send + 'static,
 {
     use std::time::Duration;
@@ -308,10 +362,7 @@ async fn read_clipboard_text() -> Option<String> {
                 return String::from_utf8(output.stdout).ok();
             }
         }
-        if let Ok(output) = tokio::process::Command::new("wl-paste")
-            .output()
-            .await
-        {
+        if let Ok(output) = tokio::process::Command::new("wl-paste").output().await {
             if output.status.success() {
                 return String::from_utf8(output.stdout).ok();
             }
@@ -347,5 +398,5 @@ fn md5_hash(data: &str) -> u128 {
     hasher.finish() as u128
 }
 
-use std::time::Duration;
 use glide_core::clipboard::ClipboardKind;
+use std::time::Duration;

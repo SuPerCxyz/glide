@@ -22,6 +22,8 @@ struct AppState {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct DesktopConfig {
     server_url: String,
+    #[serde(default)]
+    registration_token: String,
 }
 
 fn app_config_dir() -> PathBuf {
@@ -70,11 +72,8 @@ fn load_config() -> DesktopConfig {
     }
 }
 
-fn save_server_url(url: &str) -> Result<(), String> {
+fn save_config(config: &DesktopConfig) -> Result<(), String> {
     ensure_runtime_dirs()?;
-    let config = DesktopConfig {
-        server_url: url.to_string(),
-    };
     let data = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     std::fs::write(config_path(), data).map_err(|e| e.to_string())
 }
@@ -150,7 +149,7 @@ fn main() {
     if !saved_config.server_url.is_empty() {
         let engine = sync_engine.blocking_lock();
         let mut server_url = engine.server_url.blocking_lock();
-        *server_url = saved_config.server_url;
+        *server_url = saved_config.server_url.clone();
     }
 
     let state = AppState {
@@ -261,6 +260,7 @@ fn main() {
             toggle_input_sharing,
             get_input_sharing_enabled,
             get_server_url,
+            get_registration_token,
             set_server_url,
             connect_to_server,
             get_policy,
@@ -286,10 +286,16 @@ async fn get_connection_status(state: tauri::State<'_, AppState>) -> Result<Stri
 async fn connect_to_server(
     state: tauri::State<'_, AppState>,
     url: String,
+    registration_token: Option<String>,
 ) -> Result<String, String> {
     let engine = state.sync_engine.lock().await;
-    engine.connect(url.clone()).await?;
-    save_server_url(&url)?;
+    engine
+        .connect(url.clone(), registration_token.clone())
+        .await?;
+    save_config(&DesktopConfig {
+        server_url: url,
+        registration_token: registration_token.unwrap_or_default(),
+    })?;
     Ok("connected".to_string())
 }
 
@@ -345,11 +351,18 @@ async fn set_server_url(state: tauri::State<'_, AppState>, url: String) -> Resul
     let mut server = engine.server_url.lock().await;
     if url.is_empty() || url.starts_with("http://") || url.starts_with("https://") {
         *server = url.clone();
-        save_server_url(&url)?;
+        let mut config = load_config();
+        config.server_url = url;
+        save_config(&config)?;
         Ok(true)
     } else {
         Ok(false)
     }
+}
+
+#[tauri::command]
+async fn get_registration_token() -> Result<String, String> {
+    Ok(load_config().registration_token)
 }
 
 #[tauri::command]

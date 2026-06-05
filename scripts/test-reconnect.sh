@@ -1,12 +1,18 @@
 #!/bin/bash
 # scripts/test-reconnect.sh — Reconnection and auth tests
 set +e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/test-lib.sh"
+export GLIDE_TEST_MANAGED_SERVER="${GLIDE_TEST_MANAGED_SERVER:-1}"
+start_managed_server || exit 1
+set +e
+
 echo "=== Reconnection & Auth Tests ==="
 python3 -c "
-import asyncio, json, websockets, urllib.request, time
+import asyncio, json, os, sys, websockets, urllib.request, time
 
-SERVER = 'http://localhost:8080'
-WS_SERVER = 'ws://localhost:8080'
+SERVER = os.environ['GLIDE_SERVER']
+WS_SERVER = os.environ['GLIDE_WS_SERVER']
 PASS = FAIL = 0
 
 def check(name, cond):
@@ -99,6 +105,8 @@ async def test():
     check('Devices registered', device_count >= 2)
     
     print(f'\n  Results: {PASS} passed, {FAIL} failed')
+    return FAIL
 
-asyncio.run(test())
+sys.exit(1 if asyncio.run(test()) else 0)
 " 2>&1
+exit ${PIPESTATUS[0]}
