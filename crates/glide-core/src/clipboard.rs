@@ -52,18 +52,13 @@ pub enum SessionType {
 }
 
 /// Delivery policy for clipboard items.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeliveryPolicy {
     /// Sync to all trusted nodes in the mesh.
+    #[default]
     Broadcast,
     /// Sync only to specific device IDs.
     Targeted(Vec<String>),
     /// Do not sync (local-only clipboard event).
     LocalOnly,
-}
-
-impl Default for DeliveryPolicy {
-    fn default() -> Self {
-        Self::Broadcast
-    }
 }

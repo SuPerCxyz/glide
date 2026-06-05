@@ -60,10 +60,8 @@ impl Policy {
     pub fn allows_sync(&self, device_id: &DeviceId, kind: ClipboardKind) -> bool {
         // Check per-device policy first.
         for dp in &self.device_policies {
-            if dp.device_id == *device_id {
-                if !dp.sync_enabled {
-                    return false;
-                }
+            if dp.device_id == *device_id && !dp.sync_enabled {
+                return false;
             }
         }
 

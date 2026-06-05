@@ -116,10 +116,8 @@ impl PeerRegistry {
                 if elapsed > self.offline_timeout * 4 {
                     removed.push(id.clone());
                 }
-            } else if elapsed > self.stale_timeout {
-                if peer.state != PeerState::Offline {
-                    peer.state = PeerState::Stale;
-                }
+            } else if elapsed > self.stale_timeout && peer.state != PeerState::Offline {
+                peer.state = PeerState::Stale;
             }
         }
 

@@ -47,8 +47,7 @@
       "nsis": {
         "installMode": "both",
         "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico",
-        "webviewInstallMode": "embedBootstrapper"
+        "installerIcon": "icons/icon.ico"
       }
     }
   }
