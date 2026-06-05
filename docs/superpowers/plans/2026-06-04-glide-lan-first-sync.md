@@ -1,5 +1,9 @@
 # Glide LAN-First Sync — 实施计划与进度
 
+> **历史说明：** 本计划记录 Slint 迁移前的第一版实现过程。当前桌面 GUI
+> 主方案见 [docs/gui-migration.md](../../gui-migration.md)，不再使用
+> Tauri 或 WebView2。
+>
 > **设计文档：** [docs/design.md](../design.md)
 > **测试计划：** [docs/test-plan.md](../test-plan.md)
 >

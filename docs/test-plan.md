@@ -1,7 +1,7 @@
 # Glide 测试计划
 
 > 最后更新：2026-06-05
-> 当前虚拟环境执行结果：195 通过 / 0 失败
+> 当前虚拟环境执行结果：198 通过 / 0 失败
 > Windows GUI 真实桌面执行：当前环境无 Windows VM / Wine / PowerShell，已生成 VM 脚本，需在 Windows VM 执行
 
 ## 1. 测试环境
@@ -34,6 +34,11 @@
 
 ```bash
 cargo test --package glide-core --package glide-server --package glide-desktop
+cargo test --package glide-gui
+cargo check --workspace
+cargo build --release --package glide-gui --package glide-cli --package glide-server
+cargo clippy --package glide-gui --no-deps -- -D warnings
+VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh
 bash scripts/test-e2e-linux.sh
 bash scripts/test-network.sh
 bash scripts/test-clipboard-cli.sh
@@ -56,6 +61,11 @@ bash scripts/test-tc-network.sh
 | 键鼠协议 | `bash scripts/test-keyboard-mouse-protocol.sh` | 键盘、组合键、鼠标移动/点击/滚轮、紧急释放、路由、坐标映射、边缘检测、DPI 100/125/150 | 34/34 通过 |
 | 认证重连 | `bash scripts/test-reconnect.sh` | 正确/错误/缺失 token、WebSocket 重连、5 客户端、5 客户端同步、设备注册表 | 7/7 通过 |
 | Linux GUI | `bash scripts/test-gui-linux.sh` | Xvfb、xclip 写读、中文、xdotool 鼠标/键盘/点击 | 6/6 通过 |
+| Slint GUI | `cargo test --package glide-gui` | GUI backend trait mock、连接状态、空 URL 拒绝、剪贴板/键鼠开关 | 3/3 通过 |
+| Slint 构建 | `cargo check --workspace` | 全 workspace 编译检查；GUI 不依赖 Tauri/WebView2 | 通过，既有 crate 有 unused warnings |
+| Slint clippy | `cargo clippy --package glide-gui --no-deps -- -D warnings` | 新 GUI crate 自身 lint | 通过 |
+| Rust workspace | `cargo test --workspace` | core、desktop、server、cli、gui 单元/集成/doc tests | 107/107 通过，既有 crate 有 unused warnings |
+| Linux 打包 | `VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh` | deb/AppImage 生成、root owner、GUI/CLI/server 内容 | deb 11MB，AppImage 15MB |
 | 网络异常 | `bash scripts/test-tc-network.sh` | 服务端重启、坏 IP 超时后恢复、快速连接/断开、1MB payload、IPv4、端口绑定 | 7/7 通过 |
 
 ## 5. 已修复问题
@@ -72,7 +82,7 @@ bash scripts/test-tc-network.sh
 
 | 脚本 | 覆盖 | 当前状态 |
 |------|------|----------|
-| `scripts/check-windows-package-deps.ps1` | 安装包产物、DLL、资源、构建机路径、WebView2/VC runtime 检查 | CI/Windows runner 可执行 |
+| `scripts/check-windows-package-deps.ps1` | 安装包产物、DLL、资源、构建机路径、无 WebView2/Tauri 依赖、VC runtime 检查 | CI/Windows runner 可执行 |
 | `scripts/test-windows-installer.ps1` | NSIS/MSI 安装、卸载、快捷方式、目录 | 需干净 Windows VM |
 | `scripts/test-windows-installed-client.ps1` | 安装后 GUI 启动、配置/日志目录 | 需干净 Windows VM |
 | `scripts/test-windows-connect.ps1` | `Test-NetConnection`、DNS、health、Windows device 注册、坏 token、WebSocket | 需 Windows VM；已与 token 参数兼容 |
@@ -121,6 +131,8 @@ Get-Process | ? ProcessName -match "glide"
 | NET-002 | 坏 IP | 虚拟不可达地址 | 连接 `10.255.255.1` | 超时后正常服务可重连 | 是 | 通过 |
 | NET-003 | 大 payload | WS | 发送 1MB 文本 | 发送成功 | 是 | 通过 |
 | SEC-001 | token 脱敏 | 单元测试 | `mask_secret` | 不输出明文 | 是 | 通过 |
+| GUI-003 | Slint GUI mock backend | 本地 Rust 环境 | `cargo test --package glide-gui` | 状态、连接、开关 mock 逻辑通过 | 是 | 通过 |
+| GUI-004 | Slint GUI 构建 | 本地 Rust 环境 | `cargo check --package glide-gui` | 无 Tauri/WebView2 依赖，UI 代码生成成功 | 是 | 通过 |
 
 ## 8. 当前无法执行项
 

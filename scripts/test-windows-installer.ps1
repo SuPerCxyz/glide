@@ -39,7 +39,6 @@ if (-not (Test-Path $InstallDir)) {
 pwsh -NoProfile -ExecutionPolicy Bypass -File "$PSScriptRoot\check-windows-package-deps.ps1" `
     -InstallDir $InstallDir `
     -MainExe "Glide.exe" `
-    -RequireWebView2OfflineInstaller `
     -LaunchSmoke
 
 Write-Host "Installer smoke test passed."

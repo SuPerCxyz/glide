@@ -4,8 +4,7 @@
 /// - Linux clipboard adapter (X11/Wayland/headless)
 /// - Windows clipboard adapter (winapi/clipboard-win)
 /// - LAN sync engine (direct peer-to-peer without server)
-/// - Tauri desktop GUI
-/// - Sync policy UI
+/// - Desktop-facing sync policy helpers used by CLI/GUI backends
 
 pub mod clipboard_adapter;
 pub mod input_adapter;

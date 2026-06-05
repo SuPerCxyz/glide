@@ -2,7 +2,6 @@ param(
     [string]$InstallDir = "",
     [string]$MainExe = "glide.exe",
     [string]$BundleRoot = "",
-    [switch]$RequireWebView2OfflineInstaller,
     [switch]$LaunchSmoke
 )
 
@@ -82,7 +81,7 @@ if (-not $InstallDir) {
 $InstallDir = (Resolve-Path $InstallDir).Path
 $mainExePath = Join-Path $InstallDir $MainExe
 
-Test-RequiredFile $mainExePath "Main GUI executable exists"
+Test-RequiredFile $mainExePath "Slint GUI executable exists"
 Test-RequiredFile (Join-Path $InstallDir "glide-server.exe") "Server executable exists"
 Test-RequiredFile (Join-Path $InstallDir "glide-cli.exe") "CLI executable exists"
 
@@ -93,32 +92,29 @@ if (Test-Path $readme) {
     Warn "Portable README is not present" "Installed NSIS/MSI directories do not have to include README.md."
 }
 
-$tauriConfigPath = Join-Path $repoRoot "crates\glide-tauri\tauri.conf.json"
-if (Test-Path $tauriConfigPath) {
-    $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
-    $mode = $tauriConfig.bundle.windows.webviewInstallMode.type
-    if ($RequireWebView2OfflineInstaller) {
-        if ($mode -eq "offlineInstaller") {
-            Pass "Tauri config embeds WebView2 offline installer"
-        } else {
-            Fail "Tauri config embeds WebView2 offline installer" "Actual webviewInstallMode: $mode"
-        }
-    }
-    $targets = @($tauriConfig.bundle.targets)
-    if ($targets -contains "nsis") { Pass "Tauri targets include NSIS" } else { Fail "Tauri targets include NSIS" }
-    if ($targets -contains "msi") { Pass "Tauri targets include MSI" } else { Fail "Tauri targets include MSI" }
+$tauriCratePath = Join-Path $repoRoot "crates\glide-tauri"
+if (Test-Path $tauriCratePath) {
+    Fail "Tauri crate has been removed" "Unexpected path still exists: $tauriCratePath"
 } else {
-    Fail "Tauri config exists" "Missing: $tauriConfigPath"
+    Pass "Tauri crate has been removed"
+}
+
+$cargoToml = Join-Path $repoRoot "Cargo.toml"
+if ((Get-Content $cargoToml -Raw) -match "glide-tauri|tauri") {
+    Fail "Workspace no longer references Tauri" "Cargo.toml still contains a Tauri reference"
+} else {
+    Pass "Workspace no longer references Tauri"
 }
 
 if ($BundleRoot) {
     if (Test-Path $BundleRoot) {
-        $nsis = Get-ChildItem -Path $BundleRoot -Recurse -File -Include "*setup*.exe", "*.exe" |
-            Where-Object { $_.FullName -match "\\nsis\\" -or $_.Name -match "setup" } |
-            Select-Object -First 1
-        $msi = Get-ChildItem -Path $BundleRoot -Recurse -File -Filter "*.msi" | Select-Object -First 1
-        if ($nsis) { Pass "NSIS installer artifact exists" } else { Fail "NSIS installer artifact exists" }
-        if ($msi) { Pass "MSI installer artifact exists" } else { Fail "MSI installer artifact exists" }
+        $zip = Get-ChildItem -Path $BundleRoot -Recurse -File -Filter "*.zip" | Select-Object -First 1
+        $exe = Get-ChildItem -Path $BundleRoot -Recurse -File -Include "glide.exe", "glide-gui.exe" | Select-Object -First 1
+        if ($zip -or $exe) {
+            Pass "Windows portable Slint package artifact exists"
+        } else {
+            Fail "Windows portable Slint package artifact exists"
+        }
     } else {
         Fail "Bundle output root exists" "Missing: $BundleRoot"
     }
@@ -134,9 +130,14 @@ if ($dumpbin -and (Test-Path $mainExePath)) {
         Pass "MSVC runtime is statically linked or not required"
     }
     if ($depText -match "WebView2Loader\.dll") {
-        Warn "WebView2Loader.dll dependency found" "Ensure the DLL is installed next to the app or provided by Tauri."
+        Fail "No WebView2 runtime dependency" "Slint GUI must not import WebView2Loader.dll."
     } else {
         Pass "No direct WebView2Loader.dll import in main executable"
+    }
+    if ($depText -match "tauri") {
+        Fail "No Tauri dependency in main executable" "dumpbin output unexpectedly contains Tauri."
+    } else {
+        Pass "No Tauri dependency in main executable"
     }
 } else {
     Warn "dumpbin dependency scan skipped" "Install Visual Studio Build Tools or run from a Developer PowerShell."
@@ -150,6 +151,8 @@ if (Test-Path $mainExePath) {
         "\\target\\debug",
         "\\target\\release\\build",
         "\\crates\\glide",
+        "WebView2Loader.dll",
+        "tauri.conf.json",
         "C:\\Users\\runneradmin\\",
         "C:\\Users\\superc\\"
     )

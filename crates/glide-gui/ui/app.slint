@@ -1,0 +1,595 @@
+import { Button, LineEdit, ScrollView, Switch } from "std-widgets.slint";
+
+export struct DeviceRow {
+    name: string,
+    platform: string,
+    status: string,
+}
+
+export global AppColors {
+    out property <color> primary: #1f7a8c;
+    out property <color> background: #f6f8fa;
+    out property <color> surface: #ffffff;
+    out property <color> border: #d0d7de;
+    out property <color> text-primary: #24292f;
+    out property <color> text-secondary: #57606a;
+    out property <color> success: #1a7f37;
+    out property <color> warning: #9a6700;
+    out property <color> danger: #cf222e;
+}
+
+component SectionTitle inherits Text {
+    in property <string> label;
+    text: label;
+    font-size: 14px;
+    font-weight: 700;
+    color: AppColors.text-secondary;
+}
+
+component StatusBadge inherits Rectangle {
+    in property <string> label;
+    in property <color> badge-color: AppColors.success;
+    width: 86px;
+    height: 24px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: badge-color;
+    background: badge-color.transparentize(0.9);
+
+    Text {
+        text: label;
+        font-size: 12px;
+        color: badge-color;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component DeviceCard inherits Rectangle {
+    in property <string> device-name;
+    in property <string> device-platform;
+    in property <string> status-text;
+    height: 68px;
+    background: AppColors.surface;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: AppColors.border;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+
+        VerticalLayout {
+            spacing: 4px;
+            horizontal-stretch: 1;
+            Text {
+                text: device-name;
+                font-size: 14px;
+                font-weight: 700;
+                color: AppColors.text-primary;
+            }
+            Text {
+                text: device-platform;
+                font-size: 12px;
+                color: AppColors.text-secondary;
+            }
+        }
+
+        StatusBadge {
+            label: status-text;
+            badge-color: status-text == "在线" ? AppColors.success : AppColors.text-secondary;
+        }
+    }
+}
+
+component SettingsRow inherits Rectangle {
+    in property <string> label;
+    in property <string> detail;
+    in property <bool> checked;
+    callback toggled();
+    height: 54px;
+    background: AppColors.surface;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: AppColors.border;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+
+        VerticalLayout {
+            spacing: 3px;
+            horizontal-stretch: 1;
+            Text {
+                text: label;
+                font-size: 13px;
+                font-weight: 700;
+                color: AppColors.text-primary;
+            }
+            Text {
+                text: detail;
+                font-size: 11px;
+                color: AppColors.text-secondary;
+            }
+        }
+
+        Switch {
+            checked: root.checked;
+            toggled => { root.toggled(); }
+        }
+    }
+}
+
+component PermissionNotice inherits Rectangle {
+    in property <string> title;
+    in property <string> body;
+    min-height: 72px;
+    background: AppColors.warning.transparentize(0.92);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: AppColors.warning.transparentize(0.25);
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 6px;
+        Text {
+            text: title;
+            font-size: 13px;
+            font-weight: 700;
+            color: AppColors.warning;
+        }
+        Text {
+            text: body;
+            font-size: 12px;
+            color: AppColors.text-secondary;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component Sidebar inherits Rectangle {
+    in property <int> current-index: 0;
+    callback page-selected(int);
+    width: 178px;
+    background: #0f172a;
+
+    VerticalLayout {
+        padding-top: 18px;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 6px;
+
+        Text {
+            text: "Glide";
+            font-size: 24px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        for item[i] in [
+            { label: "Status", index: 0 },
+            { label: "Devices", index: 1 },
+            { label: "Pairing", index: 2 },
+            { label: "Logs", index: 3 },
+            { label: "Settings", index: 4 },
+            { label: "Platform", index: 5 },
+            { label: "About", index: 6 },
+        ]: Rectangle {
+            height: 38px;
+            border-radius: 5px;
+            background: current-index == item.index ? #1f7a8c : transparent;
+
+            Text {
+                text: item.label;
+                font-size: 13px;
+                font-weight: current-index == item.index ? 700 : 500;
+                color: current-index == item.index ? #ffffff : #cbd5e1;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.page-selected(item.index); }
+            }
+        }
+    }
+}
+
+component TopBar inherits Rectangle {
+    in property <string> title;
+    in property <string> connection-status;
+    height: 58px;
+    background: AppColors.surface;
+    border-width: 0px;
+
+    HorizontalLayout {
+        padding-left: 22px;
+        padding-right: 22px;
+
+        Text {
+            text: title;
+            font-size: 19px;
+            font-weight: 800;
+            color: AppColors.text-primary;
+        }
+
+        Rectangle { horizontal-stretch: 1; }
+
+        StatusBadge {
+            label: connection-status;
+            badge-color: connection-status == "已连接" ? AppColors.success : AppColors.danger;
+        }
+    }
+}
+
+component StatusPage inherits VerticalLayout {
+    in property <bool> service-running;
+    in property <string> connection-status;
+    in property <string> device-count-text;
+    in property <string> server-url;
+    in property <bool> clipboard-enabled;
+    in property <bool> input-enabled;
+    callback connect();
+    callback disconnect();
+    callback toggle-clipboard();
+    callback toggle-input();
+    padding: 22px;
+    spacing: 14px;
+
+    SectionTitle { label: "Service" ; }
+
+    Rectangle {
+        height: 112px;
+        background: AppColors.surface;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: AppColors.border;
+
+        HorizontalLayout {
+            padding: 18px;
+            spacing: 18px;
+
+            VerticalLayout {
+                spacing: 6px;
+                horizontal-stretch: 1;
+                Text {
+                    text: service-running ? "后台服务运行中" : "后台服务未运行";
+                    font-size: 18px;
+                    font-weight: 800;
+                    color: AppColors.text-primary;
+                }
+                Text {
+                    text: server-url == "" ? "尚未配置服务端地址" : server-url;
+                    font-size: 12px;
+                    color: AppColors.text-secondary;
+                }
+                Text {
+                    text: "已连接设备: " + device-count-text;
+                    font-size: 12px;
+                    color: AppColors.text-secondary;
+                }
+            }
+
+            if connection-status == "已连接" : Button {
+                text: "断开";
+                clicked => { root.disconnect(); }
+            }
+
+            if connection-status != "已连接" : Button {
+                text: "连接";
+                clicked => { root.connect(); }
+            }
+        }
+    }
+
+    SectionTitle { label: "Switches"; }
+    SettingsRow {
+        label: "剪贴板同步";
+        detail: "同步文本、后续扩展图片和文件";
+        checked: clipboard-enabled;
+        toggled => { root.toggle-clipboard(); }
+    }
+    SettingsRow {
+        label: "键鼠共享";
+        detail: "默认关闭，后续由 daemon 和平台层执行";
+        checked: input-enabled;
+        toggled => { root.toggle-input(); }
+    }
+}
+
+component DevicesPage inherits VerticalLayout {
+    in property <[DeviceRow]> devices;
+    padding: 22px;
+    spacing: 12px;
+
+    SectionTitle { label: "Trusted devices"; }
+
+    if devices.length == 0 : Rectangle {
+        height: 120px;
+        background: AppColors.surface;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: AppColors.border;
+        Text {
+            text: "暂无已注册设备";
+            font-size: 13px;
+            color: AppColors.text-secondary;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    ScrollView {
+        viewport-height: 340px;
+        VerticalLayout {
+            spacing: 10px;
+            for device in devices: DeviceCard {
+                device-name: device.name;
+                device-platform: device.platform;
+                status-text: device.status;
+            }
+        }
+    }
+}
+
+component PairingPage inherits VerticalLayout {
+    callback pair-device();
+    padding: 22px;
+    spacing: 14px;
+
+    SectionTitle { label: "Pair a device"; }
+    Rectangle {
+        height: 150px;
+        background: AppColors.surface;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: AppColors.border;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            Text {
+                text: "配对流程将在 daemon IPC 接入后提供真实配对码、设备指纹和授权确认。";
+                font-size: 13px;
+                color: AppColors.text-secondary;
+                wrap: word-wrap;
+            }
+            Button {
+                text: "生成 mock 配对码";
+                clicked => { root.pair-device(); }
+            }
+        }
+    }
+}
+
+component LogPage inherits VerticalLayout {
+    in property <string> log-content;
+    padding: 22px;
+    spacing: 12px;
+
+    SectionTitle { label: "Logs"; }
+    Rectangle {
+        background: #0b1020;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #1e293b;
+        vertical-stretch: 1;
+
+        ScrollView {
+            VerticalLayout {
+                padding: 12px;
+                Text {
+                    text: log-content == "" ? "暂无日志" : log-content;
+                    font-size: 12px;
+                    font-family: "monospace";
+                    color: #cbd5e1;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
+
+component SettingsPage inherits VerticalLayout {
+    in property <string> server-url;
+    in property <string> device-name;
+    callback save-server(string);
+    callback save-name(string);
+    padding: 22px;
+    spacing: 14px;
+
+    SectionTitle { label: "Server"; }
+    Rectangle {
+        height: 58px;
+        background: AppColors.surface;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: AppColors.border;
+
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 10px;
+            Text {
+                text: "服务端地址";
+                width: 88px;
+                font-size: 13px;
+                color: AppColors.text-primary;
+            }
+            server-input := LineEdit {
+                text: server-url;
+                placeholder-text: "http://server:8080";
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: "保存";
+                clicked => { root.save-server(server-input.text); }
+            }
+        }
+    }
+
+    SectionTitle { label: "Device"; }
+    Rectangle {
+        height: 58px;
+        background: AppColors.surface;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: AppColors.border;
+
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 10px;
+            Text {
+                text: "本机设备名";
+                width: 88px;
+                font-size: 13px;
+                color: AppColors.text-primary;
+            }
+            name-input := LineEdit {
+                text: device-name;
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: "保存";
+                clicked => { root.save-name(name-input.text); }
+            }
+        }
+    }
+}
+
+component PlatformPage inherits VerticalLayout {
+    in property <string> platform-summary;
+    padding: 22px;
+    spacing: 14px;
+
+    SectionTitle { label: "Platform capabilities"; }
+    PermissionNotice {
+        title: "能力提示";
+        body: "Linux 第一阶段优先 X11。Wayland 下全局键鼠控制受合成器限制，GUI 不会承诺完整控制能力。";
+    }
+    Rectangle {
+        background: AppColors.surface;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: AppColors.border;
+        vertical-stretch: 1;
+
+        VerticalLayout {
+            padding: 16px;
+            Text {
+                text: platform-summary;
+                font-size: 13px;
+                color: AppColors.text-secondary;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component AboutPage inherits VerticalLayout {
+    padding: 22px;
+    spacing: 12px;
+
+    Text {
+        text: "Glide";
+        font-size: 30px;
+        font-weight: 800;
+        color: AppColors.primary;
+    }
+    Text {
+        text: "LAN-first clipboard and input sharing";
+        font-size: 14px;
+        color: AppColors.text-secondary;
+    }
+    Rectangle { height: 1px; background: AppColors.border; }
+    Text {
+        text: "GUI runtime: Rust + Slint";
+        font-size: 13px;
+        color: AppColors.text-primary;
+    }
+    Text {
+        text: "No Tauri, no WebView2, no embedded browser runtime.";
+        font-size: 13px;
+        color: AppColors.text-primary;
+    }
+    Text {
+        text: "Repository: https://github.com/SuPerCxyz/glide";
+        font-size: 13px;
+        color: AppColors.primary;
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Glide";
+    preferred-width: 860px;
+    preferred-height: 590px;
+    min-width: 720px;
+    min-height: 500px;
+    background: AppColors.background;
+
+    in-out property <int> current-page: 0;
+    in-out property <bool> service-running: true;
+    in-out property <string> connection-status: "未连接";
+    in-out property <string> device-count-text: "0";
+    in-out property <string> server-url: "";
+    in-out property <string> device-name: "";
+    in-out property <bool> clipboard-enabled: true;
+    in-out property <bool> input-enabled: false;
+    in-out property <string> log-content: "";
+    in-out property <string> platform-summary: "";
+    in-out property <[DeviceRow]> devices: [];
+
+    callback page-changed(int);
+    callback connect();
+    callback disconnect();
+    callback toggle-clipboard();
+    callback toggle-input();
+    callback save-server(string);
+    callback save-name(string);
+    callback pair-device();
+
+    HorizontalLayout {
+        Sidebar {
+            current-index: current-page;
+            page-selected(index) => { root.page-changed(index); }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            TopBar {
+                title: current-page == 0 ? "状态" :
+                    current-page == 1 ? "设备" :
+                    current-page == 2 ? "配对" :
+                    current-page == 3 ? "日志" :
+                    current-page == 4 ? "设置" :
+                    current-page == 5 ? "平台能力" : "关于";
+                connection-status: connection-status;
+            }
+
+            if current-page == 0 : StatusPage {
+                service-running: service-running;
+                connection-status: connection-status;
+                device-count-text: device-count-text;
+                server-url: server-url;
+                clipboard-enabled: clipboard-enabled;
+                input-enabled: input-enabled;
+                connect => { root.connect(); }
+                disconnect => { root.disconnect(); }
+                toggle-clipboard => { root.toggle-clipboard(); }
+                toggle-input => { root.toggle-input(); }
+            }
+            if current-page == 1 : DevicesPage { devices: devices; }
+            if current-page == 2 : PairingPage { pair-device => { root.pair-device(); } }
+            if current-page == 3 : LogPage { log-content: log-content; }
+            if current-page == 4 : SettingsPage {
+                server-url: server-url;
+                device-name: device-name;
+                save-server(url) => { root.save-server(url); }
+                save-name(name) => { root.save-name(name); }
+            }
+            if current-page == 5 : PlatformPage { platform-summary: platform-summary; }
+            if current-page == 6 : AboutPage {}
+        }
+    }
+}

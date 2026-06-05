@@ -52,8 +52,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev \
-            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev
+            libfontconfig1-dev libfreetype6-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libxcb1-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev
 
       - name: Format code (auto-fix)
         run: cargo fmt --all
@@ -72,7 +73,7 @@ jobs:
         with:
           name: linux-binaries
           path: |
-            target/debug/glide-tauri
+            target/debug/glide-gui
             target/debug/glide-cli
             target/debug/glide-server
           if-no-files-found: warn
@@ -143,9 +144,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev \
-            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev \
-            fuse libfuse2 desktop-file-utils rpm
+            libfontconfig1-dev libfreetype6-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libxcb1-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev fuse libfuse2 \
+            desktop-file-utils curl
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -153,31 +155,16 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            ~/.cargo/bin/cargo-tauri
             target
           key: ${{ runner.os }}-linux-package-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-linux-package-
 
-      - name: Install Tauri CLI
-        run: |
-          if ! command -v cargo-tauri >/dev/null 2>&1; then
-            cargo install tauri-cli --version "^2" --locked
-          fi
-
-      - name: Build server and CLI
-        run: cargo build --release --package glide-server --package glide-cli
-
-      - name: Build Tauri packages (.deb + .AppImage)
-        run: cargo tauri build --bundles deb,appimage
-        working-directory: crates/glide-tauri
+      - name: Build Slint GUI, server and CLI
+        run: cargo build --release --package glide-gui --package glide-server --package glide-cli
 
       - name: Collect Linux packages
         run: |
-          mkdir -p dist
-          find target/release/bundle \( -name "*.deb" -o -name "*.AppImage" \) -print -exec cp {} dist/ \;
-          cp target/release/glide-server dist/
-          cp target/release/glide-cli dist/
-          ls -lh dist
+          VERSION="0.1.0" ./scripts/package-linux.sh
           test -n "$(find dist -name '*.deb' -print -quit)"
           test -n "$(find dist -name '*.AppImage' -print -quit)"
 
@@ -220,15 +207,15 @@ jobs:
       - name: Build glide-cli
         run: cargo build --package glide-cli --verbose
 
-      - name: Build glide-tauri (GUI)
-        run: cargo build --package glide-tauri --verbose
+      - name: Build glide-gui (Slint GUI)
+        run: cargo build --package glide-gui --verbose
 
       - name: Upload Windows binaries
         uses: actions/upload-artifact@v4
         with:
           name: windows-binaries
           path: |
-            target/debug/glide-tauri.exe
+            target/debug/glide-gui.exe
             target/debug/glide-cli.exe
             target/debug/glide-server.exe
           retention-days: 30

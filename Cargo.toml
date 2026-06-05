@@ -5,7 +5,7 @@ members = [
     "crates/glide-server",
     "crates/glide-cli",
     "crates/glide-desktop",
-    "crates/glide-tauri",
+    "crates/glide-gui",
 ]
 
 [workspace.package]
