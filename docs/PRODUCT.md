@@ -280,7 +280,7 @@ CLI/server：
 仍需验证：
 
 - Windows 完整安装包/portable zip 在 OOBE 完成后的普通桌面双击启动。
-- Windows VM 中运行 `scripts/test-windows-gui-smoke.ps1`，收集 `%APPDATA%\Glide\logs\glide-gui.log` 或 `GLIDE_GUI_LOG` 指定日志；当前已用同等 smoke 命令在 QEMU Win11 OOBE 命令行执行通过。
+- Windows VM 中运行 `scripts/test-windows-gui-smoke.ps1`，收集 `%APPDATA%\Glide\logs\glide-gui.log` 或 `GLIDE_GUI_LOG` 指定日志；也可运行 `glide-gui.exe --diagnostics-path` 查看日志路径，运行 `glide-gui.exe --diagnostics` 直接打印日志；当前已用同等 smoke 命令在 QEMU Win11 OOBE 命令行执行通过。
 - Windows CLI 文件 payload smoke 已通过 Wine；真实 Win11 桌面 CLI 仍需补测。
 - Linux GUI 真实桌面截图和页面遍历。
 - Wayland 下 GUI 启动和限制提示。

@@ -16,6 +16,17 @@ use tracing::{info, warn};
 slint::include_modules!();
 
 fn main() -> Result<(), Box<dyn Error>> {
+    if let Err(error) = run_app() {
+        let message = format!("{error}");
+        write_diagnostic("error", &message);
+        eprintln!("glide-gui failed: {message}");
+        eprintln!("diagnostics={}", diagnostic_log_path().display());
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn run_app() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         println!("glide-gui {}", env!("CARGO_PKG_VERSION"));
@@ -28,6 +39,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if args.iter().any(|arg| arg == "--diagnostics-path") {
         println!("{}", diagnostic_log_path().display());
+        return Ok(());
+    }
+
+    if args.iter().any(|arg| arg == "--diagnostics") {
+        print_diagnostics()?;
         return Ok(());
     }
 
@@ -298,6 +314,18 @@ fn write_diagnostic(stage: &str, message: &str) {
             message
         );
     }
+}
+
+fn print_diagnostics() -> Result<(), Box<dyn Error>> {
+    let path = diagnostic_log_path();
+    println!("diagnostics={}", path.display());
+    if !path.exists() {
+        println!("diagnostics log does not exist yet");
+        return Ok(());
+    }
+    println!("--- diagnostics ---");
+    print!("{}", fs::read_to_string(path)?);
+    Ok(())
 }
 
 fn diagnostic_log_path() -> PathBuf {

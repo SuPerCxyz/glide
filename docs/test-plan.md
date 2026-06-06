@@ -113,6 +113,8 @@ Windows VM 建议执行：
 .\scripts\test-windows-connect.ps1 -Server http://<linux-server-ip>:8080 -Token reg123
 .\scripts\test-windows-clipboard.ps1 -Server http://<linux-server-ip>:8080
 powershell -ExecutionPolicy Bypass -File .\scripts\test-windows-gui-smoke.ps1 -GuiExe .\glide.exe
+.\glide.exe --diagnostics-path
+.\glide.exe --diagnostics
 AutoHotkey.exe .\scripts\test-windows-gui.ahk
 pip install pywinauto
 python .\scripts\test-windows-notepad-clipboard.py

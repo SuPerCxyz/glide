@@ -38,6 +38,12 @@ if (-not (Test-Path $LogPath)) {
     exit 1
 }
 
+& $GuiExe --diagnostics
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "glide-gui --diagnostics failed: $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
 Write-Host "--- diagnostics ---"
 Get-Content $LogPath
 Write-Host "GUI smoke passed." -ForegroundColor Green

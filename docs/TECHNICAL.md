@@ -248,13 +248,21 @@ $env:GLIDE_GUI_LOG="$env:TEMP\glide-gui.log"
 Get-Content $env:GLIDE_GUI_LOG
 ```
 
+直接查看默认日志：
+
+```powershell
+.\glide.exe --diagnostics-path
+.\glide.exe --diagnostics
+Get-Content "$env:APPDATA\Glide\logs\glide-gui.log"
+```
+
 或运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\test-windows-gui-smoke.ps1 -GuiExe .\glide.exe
 ```
 
-`glide-gui` 普通启动和 panic hook 会写入诊断日志。默认日志路径为 `%APPDATA%\Glide\logs\glide-gui.log`，也可通过 `GLIDE_GUI_LOG` 覆盖。
+`glide-gui` 普通启动、启动失败和 panic hook 都会写入诊断日志。默认日志路径为 `%APPDATA%\Glide\logs\glide-gui.log`，也可通过 `GLIDE_GUI_LOG` 覆盖。若普通启动失败，终端会输出 `glide-gui failed: ...` 和 `diagnostics=<path>`。
 
 ## 9. 开发注意事项
 
