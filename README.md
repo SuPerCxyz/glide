@@ -202,6 +202,46 @@ cargo run --package glide-cli -- copy "测试文本"
 cargo run --package glide-gui -- --smoke
 ```
 
+### Windows GUI 日志和启动排错
+
+如果在 Windows 11 下双击 `glide-gui.exe` 只看到终端或窗口一闪而过，请在
+PowerShell 中进入 exe 所在目录执行下面命令查看日志：
+
+```powershell
+# 查看诊断日志路径
+.\glide-gui.exe --diagnostics-path
+
+# 直接打印当前诊断日志内容
+.\glide-gui.exe --diagnostics
+
+# 默认日志位置
+Get-Content "$env:APPDATA\Glide\logs\glide-gui.log"
+```
+
+也可以指定临时日志文件后启动，便于把日志发给开发者：
+
+```powershell
+$env:GLIDE_GUI_LOG="$env:TEMP\glide-gui.log"
+.\glide-gui.exe
+Get-Content $env:GLIDE_GUI_LOG
+```
+
+快速自检命令：
+
+```powershell
+.\glide-gui.exe --smoke
+.\glide-gui.exe --diagnostics
+```
+
+说明：
+
+- 普通启动、启动失败和 panic 都会写入诊断日志。
+- 默认日志路径是 `%APPDATA%\Glide\logs\glide-gui.log`。
+- 如果你下载的是 GitHub Actions 里的 `windows-binaries`，当前是 debug
+  artifact，显示终端窗口是正常现象；release 构建会隐藏控制台窗口。
+- 当前 GUI 第一阶段仍使用 mock backend，窗口能启动不代表真实连接、剪贴板和
+  键鼠链路已经接入。
+
 ### CI 状态
 
 [![CI](https://github.com/SuPerCxyz/glide/actions/workflows/ci.yml/badge.svg)](https://github.com/SuPerCxyz/glide/actions)
