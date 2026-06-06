@@ -5,14 +5,13 @@
 /// - UDP multicast heartbeat/announcement protocol
 ///
 /// Peers discovered via either method are tracked in a [`PeerRegistry`].
-
 mod mdns;
-mod udp_multicast;
 mod peer_registry;
+mod udp_multicast;
 
 pub use mdns::{MdnsDiscovery, MdnsService};
 pub use peer_registry::{DiscoveredPeer, PeerRegistry, PeerState};
-pub use udp_multicast::{UdpMulticastDiscovery, UdpMulticastConfig};
+pub use udp_multicast::{UdpMulticastConfig, UdpMulticastDiscovery};
 
 /// Default mDNS service type for Glide.
 pub const MDNS_SERVICE_TYPE: &str = "_glide._tcp.local.";

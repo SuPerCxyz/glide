@@ -1,12 +1,12 @@
+use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use tracing::{info, warn, error};
-use futures::{SinkExt, StreamExt};
+use tracing::{error, info, warn};
 
-use glide_core::policy::Policy;
 use glide_core::input_event::InputEvent;
+use glide_core::policy::Policy;
 
-use crate::input_adapter::{InputBackend, EdgeCrossingDetector, InputSharing};
+use crate::input_adapter::{EdgeCrossingDetector, InputBackend, InputSharing};
 use crate::linux_backends::linux_input::LinuxInputBackend;
 
 /// LAN input sharing engine - handles cross-node keyboard/mouse sharing.
@@ -55,7 +55,8 @@ impl LanInputEngine {
 
     /// Start the LAN input engine.
     pub async fn start(&self) -> anyhow::Result<()> {
-        self.running.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.running
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         info!("LAN input engine starting for device {}", self.device_id);
 
         // Start input event server.
@@ -148,10 +149,15 @@ impl LanInputEngine {
     }
 
     /// Send an input event to a target peer.
-    pub async fn send_input(&self, target_device_id: &str, event: InputEvent) -> anyhow::Result<()> {
+    pub async fn send_input(
+        &self,
+        target_device_id: &str,
+        event: InputEvent,
+    ) -> anyhow::Result<()> {
         let peers = self.peers.read().await;
         if let Some(tx) = peers.get(target_device_id) {
-            tx.send(event).map_err(|_| anyhow::anyhow!("Failed to send to peer"))?;
+            tx.send(event)
+                .map_err(|_| anyhow::anyhow!("Failed to send to peer"))?;
         } else {
             return Err(anyhow::anyhow!("Peer {} not found", target_device_id));
         }

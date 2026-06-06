@@ -1,16 +1,15 @@
+mod commands;
 /// Glide CLI — headless clipboard tool.
 ///
 /// Supports persistent mode (local config) and temporary single-use auth mode
 /// (--server + --token without writing credentials).
-
 mod config;
-mod commands;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "glide", about = "LAN-first clipboard sync CLI")]
+#[command(name = "glide", version, about = "LAN-first clipboard sync CLI")]
 struct Cli {
     /// Server URL (overrides config).
     #[arg(long)]

@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::time::Duration;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{info, warn};
 
 use super::peer_registry::PeerRegistry;
@@ -67,10 +67,7 @@ impl UdpMulticastDiscovery {
 
     /// Initialize the UDP socket for multicast.
     pub fn init(&mut self) -> anyhow::Result<()> {
-        let bind_addr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-            self.config.bind_port,
-        );
+        let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), self.config.bind_port);
 
         let socket = UdpSocket::bind(bind_addr)?;
         socket.set_ttl(2)?;
@@ -126,11 +123,7 @@ impl UdpMulticastDiscovery {
                         }
 
                         let addr = SocketAddr::new(from.ip(), announcement.service_port);
-                        registry.upsert(
-                            announcement.device_id,
-                            announcement.name,
-                            addr,
-                        );
+                        registry.upsert(announcement.device_id, announcement.name, addr);
                         return Ok(true);
                     }
                 }
@@ -149,10 +142,7 @@ impl UdpMulticastDiscovery {
 
     /// Run the discovery loop until stopped.
     /// This blocks the calling thread. For async use, call from a blocking task.
-    pub fn run_discovery(
-        &self,
-        registry: &mut PeerRegistry,
-    ) -> anyhow::Result<()> {
+    pub fn run_discovery(&self, registry: &mut PeerRegistry) -> anyhow::Result<()> {
         if self.socket.is_none() {
             anyhow::bail!("UDP multicast discovery not initialized. Call init() first.");
         }
@@ -174,7 +164,7 @@ impl UdpMulticastDiscovery {
             // Receive any incoming announcements.
             loop {
                 match self.receive_announcement(registry) {
-                    Ok(true) => {} // Found a peer, try to receive more.
+                    Ok(true) => {}      // Found a peer, try to receive more.
                     Ok(false) => break, // No more data or our own announcement.
                     Err(e) => {
                         warn!("Discovery receive error: {}", e);

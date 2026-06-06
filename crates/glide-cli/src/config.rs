@@ -42,6 +42,71 @@ impl CliConfig {
 
 /// Get the default config file path.
 fn config_path() -> std::path::PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    config_path_from_env(
+        std::env::var("GLIDE_CONFIG_PATH").ok(),
+        std::env::var("APPDATA").ok(),
+        std::env::var("HOME").ok(),
+        cfg!(target_os = "windows"),
+    )
+}
+
+fn config_path_from_env(
+    explicit_path: Option<String>,
+    appdata: Option<String>,
+    home: Option<String>,
+    is_windows: bool,
+) -> std::path::PathBuf {
+    if let Some(path) = explicit_path.filter(|p| !p.trim().is_empty()) {
+        return std::path::PathBuf::from(path);
+    }
+
+    if is_windows {
+        if let Some(appdata) = appdata.filter(|p| !p.trim().is_empty()) {
+            return std::path::PathBuf::from(appdata)
+                .join("Glide")
+                .join("config.json");
+        }
+    }
+
+    let home = home.unwrap_or_else(|| ".".to_string());
     std::path::PathBuf::from(home).join(".config/glide/config.json")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::config_path_from_env;
+
+    #[test]
+    fn explicit_config_path_wins() {
+        let path = config_path_from_env(
+            Some("/tmp/glide.json".to_string()),
+            Some("C:\\Users\\me\\AppData\\Roaming".to_string()),
+            Some("/home/me".to_string()),
+            true,
+        );
+
+        assert_eq!(path.to_string_lossy(), "/tmp/glide.json");
+    }
+
+    #[test]
+    fn windows_uses_appdata() {
+        let path = config_path_from_env(
+            None,
+            Some("C:\\Users\\me\\AppData\\Roaming".to_string()),
+            Some("/home/me".to_string()),
+            true,
+        );
+
+        assert_eq!(
+            path.to_string_lossy(),
+            "C:\\Users\\me\\AppData\\Roaming/Glide/config.json"
+        );
+    }
+
+    #[test]
+    fn non_windows_uses_home_config() {
+        let path = config_path_from_env(None, None, Some("/home/me".to_string()), false);
+
+        assert_eq!(path.to_string_lossy(), "/home/me/.config/glide/config.json");
+    }
 }

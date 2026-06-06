@@ -138,6 +138,19 @@ jobs:
       - name: Build Slint GUI, daemon, server and CLI
         run: cargo build --release --package glide-gui --package glide-daemon --package glide-server --package glide-cli
 
+      - name: Smoke test release glide-gui diagnostics
+        shell: pwsh
+        run: |
+          $env:GLIDE_GUI_LOG = Join-Path $env:RUNNER_TEMP "glide-gui-release-smoke.log"
+          target\release\glide-gui.exe --smoke
+          if ($LASTEXITCODE -ne 0) {
+            throw "glide-gui release smoke failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path $env:GLIDE_GUI_LOG)) {
+            throw "glide-gui did not create diagnostics log: $env:GLIDE_GUI_LOG"
+          }
+          Get-Content $env:GLIDE_GUI_LOG
+
       - name: Collect Windows packages
         run: |
           mkdir -p dist
@@ -159,6 +172,13 @@ jobs:
         with:
           name: windows-packages
           path: dist/*
+          retention-days: 90
+
+      - name: Upload Windows GUI diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gui-diagnostics
+          path: ${{ runner.temp }}/glide-gui-release-smoke.log
           retention-days: 90
 
   # --- Docker: Build runtime image from pre-built binaries ---

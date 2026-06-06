@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
     use glide_core::clipboard::{ClipboardItem, ClipboardKind, DeliveryPolicy, SessionType};
-    use glide_core::mime_rep::{MimeRepresentation, RepresentationContent, mime_types};
-    use glide_core::payload::PayloadRef;
     use glide_core::device::{Device, Platform, RegistrationType};
-    use glide_core::transfer::{TransferRoute, TransferState, TransferSession};
-    use glide_core::sync_event::SyncEvent;
     use glide_core::input_event::{InputEvent, InputEventKind, InputRoute, InputSession};
-    use glide_core::policy::{Policy, PolicyAction, DevicePolicy, TypePolicy};
+    use glide_core::mime_rep::{mime_types, MimeRepresentation, RepresentationContent};
+    use glide_core::payload::PayloadRef;
+    use glide_core::policy::{DevicePolicy, Policy, PolicyAction, TypePolicy};
+    use glide_core::sync_event::SyncEvent;
+    use glide_core::transfer::{TransferRoute, TransferSession, TransferState};
 
     // --- Serialization/Deserialization Tests ---
 
@@ -145,7 +145,9 @@ mod tests {
 
         assert_eq!(deserialized.route, InputRoute::LanDirect);
         match deserialized.event {
-            InputEventKind::Key { key_code, pressed, .. } => {
+            InputEventKind::Key {
+                key_code, pressed, ..
+            } => {
                 assert_eq!(key_code, "A");
                 assert!(pressed);
             }
@@ -290,7 +292,10 @@ mod tests {
             max_size_bytes: Some(5_000_000),
         });
 
-        assert_eq!(policy.max_size_for_kind(ClipboardKind::Image), Some(5_000_000));
+        assert_eq!(
+            policy.max_size_for_kind(ClipboardKind::Image),
+            Some(5_000_000)
+        );
         assert_eq!(policy.max_size_for_kind(ClipboardKind::Text), None);
     }
 
@@ -382,10 +387,7 @@ mod tests {
 
     #[test]
     fn test_input_route_variants() {
-        let routes = vec![
-            InputRoute::LanDirect,
-            InputRoute::ServerRelay,
-        ];
+        let routes = vec![InputRoute::LanDirect, InputRoute::ServerRelay];
 
         for route in &routes {
             let json = serde_json::to_string(route).unwrap();

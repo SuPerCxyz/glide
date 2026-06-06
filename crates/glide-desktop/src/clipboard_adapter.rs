@@ -1,9 +1,9 @@
+use sha2::Digest;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use sha2::Digest;
 
 use glide_core::clipboard::{ClipboardItem, ClipboardKind};
-use glide_core::mime_rep::{MimeRepresentation, RepresentationContent, mime_types};
+use glide_core::mime_rep::{mime_types, MimeRepresentation, RepresentationContent};
 use glide_core::payload::PayloadRef;
 
 /// Trait for platform-specific clipboard access.
@@ -43,7 +43,9 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
     /// Capture the current clipboard and return a ClipboardItem.
     pub async fn capture(&self) -> anyhow::Result<ClipboardItem> {
         let backend = self.backend.read().await;
-        let backend = backend.as_ref().ok_or_else(|| anyhow::anyhow!("No clipboard backend"))?;
+        let backend = backend
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No clipboard backend"))?;
 
         let mime_types = backend.available_mime_types().await?;
 
@@ -60,7 +62,12 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
                 kind = ClipboardKind::Image;
                 let pid = uuid::Uuid::new_v4().to_string();
                 let checksum = format!("{:x}", sha2::Sha256::digest(&content_bytes));
-                let _pref = PayloadRef::new(pid.clone(), format!("/api/v1/payload/{}", pid), content_bytes.len() as u64, checksum.clone());
+                let _pref = PayloadRef::new(
+                    pid.clone(),
+                    format!("/api/v1/payload/{}", pid),
+                    content_bytes.len() as u64,
+                    checksum.clone(),
+                );
                 representations.push(MimeRepresentation {
                     mime_type: mt.clone(),
                     content: RepresentationContent::PayloadRef(pid),
@@ -76,14 +83,17 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
                         mime_type: mt.clone(),
                         content: RepresentationContent::Text(text),
                     });
-                    if mt == &mime_types::TEXT_HTML.to_string() || mt == &mime_types::TEXT_RTF.to_string() {
+                    if mt == &mime_types::TEXT_HTML.to_string()
+                        || mt == &mime_types::TEXT_RTF.to_string()
+                    {
                         kind = ClipboardKind::Text;
                     }
                     continue;
                 }
             }
             // Fallback: inline base64.
-            let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &content_bytes);
+            let encoded =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &content_bytes);
             representations.push(MimeRepresentation {
                 mime_type: mt.clone(),
                 content: RepresentationContent::InlineBase64(encoded),
@@ -92,8 +102,12 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
 
         let checksum = if !representations.is_empty() {
             match &representations[0].content {
-                RepresentationContent::Text(t) => format!("{:x}", sha2::Sha256::digest(t.as_bytes())),
-                RepresentationContent::InlineBase64(b) => format!("{:x}", sha2::Sha256::digest(b.as_bytes())),
+                RepresentationContent::Text(t) => {
+                    format!("{:x}", sha2::Sha256::digest(t.as_bytes()))
+                }
+                RepresentationContent::InlineBase64(b) => {
+                    format!("{:x}", sha2::Sha256::digest(b.as_bytes()))
+                }
                 RepresentationContent::PayloadRef(pid) => pid.clone(),
             }
         } else {
@@ -117,7 +131,9 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
     /// Apply a ClipboardItem to the local system clipboard.
     pub async fn apply(&self, item: &ClipboardItem) -> anyhow::Result<()> {
         let backend = self.backend.read().await;
-        let backend = backend.as_ref().ok_or_else(|| anyhow::anyhow!("No clipboard backend"))?;
+        let backend = backend
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No clipboard backend"))?;
 
         match item.kind {
             ClipboardKind::Text => {
@@ -134,7 +150,10 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
                 for rep in &item.representations {
                     match &rep.content {
                         RepresentationContent::InlineBase64(data) => {
-                            let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data)?;
+                            let bytes = base64::Engine::decode(
+                                &base64::engine::general_purpose::STANDARD,
+                                data,
+                            )?;
                             backend.write_image(&bytes).await?;
                             return Ok(());
                         }
@@ -146,7 +165,8 @@ impl<B: ClipboardBackend> ClipboardAdapter<B> {
                 }
             }
             ClipboardKind::File => {
-                let paths: Vec<String> = item.representations
+                let paths: Vec<String> = item
+                    .representations
                     .iter()
                     .filter_map(|r| match &r.content {
                         RepresentationContent::Text(t) => Some(t.clone()),

@@ -1,23 +1,19 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use tokio::sync::broadcast;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use glide_core::sync_event::SyncEvent;
 
 use crate::state::ServerState;
 
 /// Handle a WebSocket sync connection.
-pub async fn handle_ws(
-    socket: WebSocket,
-    state: ServerState,
-    device_id: String,
-) {
+pub async fn handle_ws(socket: WebSocket, state: ServerState, device_id: String) {
     info!("WebSocket sync connection from device: {}", device_id);
 
     // Auto-register device if not already registered (prevents FK constraint failures).
     let _ = sqlx::query(
-        "INSERT OR IGNORE INTO devices (device_id, name, platform, trusted) VALUES (?, ?, ?, ?)"
+        "INSERT OR IGNORE INTO devices (device_id, name, platform, trusted) VALUES (?, ?, ?, ?)",
     )
     .bind(&device_id)
     .bind(format!("Client-{}", &device_id[..8.min(device_id.len())]))
@@ -76,13 +72,20 @@ pub async fn handle_ws(
                     Ok(event) => {
                         // Store clipboard items to database.
                         if let SyncEvent::ClipboardCaptured { ref item } = event {
-                            info!("Storing clipboard item {} from {}", item.item_id, item.source_device_id);
+                            info!(
+                                "Storing clipboard item {} from {}",
+                                item.item_id, item.source_device_id
+                            );
                             store_clipboard_item(&state, item).await;
                         }
                         state.broadcast_event(event);
                     }
                     Err(e) => {
-                        warn!("Failed to parse sync event: {} (raw: {})", e, &text[..text.len().min(100)]);
+                        warn!(
+                            "Failed to parse sync event: {} (raw: {})",
+                            e,
+                            &text[..text.len().min(100)]
+                        );
                     }
                 }
             }
@@ -99,8 +102,12 @@ pub async fn handle_ws(
 }
 
 async fn store_clipboard_item(state: &ServerState, item: &glide_core::clipboard::ClipboardItem) {
-    let representations_json = serde_json::to_string(&item.representations).unwrap_or_else(|_| "[]".to_string());
-    let delivery_policy_json = serde_json::to_string(&item.delivery_policy).unwrap_or_else(|_| r#"{"type":"broadcast"}"#.to_string());
+    let representations_json =
+        serde_json::to_string(&item.representations).unwrap_or_else(|_| "[]".to_string());
+    let payload_refs_json =
+        serde_json::to_string(&item.payload_refs).unwrap_or_else(|_| "[]".to_string());
+    let delivery_policy_json = serde_json::to_string(&item.delivery_policy)
+        .unwrap_or_else(|_| r#"{"type":"broadcast"}"#.to_string());
 
     let kind = match item.kind {
         glide_core::clipboard::ClipboardKind::Text => "text",
@@ -115,14 +122,15 @@ async fn store_clipboard_item(state: &ServerState, item: &glide_core::clipboard:
 
     if let Err(e) = sqlx::query(
         r#"INSERT OR REPLACE INTO clipboard_items
-           (item_id, source_device_id, source_session_type, kind, representations, size, created_at, checksum, delivery_policy)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+           (item_id, source_device_id, source_session_type, kind, representations, payload_refs, size, created_at, checksum, delivery_policy)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(&item.item_id)
     .bind(&item.source_device_id)
     .bind(session_type)
     .bind(kind)
     .bind(representations_json)
+    .bind(payload_refs_json)
     .bind(item.size as i64)
     .bind(item.created_at)
     .bind(&item.checksum)

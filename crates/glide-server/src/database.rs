@@ -1,5 +1,5 @@
-use sqlx::{Pool, Sqlite};
 use anyhow::Result;
+use sqlx::{Pool, Sqlite};
 
 /// Create a SQLite connection pool.
 pub async fn create_pool(db_path: &str) -> Result<Pool<Sqlite>> {
@@ -33,6 +33,7 @@ pub async fn migrate(pool: &Pool<Sqlite>) -> Result<()> {
             source_session_type TEXT NOT NULL DEFAULT 'persistent',
             kind TEXT NOT NULL DEFAULT 'text',
             representations TEXT NOT NULL DEFAULT '[]',
+            payload_refs TEXT NOT NULL DEFAULT '[]',
             size INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
             checksum TEXT NOT NULL,
@@ -92,6 +93,12 @@ pub async fn migrate(pool: &Pool<Sqlite>) -> Result<()> {
     )
     .execute(pool)
     .await?;
+
+    let _ = sqlx::query(
+        "ALTER TABLE clipboard_items ADD COLUMN payload_refs TEXT NOT NULL DEFAULT '[]'",
+    )
+    .execute(pool)
+    .await;
 
     Ok(())
 }

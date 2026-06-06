@@ -1,3 +1,6 @@
+mod headless;
+pub mod linux_input;
+mod wayland;
 /// Linux clipboard backends using system CLI tools.
 ///
 /// Supports:
@@ -5,11 +8,7 @@
 /// - Wayland via `wl-copy` / `wl-paste`
 /// - Fallback via `xsel`
 /// - Headless fallback (no clipboard, log only)
-
 mod x11;
-mod wayland;
-mod headless;
-pub mod linux_input;
 
 pub use headless::HeadlessClipboard;
 pub use wayland::WaylandClipboard;

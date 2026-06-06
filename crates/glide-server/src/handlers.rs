@@ -1,12 +1,12 @@
 use anyhow::Result;
 use axum::{
-    Router,
-    extract::{Query, State, Path, Json},
     extract::ws::WebSocketUpgrade,
+    extract::{Json, Path, Query, State},
     routing::{get, post},
+    Router,
 };
-use sqlx::Row;
 use serde_json;
+use sqlx::Row;
 
 use crate::state::ServerState;
 
@@ -21,7 +21,7 @@ pub fn router() -> Router<ServerState> {
         .route("/api/v1/tokens/validate", post(validate_token))
         .route("/api/v1/clipboard/history", get(clipboard_history))
         .route("/api/v1/payload/upload", post(payload_upload))
-        .route("/api/v1/payload/{payload_id}", get(payload_download))
+        .route("/api/v1/payload/:payload_id", get(payload_download))
         .route("/api/v1/cleanup", post(trigger_cleanup))
         // WebSocket endpoint for sync.
         .route("/ws/sync", get(ws_handler))
@@ -46,18 +46,24 @@ async fn login(
     State(state): State<ServerState>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let username = req.get("username").and_then(|v| v.as_str()).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "username required"})),
-        )
-    })?;
-    let password = req.get("password").and_then(|v| v.as_str()).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "password required"})),
-        )
-    })?;
+    let username = req
+        .get("username")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "username required"})),
+            )
+        })?;
+    let password = req
+        .get("password")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "password required"})),
+            )
+        })?;
 
     // Check environment variable credentials.
     let admin_user = std::env::var("GLIDE_USERNAME").unwrap_or_else(|_| "admin".to_string());
@@ -86,13 +92,29 @@ async fn create_token(
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let ttl_secs = req.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(3600);
     let max_uses = req.get("max_uses").and_then(|v| v.as_i64()).unwrap_or(10);
-    let max_item_size = req.get("max_item_size").and_then(|v| v.as_i64()).unwrap_or(10_485_760);
-    let allowed = req.get("allowed_operations")
+    let max_item_size = req
+        .get("max_item_size")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(10_485_760);
+    let allowed = req
+        .get("allowed_operations")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<_>>())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_else(|| vec!["copy".to_string(), "paste".to_string()]);
 
-    match crate::temp_token::create_temp_token(&state.db, ttl_secs, max_uses, allowed, max_item_size).await {
+    match crate::temp_token::create_temp_token(
+        &state.db,
+        ttl_secs,
+        max_uses,
+        allowed,
+        max_item_size,
+    )
+    .await
+    {
         Ok(token) => Ok(Json(serde_json::json!({
             "status": "ok",
             "token": token,
@@ -110,27 +132,39 @@ async fn device_register(
     State(state): State<ServerState>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let device_id = req.get("device_id").and_then(|v| v.as_str()).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "device_id required"})),
-        )
-    })?;
+    let device_id = req
+        .get("device_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "device_id required"})),
+            )
+        })?;
 
-    let name = req.get("name").and_then(|v| v.as_str()).unwrap_or("unnamed");
-    let platform = req.get("platform").and_then(|v| v.as_str()).unwrap_or("linux");
+    let name = req
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unnamed");
+    let platform = req
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .unwrap_or("linux");
     let trusted = req.get("trusted").and_then(|v| v.as_bool()).unwrap_or(true);
     let public_key = req.get("public_key_fingerprint").and_then(|v| v.as_str());
     let registration_token = std::env::var("GLIDE_REGISTRATION_TOKEN").ok();
 
     // Verify registration token if configured.
     if let Some(ref token) = registration_token {
-        let provided = req.get("registration_token").and_then(|v| v.as_str()).ok_or_else(|| {
-            (
-                axum::http::StatusCode::UNAUTHORIZED,
-                Json(serde_json::json!({"error": "registration_token required"})),
-            )
-        })?;
+        let provided = req
+            .get("registration_token")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                (
+                    axum::http::StatusCode::UNAUTHORIZED,
+                    Json(serde_json::json!({"error": "registration_token required"})),
+                )
+            })?;
         if provided != token {
             return Err((
                 axum::http::StatusCode::UNAUTHORIZED,
@@ -173,9 +207,7 @@ async fn device_register(
     })))
 }
 
-async fn list_devices(
-    State(state): State<ServerState>,
-) -> Json<serde_json::Value> {
+async fn list_devices(State(state): State<ServerState>) -> Json<serde_json::Value> {
     let rows = sqlx::query("SELECT device_id, name, platform, trusted, lan_address, last_seen_at, created_at FROM devices ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await;
@@ -212,13 +244,17 @@ async fn validate_token(
         )
     })?;
 
-    let operation_str = req.get("operation").and_then(|v| v.as_str()).unwrap_or("copy");
-    let operation = crate::temp_token::TempTokenOperation::from_str(operation_str).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "invalid operation"})),
-        )
-    })?;
+    let operation_str = req
+        .get("operation")
+        .and_then(|v| v.as_str())
+        .unwrap_or("copy");
+    let operation =
+        crate::temp_token::TempTokenOperation::from_str(operation_str).ok_or_else(|| {
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid operation"})),
+            )
+        })?;
 
     let item_size = req.get("item_size").and_then(|v| v.as_u64());
 
@@ -239,17 +275,23 @@ async fn clipboard_history(
     State(state): State<ServerState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let limit = params.get("limit").and_then(|l| l.parse::<i64>().ok()).unwrap_or(50);
-    let offset = params.get("offset").and_then(|o| o.parse::<i64>().ok()).unwrap_or(0);
+    let limit = params
+        .get("limit")
+        .and_then(|l| l.parse::<i64>().ok())
+        .unwrap_or(50);
+    let offset = params
+        .get("offset")
+        .and_then(|o| o.parse::<i64>().ok())
+        .unwrap_or(0);
     let device_id = params.get("device_id").cloned();
 
     let query = match &device_id {
         Some(did) => format!(
-            "SELECT item_id, source_device_id, source_session_type, kind, representations, size, created_at, checksum, delivery_policy FROM clipboard_items WHERE source_device_id != '{}' ORDER BY created_at DESC LIMIT {} OFFSET {}",
+            "SELECT item_id, source_device_id, source_session_type, kind, representations, payload_refs, size, created_at, checksum, delivery_policy FROM clipboard_items WHERE source_device_id != '{}' ORDER BY created_at DESC LIMIT {} OFFSET {}",
             did, limit, offset
         ),
         None => format!(
-            "SELECT item_id, source_device_id, source_session_type, kind, representations, size, created_at, checksum, delivery_policy FROM clipboard_items ORDER BY created_at DESC LIMIT {} OFFSET {}",
+            "SELECT item_id, source_device_id, source_session_type, kind, representations, payload_refs, size, created_at, checksum, delivery_policy FROM clipboard_items ORDER BY created_at DESC LIMIT {} OFFSET {}",
             limit, offset
         ),
     };
@@ -265,9 +307,10 @@ async fn clipboard_history(
             serde_json::json!({
                 "item_id": r.get::<String, _>("item_id"),
                 "source_device_id": r.get::<String, _>("source_device_id"),
-                "source_session_type": r.get::<String, _>("source_session_type"),
-                "kind": r.get::<String, _>("kind"),
+                "source_session_type": api_session_type(&r.get::<String, _>("source_session_type")),
+                "kind": api_clipboard_kind(&r.get::<String, _>("kind")),
                 "representations": serde_json::from_str::<serde_json::Value>(&r.get::<String, _>("representations")).unwrap_or(serde_json::json!([])),
+                "payload_refs": serde_json::from_str::<serde_json::Value>(&r.get::<String, _>("payload_refs")).unwrap_or(serde_json::json!([])),
                 "size": r.get::<i64, _>("size"),
                 "created_at": r.get::<i64, _>("created_at"),
                 "checksum": r.get::<String, _>("checksum"),
@@ -279,6 +322,23 @@ async fn clipboard_history(
     Json(serde_json::json!({ "items": items, "limit": limit, "offset": offset }))
 }
 
+fn api_clipboard_kind(kind: &str) -> &'static str {
+    match kind {
+        "text" => "Text",
+        "image" => "Image",
+        "file" => "File",
+        _ => "Text",
+    }
+}
+
+fn api_session_type(session_type: &str) -> &'static str {
+    match session_type {
+        "persistent" => "Persistent",
+        "temporary" => "Temporary",
+        _ => "Persistent",
+    }
+}
+
 async fn payload_upload(
     State(state): State<ServerState>,
     mut multipart: axum::extract::Multipart,
@@ -287,8 +347,7 @@ async fn payload_upload(
     use std::io::Write;
 
     let mut payload_id: Option<String> = None;
-    let mut checksum_hasher = Sha256::new();
-    let mut total_size: u64 = 0;
+    let mut payload_bytes: Option<Vec<u8>> = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
         (
@@ -305,25 +364,7 @@ async fn payload_upload(
                 }
                 "data" => {
                     if let Some(bytes) = field.bytes().await.ok() {
-                        total_size += bytes.len() as u64;
-                        checksum_hasher.update(&bytes);
-
-                        let pid = payload_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                        let dir = format!("{}/payloads", state.data_dir);
-                        let _ = std::fs::create_dir_all(&dir);
-                        let path = format!("{}/{}", dir, pid);
-                        let mut file = std::fs::OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .open(&path)
-                            .map_err(|e| {
-                                (
-                                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                                    Json(serde_json::json!({"error": e.to_string()})),
-                                )
-                            })?;
-                        let _ = file.write_all(&bytes);
-                        payload_id = Some(pid);
+                        payload_bytes = Some(bytes.to_vec());
                     }
                 }
                 _ => {}
@@ -332,8 +373,37 @@ async fn payload_upload(
     }
 
     let payload_id = payload_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let payload_bytes = payload_bytes.unwrap_or_default();
+    let total_size = payload_bytes.len() as u64;
+    let mut checksum_hasher = Sha256::new();
+    checksum_hasher.update(&payload_bytes);
     let checksum = format!("{:x}", checksum_hasher.finalize());
+
+    let dir = format!("{}/payloads", state.data_dir);
+    std::fs::create_dir_all(&dir).map_err(|e| {
+        (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+    })?;
     let file_path = format!("{}/payloads/{}", state.data_dir, payload_id);
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&file_path)
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+        })?;
+    file.write_all(&payload_bytes).map_err(|e| {
+        (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+    })?;
 
     sqlx::query(
         "INSERT OR REPLACE INTO payloads (payload_id, file_path, size, checksum) VALUES (?, ?, ?, ?)",
@@ -356,6 +426,20 @@ async fn payload_upload(
         "size": total_size,
         "checksum": checksum,
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{api_clipboard_kind, api_session_type};
+
+    #[test]
+    fn history_api_uses_core_enum_variant_names() {
+        assert_eq!("Text", api_clipboard_kind("text"));
+        assert_eq!("Image", api_clipboard_kind("image"));
+        assert_eq!("File", api_clipboard_kind("file"));
+        assert_eq!("Persistent", api_session_type("persistent"));
+        assert_eq!("Temporary", api_session_type("temporary"));
+    }
 }
 
 async fn payload_download(
@@ -393,9 +477,7 @@ async fn payload_download(
     Ok(resp)
 }
 
-async fn trigger_cleanup(
-    State(state): State<ServerState>,
-) -> Json<serde_json::Value> {
+async fn trigger_cleanup(State(state): State<ServerState>) -> Json<serde_json::Value> {
     match crate::cleanup::run_cleanup(&state.db).await {
         Ok(result) => Json(serde_json::json!({
             "status": "ok",
@@ -425,7 +507,9 @@ async fn input_ws_handler(
 ) -> axum::response::Response {
     let device_id = params.get("device_id").cloned().unwrap_or_default();
     let target_id = params.get("target_id").cloned().unwrap_or_default();
-    ws.on_upgrade(move |socket| crate::input_relay::handle_input_ws(socket, state, device_id, target_id))
+    ws.on_upgrade(move |socket| {
+        crate::input_relay::handle_input_ws(socket, state, device_id, target_id)
+    })
 }
 
 // Search is already available via the /api/v1/clipboard/history endpoint

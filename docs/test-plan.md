@@ -1,8 +1,8 @@
 # Glide 测试计划
 
-> 最后更新：2026-06-05
-> 当前虚拟环境执行结果：203 通过 / 0 失败
-> Windows GUI 真实桌面执行：当前环境无 Windows VM / Wine / PowerShell，已生成 VM 脚本，需在 Windows VM 执行
+> 最后更新：2026-06-06
+> 当前虚拟环境执行结果：累计脚本和 Rust 测试通过；已完成 CLI 单文件 payload、Slint Xvfb、AppImage Xvfb、Linux deb/rpm/AppImage package 验证。
+> Windows 真实/虚拟执行：Wine 9.0 中 Windows GUI smoke 通过，Windows CLI 文本和单文件 payload smoke 通过；QEMU/KVM Windows 11 Enterprise Evaluation 25H2 中 `glide-gui.exe --smoke` 通过。安装包模式、普通桌面双击、真实系统剪贴板/键鼠仍待执行。
 
 ## 1. 测试环境
 
@@ -12,9 +12,9 @@
 | Linux CLI/WebSocket | Python `websockets` + HTTP API | 已真实执行 |
 | Linux GUI X11 | Xvfb + xclip + xdotool | 已真实执行 |
 | Windows platform 分支 | `platform=windows` 注册、WebSocket 同协议模拟、Windows 路径/注册 payload 单元测试 | 已虚拟/单元验证 |
-| Windows GUI | PowerShell / AutoHotkey / pywinauto 脚本 | 已生成，需 Windows VM |
-| Wine | 本机无 `wine/wine64` | 未执行 |
-| 本地 Windows VM | 本机无 `qemu-system-x86_64/virsh/VirtualBox/pwsh` | 未执行 |
+| Windows GUI | QEMU/KVM Windows 11 Enterprise Evaluation 25H2，PowerShell / AutoHotkey / pywinauto 脚本 | QEMU Win11 smoke 已通过；安装包/真实桌面流程待继续 |
+| Wine | Wine 9.0 | Windows GNU `glide-gui.exe --smoke` 已通过；Windows GNU CLI 文本和单文件 payload 已通过 |
+| 本地 Windows VM | `qemu-system-x86_64`、OVMF Secure Boot、swtpm、USB vvfat 测试盘 | 已执行 Win11 25H2 smoke；VirtualBox 不可用 |
 
 ## 2. 竞品参考与测试点
 
@@ -39,11 +39,15 @@ cargo test --package glide-daemon
 cargo check --workspace
 cargo build --release --package glide-gui --package glide-daemon --package glide-cli --package glide-server
 cargo clippy --package glide-gui --no-deps -- -D warnings
-VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh
-rpm -qpl dist-test/glide-0.1.0-1.x86_64.rpm
+VERSION=0.1.0 DIST_DIR=dist-verify ./scripts/package-linux.sh
+rpm -qpl dist-verify/glide-0.1.0-1.x86_64.rpm
+xvfb-run --auto-servernum timeout 5 target/release/glide-gui
+APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run --auto-servernum timeout 5 dist-verify/glide-0.1.0-x86_64.AppImage
+GLIDE_GUI_LOG=/tmp/glide-gui.log xvfb-run --auto-servernum target/debug/glide-gui --smoke
 bash scripts/test-e2e-linux.sh
 bash scripts/test-network.sh
 bash scripts/test-clipboard-cli.sh
+bash scripts/test-cli-payload.sh
 bash scripts/test-keyboard-mouse-protocol.sh
 bash scripts/test-reconnect.sh
 bash scripts/test-gui-linux.sh
@@ -60,15 +64,24 @@ bash scripts/test-tc-network.sh
 | E2E | `bash scripts/test-e2e-linux.sh` | health、设备注册、错误/缺失 token、剪贴板 10 类文本、回环抑制、双向同步、输入事件、错误端口、Windows platform 注册、Linux→Windows 模拟同步、重连 | 34/34 通过 |
 | 网络基础 | `bash scripts/test-network.sh` | health、IPv4、错误端口、隔离端口绑定、注册、坏 token、API、WebSocket | 11/11 通过 |
 | CLI 剪贴板 | `bash scripts/test-clipboard-cli.sh` | 纯文本、中文、Emoji、空文本、多行、特殊字符、500KB 大文本 | 7/7 通过 |
+| CLI 文件 payload | `bash scripts/test-cli-payload.sh` | 两个 CLI 设备经 server 上传单文件 payload，并用 `paste --output` 下载比对 | 1/1 通过 |
+| Windows CLI Wine | `bash scripts/test-windows-cli-wine.sh` | Wine 9.0 运行 Windows GNU `glide-cli.exe` 连接真实本机 server，验证文本 copy/paste 和单文件 payload upload/download | 2/2 通过 |
 | 键鼠协议 | `bash scripts/test-keyboard-mouse-protocol.sh` | 键盘、组合键、鼠标移动/点击/滚轮、紧急释放、路由、坐标映射、边缘检测、DPI 100/125/150 | 34/34 通过 |
 | 认证重连 | `bash scripts/test-reconnect.sh` | 正确/错误/缺失 token、WebSocket 重连、5 客户端、5 客户端同步、设备注册表 | 7/7 通过 |
 | Linux GUI | `bash scripts/test-gui-linux.sh` | Xvfb、xclip 写读、中文、xdotool 鼠标/键盘/点击 | 6/6 通过 |
-| Slint GUI | `cargo test --package glide-gui` | GUI backend trait mock、连接状态、空 URL 拒绝、剪贴板/键鼠开关 | 3/3 通过 |
+| Slint GUI | `cargo test --package glide-gui` | GUI backend trait mock、连接状态、空 URL 拒绝、剪贴板/键鼠开关、诊断日志路径 | 4/4 通过 |
 | Daemon skeleton | `cargo test --package glide-daemon` | 状态、连接、空 URL 拒绝、能力开关、token URL 脱敏 | 5/5 通过 |
 | Slint 构建 | `cargo check --workspace` | 全 workspace 编译检查；GUI 不依赖 Tauri/WebView2 | 通过，既有 crate 有 unused warnings |
 | Slint clippy | `cargo clippy --package glide-gui --no-deps -- -D warnings` | 新 GUI crate 自身 lint | 通过 |
 | Rust workspace | `cargo test --workspace` | core、desktop、daemon、server、cli、gui 单元/集成/doc tests | 112/112 通过，既有 crate 有 unused warnings |
-| Linux 打包 | `VERSION=0.1.0 DIST_DIR=dist-test ./scripts/package-linux.sh` | deb/rpm/AppImage 生成、root owner、GUI/daemon/CLI/server 内容 | deb 11MB，rpm 15MB，AppImage 15MB |
+| Slint GUI Xvfb | `xvfb-run --auto-servernum timeout 5 target/release/glide-gui` | Linux 虚拟显示下启动 Slint GUI | 保持运行 5 秒，未崩溃 |
+| Slint GUI smoke | `GLIDE_GUI_LOG=<tmp> xvfb-run --auto-servernum target/debug/glide-gui --smoke` | GUI 初始化、诊断日志、版本/平台/状态输出 | 通过，生成诊断日志 |
+| Windows GNU 构建 | `cargo build --package glide-gui --target x86_64-pc-windows-gnu` | 交叉编译 Windows GUI exe | 通过 |
+| Windows GUI Wine smoke | `bash scripts/test-windows-gui-wine.sh` | Wine 9.0 运行 `glide-gui.exe --smoke` | 通过，输出 `glide-gui smoke ok` |
+| Windows CLI Wine smoke | `bash scripts/test-windows-cli-wine.sh` | Wine 9.0 运行 `glide-cli.exe` 文本同步和单文件 payload | 通过，输出 `OK: text copy/paste`、`OK: file payload upload/download` |
+| Windows GUI QEMU smoke | QEMU Win11 25H2 OOBE 命令行运行 `D:\glide-test.ps1` | 真实 Windows 11 中执行 `D:\glide-gui.exe --smoke` | 通过，回传 `exit=0`、`os=windows`、`arch=x86_64`、诊断日志 |
+| Linux 打包 | `VERSION=0.1.0 DIST_DIR=dist-verify ./scripts/package-linux.sh` | deb/rpm/AppImage 生成、root owner、GUI/daemon/CLI/server 内容 | deb 11MB，rpm 15MB，AppImage 15MB |
+| AppImage Xvfb | `APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run --auto-servernum timeout 5 dist-verify/glide-0.1.0-x86_64.AppImage` | AppImage 实际启动 | 保持运行 5 秒，未崩溃 |
 | 网络异常 | `bash scripts/test-tc-network.sh` | 服务端重启、坏 IP 超时后恢复、快速连接/断开、1MB payload、IPv4、端口绑定 | 7/7 通过 |
 
 ## 5. 已修复问题
@@ -91,6 +104,7 @@ bash scripts/test-tc-network.sh
 | `scripts/test-windows-connect.ps1` | `Test-NetConnection`、DNS、health、Windows device 注册、坏 token、WebSocket | 需 Windows VM；已与 token 参数兼容 |
 | `scripts/test-windows-clipboard.ps1` | Windows 剪贴板读写、中文、空文本、大文本、Notepad 粘贴 | 需 Windows VM |
 | `scripts/test-windows-gui.ahk` | Notepad 输入、复制、中文、快速剪贴板变化 | 需 Windows VM |
+| `scripts/test-windows-gui-smoke.ps1` | `glide.exe --smoke`、诊断日志生成、Win11 闪退排查入口 | 同等 smoke 已在 QEMU Win11 执行；脚本本身仍需普通桌面/portable zip 跑一遍 |
 | `scripts/test-windows-notepad-clipboard.py` | pywinauto Notepad 自动化 | 需 Windows VM |
 
 Windows VM 建议执行：
@@ -98,6 +112,7 @@ Windows VM 建议执行：
 ```powershell
 .\scripts\test-windows-connect.ps1 -Server http://<linux-server-ip>:8080 -Token reg123
 .\scripts\test-windows-clipboard.ps1 -Server http://<linux-server-ip>:8080
+powershell -ExecutionPolicy Bypass -File .\scripts\test-windows-gui-smoke.ps1 -GuiExe .\glide.exe
 AutoHotkey.exe .\scripts\test-windows-gui.ahk
 pip install pywinauto
 python .\scripts\test-windows-notepad-clipboard.py
@@ -126,6 +141,8 @@ Get-Process | ? ProcessName -match "glide"
 | CLIP-003 | 5 客户端广播 | 5 个 WS 客户端 | 1 个发送剪贴板 | 其他客户端收到 | 是 | 通过 |
 | GUI-001 | Linux X11 剪贴板 | Xvfb | xclip 写读中文 | 内容一致 | 是 | 通过 |
 | GUI-002 | Windows Notepad 剪贴板 | Windows VM | AHK/PowerShell 操作 Notepad | 复制粘贴一致 | 是，需 VM | 待执行 |
+| GUI-005 | Windows GUI smoke | QEMU Win11 25H2 | `D:\glide-test.ps1` 运行 `D:\glide-gui.exe --smoke` | 输出 smoke ok，退出码 0，生成诊断日志 | 是，VM | 通过 |
+| CLI-002 | Windows CLI Wine copy/paste | Wine 9.0 + Windows GNU CLI | `scripts/test-windows-cli-wine.sh` | 文本 copy/paste 和单文件 payload upload/download 成功 | 是，Wine | 通过 |
 | INPUT-001 | 键盘事件 | 协议脚本 | Ctrl+C、Ctrl+Alt+Del、Win、F1 等编码 | JSON 正确 | 是 | 通过 |
 | INPUT-002 | 鼠标事件 | 协议脚本 | 移动/点击/滚轮 | JSON 正确 | 是 | 通过 |
 | INPUT-003 | 跨屏坐标/DPI | 协议脚本 | 100/125/150% 映射 | 坐标符合预期 | 是 | 通过 |
@@ -141,12 +158,12 @@ Get-Process | ? ProcessName -match "glide"
 
 | 项目 | 原因 | 替代验证 |
 |------|------|----------|
-| Windows NSIS/MSI 干净安装 | 本机无 Windows VM | GitHub Windows runner 构建 + PowerShell VM 脚本 |
-| Windows GUI 实际连接/托盘 | 本机无 Windows 桌面/PowerShell/Wine | Windows platform 注册和 WebSocket 同协议模拟；VM 脚本待执行 |
-| Windows ↔ Linux 真实系统剪贴板 | 本机无 Windows VM | Linux CLI/GUI 真实执行 + Windows PowerShell/AHK 脚本 |
+| Windows NSIS/MSI 干净安装 | 当前没有 installer 产物，且 OOBE 仍需手工辅助 | GitHub Windows runner 构建 + PowerShell VM 脚本 |
+| Windows GUI 实际连接/托盘 | GUI 仍是 mock backend，daemon IPC 未接入 | Windows platform 注册和 WebSocket 同协议模拟；真实连接待 daemon IPC 后验证 |
+| Windows ↔ Linux 真实系统剪贴板 | 已有 QEMU Win11 VM，但 GUI 仍是 mock backend，真实剪贴板链路未接 daemon | Linux CLI/GUI 真实执行 + Windows PowerShell/AHK 脚本 |
 | Wayland 真实剪贴板 | 本机未安装 weston/wl-clipboard 组合 | X11 Xvfb 已执行；Wayland backend detect 单元测试 |
 | 真实跨屏键鼠 | 当前仅单机虚拟环境 | 协议、坐标、DPI、边缘、紧急释放自动化覆盖；真实多屏需 VM/多显示器 |
 
 ## 9. 结论
 
-当前 Linux 虚拟环境、Headless GUI、Mock/协议层、Windows platform 模拟下没有已知失败。Windows 客户端无法连接服务端的直接修复是：GUI 现在支持输入并提交 registration token，并在日志中输出连接阶段、目标地址和脱敏 token。安装包模式和 Windows GUI 实际剪贴板/键鼠仍需在干净 Windows 10/11 VM 中执行已生成脚本验证。
+当前 Linux 虚拟环境、Headless GUI、Mock/协议层、Windows platform 模拟、Windows CLI Wine smoke、Windows GUI Wine smoke、QEMU Win11 GUI smoke 下没有已知失败。Windows 客户端无法连接服务端的直接修复是：GUI 现在支持输入并提交 registration token，并在日志中输出连接阶段、目标地址和脱敏 token；CLI 现在支持 `GLIDE_CONFIG_PATH` 覆盖和 Windows `%APPDATA%\Glide\config.json` 默认配置路径。安装包模式、普通桌面双击启动和 Windows GUI 实际剪贴板/键鼠仍需在干净 Windows 10/11 VM 中继续执行已生成脚本验证。

@@ -1,13 +1,21 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
+use futures::{SinkExt, StreamExt};
+use glide_core::payload::PayloadRef;
 use reqwest::Client as HttpClient;
 use sha2::{Digest, Sha256};
-use std::path::Path;
-use futures::{StreamExt, SinkExt};
+use std::path::{Path, PathBuf};
 
 use glide_core::clipboard::{ClipboardItem, ClipboardKind, DeliveryPolicy, SessionType};
-use glide_core::mime_rep::{MimeRepresentation, RepresentationContent, mime_types};
+use glide_core::mime_rep::{mime_types, MimeRepresentation, RepresentationContent};
 
 use crate::config::CliConfig;
+
+#[derive(Debug, Clone)]
+struct PendingPayload {
+    reference: PayloadRef,
+    source_path: PathBuf,
+    cleanup_after_upload: bool,
+}
 
 /// API client for the Glide server.
 pub struct Client {
@@ -31,9 +39,10 @@ impl Client {
             }
             (Some(url), None) => {
                 // Server specified but no token — try config or generate temp session.
-                let id = config.as_ref().map(|c| c.device_id.to_string()).unwrap_or_else(|| {
-                    uuid::Uuid::new_v4().to_string()
-                });
+                let id = config
+                    .as_ref()
+                    .map(|c| c.device_id.to_string())
+                    .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                 (url.to_string(), id, SessionType::Persistent)
             }
             (None, Some(_tok)) => {
@@ -42,7 +51,11 @@ impl Client {
             (None, None) => {
                 // Persistent mode: require config.
                 match &config {
-                    Some(c) => (c.server_url.clone(), c.device_id.to_string(), SessionType::Persistent),
+                    Some(c) => (
+                        c.server_url.clone(),
+                        c.device_id.to_string(),
+                        SessionType::Persistent,
+                    ),
                     None => bail!(
                         "No config found. Run with --server and --token for temporary sessions, \
                          or set up persistent mode by creating ~/.config/glide/config.json"
@@ -71,8 +84,15 @@ impl Client {
 
     /// Register the device if not already registered.
     pub async fn register(&self) -> Result<()> {
-        let name = self.config.as_ref().map(|c| c.device_name.clone()).unwrap_or_else(|| "cli".to_string());
-        let reg_token = self.config.as_ref().and_then(|c| c.registration_token.clone());
+        let name = self
+            .config
+            .as_ref()
+            .map(|c| c.device_name.clone())
+            .unwrap_or_else(|| "cli".to_string());
+        let reg_token = self
+            .config
+            .as_ref()
+            .and_then(|c| c.registration_token.clone());
 
         let mut body = serde_json::json!({
             "device_id": self.device_id,
@@ -85,7 +105,8 @@ impl Client {
             body["registration_token"] = serde_json::Value::String(rt);
         }
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(format!("{}/api/v1/devices/register", self.server_url))
             .json(&body)
             .send()
@@ -109,26 +130,25 @@ pub async fn copy(
     image: Option<String>,
 ) -> Result<()> {
     // Determine what's being copied.
-    let (kind, representations, payload_refs, total_size, checksum) = match (text, file, dir, image) {
-        (Some(text), None, None, None) => {
-            let checksum = compute_checksum(text.as_bytes());
-            let reps = vec![MimeRepresentation {
-                mime_type: mime_types::TEXT_PLAIN.to_string(),
-                content: RepresentationContent::Text(text),
-            }];
-            (ClipboardKind::Text, reps, Vec::new(), 0, checksum)
-        }
-        (None, Some(file_path), None, None) => {
-            copy_file(&file_path).await?
-        }
-        (None, None, Some(dir_path), None) => {
-            copy_directory(&dir_path).await?
-        }
-        (None, None, None, Some(image_path)) => {
-            copy_image(&image_path).await?
-        }
-        _ => bail!("Exactly one of TEXT, --file, --dir, or --image must be specified"),
-    };
+    let (kind, representations, pending_payloads, total_size, checksum) =
+        match (text, file, dir, image) {
+            (Some(text), None, None, None) => {
+                let checksum = compute_checksum(text.as_bytes());
+                let reps = vec![MimeRepresentation {
+                    mime_type: mime_types::TEXT_PLAIN.to_string(),
+                    content: RepresentationContent::Text(text),
+                }];
+                (ClipboardKind::Text, reps, Vec::new(), 0, checksum)
+            }
+            (None, Some(file_path), None, None) => copy_file(&file_path).await?,
+            (None, None, Some(dir_path), None) => copy_directory(&dir_path).await?,
+            (None, None, None, Some(image_path)) => copy_image(&image_path).await?,
+            _ => bail!("Exactly one of TEXT, --file, --dir, or --image must be specified"),
+        };
+    let payload_refs = pending_payloads
+        .iter()
+        .map(|pending| pending.reference.clone())
+        .collect();
 
     let item = ClipboardItem {
         item_id: uuid::Uuid::new_v4().to_string(),
@@ -147,14 +167,21 @@ pub async fn copy(
     client.register().await?;
 
     // Upload payload refs if any.
-    for pref in &item.payload_refs {
-        upload_payload(client, pref).await?;
+    for pending in &pending_payloads {
+        upload_payload(client, pending).await?;
+        if pending.cleanup_after_upload {
+            let _ = std::fs::remove_file(&pending.source_path);
+        }
     }
 
     // Send clipboard item via WebSocket.
     send_clipboard_item(client, &item).await?;
 
-    println!("Copied: {} ({} bytes)", clipboard_kind_str(&item.kind), total_size);
+    println!(
+        "Copied: {} ({} bytes)",
+        clipboard_kind_str(&item.kind),
+        total_size
+    );
     println!("Item ID: {}", item.item_id);
 
     Ok(())
@@ -185,7 +212,8 @@ pub async fn paste(client: &Client, output: Option<String>) -> Result<()> {
             }
             RepresentationContent::InlineBase64(data) => {
                 if let Some(ref out) = output {
-                    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data)?;
+                    let bytes =
+                        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data)?;
                     std::fs::write(out, &bytes)?;
                     println!("Written {} bytes to {}", bytes.len(), out);
                 } else {
@@ -235,7 +263,8 @@ pub async fn history(client: &Client, limit: usize) -> Result<()> {
             .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
             .unwrap_or_else(|| "unknown".to_string());
 
-        let preview = item.representations
+        let preview = item
+            .representations
             .iter()
             .filter_map(|r| match &r.content {
                 RepresentationContent::Text(t) => Some(t.chars().take(80).collect::<String>()),
@@ -245,7 +274,14 @@ pub async fn history(client: &Client, limit: usize) -> Result<()> {
             .next()
             .unwrap_or_else(|| "[empty]".to_string());
 
-        println!("[{}] {} | {} | {} bytes | {}", time, clipboard_kind_str(&item.kind), item.source_device_id, item.size, preview);
+        println!(
+            "[{}] {} | {} | {} bytes | {}",
+            time,
+            clipboard_kind_str(&item.kind),
+            item.source_device_id,
+            item.size,
+            preview
+        );
     }
 
     Ok(())
@@ -253,7 +289,8 @@ pub async fn history(client: &Client, limit: usize) -> Result<()> {
 
 /// List registered devices.
 pub async fn devices(client: &Client) -> Result<()> {
-    let resp = client.http
+    let resp = client
+        .http
         .get(format!("{}/api/v1/devices", client.server_url))
         .query(&client.auth_query())
         .send()
@@ -266,7 +303,10 @@ pub async fn devices(client: &Client) -> Result<()> {
 
     let body: serde_json::Value = resp.json().await?;
     let empty = vec![];
-    let devs = body.get("devices").and_then(|d| d.as_array()).unwrap_or(&empty);
+    let devs = body
+        .get("devices")
+        .and_then(|d| d.as_array())
+        .unwrap_or(&empty);
 
     if devs.is_empty() {
         println!("No devices registered");
@@ -277,14 +317,21 @@ pub async fn devices(client: &Client) -> Result<()> {
         let id = dev.get("device_id").and_then(|v| v.as_str()).unwrap_or("?");
         let name = dev.get("name").and_then(|v| v.as_str()).unwrap_or("?");
         let platform = dev.get("platform").and_then(|v| v.as_str()).unwrap_or("?");
-        let trusted = dev.get("trusted").and_then(|v| v.as_bool()).unwrap_or(false);
-        let seen = dev.get("last_seen_at")
+        let trusted = dev
+            .get("trusted")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let seen = dev
+            .get("last_seen_at")
             .and_then(|v| v.as_i64())
             .and_then(|ts| chrono::DateTime::from_timestamp_millis(ts))
             .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
             .unwrap_or_else(|| "never".to_string());
 
-        println!("{} | {} | {} | trusted={} | last seen: {}", id, name, platform, trusted, seen);
+        println!(
+            "{} | {} | {} | trusted={} | last seen: {}",
+            id, name, platform, trusted, seen
+        );
     }
 
     Ok(())
@@ -296,14 +343,25 @@ fn compute_checksum(data: &[u8]) -> String {
     format!("{:x}", Sha256::digest(data))
 }
 
-async fn copy_file(path: &str) -> Result<(ClipboardKind, Vec<MimeRepresentation>, Vec<glide_core::payload::PayloadRef>, u64, String)> {
+async fn copy_file(
+    path: &str,
+) -> Result<(
+    ClipboardKind,
+    Vec<MimeRepresentation>,
+    Vec<PendingPayload>,
+    u64,
+    String,
+)> {
     let data = std::fs::read(path)?;
     let size = data.len() as u64;
     let checksum = compute_checksum(&data);
     let payload_id = uuid::Uuid::new_v4().to_string();
 
     // Detect MIME type from extension.
-    let ext = Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("");
+    let ext = Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
     let mime_type = match ext {
         "png" => mime_types::IMAGE_PNG,
         "jpg" | "jpeg" => mime_types::IMAGE_JPEG,
@@ -322,17 +380,30 @@ async fn copy_file(path: &str) -> Result<(ClipboardKind, Vec<MimeRepresentation>
         content: RepresentationContent::PayloadRef(payload_id.clone()),
     }];
 
-    let pref = glide_core::payload::PayloadRef::new(
+    let pref = PayloadRef::new(
         payload_id.clone(),
         format!("/api/v1/payload/{}", payload_id),
         size,
         checksum.clone(),
     );
+    let pending = PendingPayload {
+        reference: pref,
+        source_path: PathBuf::from(path),
+        cleanup_after_upload: false,
+    };
 
-    Ok((kind, reps, vec![pref], size, checksum))
+    Ok((kind, reps, vec![pending], size, checksum))
 }
 
-async fn copy_directory(path: &str) -> Result<(ClipboardKind, Vec<MimeRepresentation>, Vec<glide_core::payload::PayloadRef>, u64, String)> {
+async fn copy_directory(
+    path: &str,
+) -> Result<(
+    ClipboardKind,
+    Vec<MimeRepresentation>,
+    Vec<PendingPayload>,
+    u64,
+    String,
+)> {
     // Package directory as a tarball.
     let payload_id = uuid::Uuid::new_v4().to_string();
     let tar_path = format!("/tmp/glide_{}.tar.gz", payload_id);
@@ -342,7 +413,10 @@ async fn copy_directory(path: &str) -> Result<(ClipboardKind, Vec<MimeRepresenta
         .output()?;
 
     if !output.status.success() {
-        bail!("Failed to create archive: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to create archive: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     let data = std::fs::read(&tar_path)?;
@@ -354,35 +428,94 @@ async fn copy_directory(path: &str) -> Result<(ClipboardKind, Vec<MimeRepresenta
         content: RepresentationContent::PayloadRef(payload_id.clone()),
     }];
 
-    let pref = glide_core::payload::PayloadRef::new(
+    let pref = PayloadRef::new(
         payload_id.clone(),
         format!("/api/v1/payload/{}", payload_id),
         size,
         checksum.clone(),
     );
+    let pending = PendingPayload {
+        reference: pref,
+        source_path: PathBuf::from(tar_path),
+        cleanup_after_upload: true,
+    };
 
-    // Clean up temp file.
-    let _ = std::fs::remove_file(&tar_path);
-
-    Ok((ClipboardKind::File, reps, vec![pref], size, checksum))
+    Ok((ClipboardKind::File, reps, vec![pending], size, checksum))
 }
 
-async fn copy_image(path: &str) -> Result<(ClipboardKind, Vec<MimeRepresentation>, Vec<glide_core::payload::PayloadRef>, u64, String)> {
-    let (kind, reps, prefs, size, checksum) = copy_file(path).await?;
+async fn copy_image(
+    path: &str,
+) -> Result<(
+    ClipboardKind,
+    Vec<MimeRepresentation>,
+    Vec<PendingPayload>,
+    u64,
+    String,
+)> {
+    let (_kind, reps, prefs, size, checksum) = copy_file(path).await?;
     // Override kind to Image regardless of detected type.
     Ok((ClipboardKind::Image, reps, prefs, size, checksum))
 }
 
-async fn upload_payload(client: &Client, pref: &glide_core::payload::PayloadRef) -> Result<()> {
-    // Read file from filesystem based on payload_id.
-    // For the CLI, we assume the file path is the source file passed to copy.
-    // In a full implementation, this would track the source path separately.
+async fn upload_payload(client: &Client, pending: &PendingPayload) -> Result<()> {
+    let data = std::fs::read(&pending.source_path)?;
+    let actual_checksum = compute_checksum(&data);
+    if actual_checksum != pending.reference.checksum {
+        bail!(
+            "Payload checksum changed before upload: expected {}, got {}",
+            pending.reference.checksum,
+            actual_checksum
+        );
+    }
+
+    let file_name = pending
+        .source_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("payload")
+        .to_string();
+    let form = reqwest::multipart::Form::new()
+        .text("payload_id", pending.reference.payload_id.clone())
+        .part(
+            "data",
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
+        );
+
+    let resp = client
+        .http
+        .post(format!("{}/api/v1/payload/upload", client.server_url))
+        .multipart(form)
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let text = resp.text().await?;
+        bail!("Payload upload failed: {}", text);
+    }
+
+    let body: serde_json::Value = resp.json().await?;
+    let uploaded_checksum = body
+        .get("checksum")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    if uploaded_checksum != pending.reference.checksum {
+        bail!(
+            "Payload upload checksum mismatch: expected {}, got {}",
+            pending.reference.checksum,
+            uploaded_checksum
+        );
+    }
+
     Ok(())
 }
 
 async fn download_payload(client: &Client, payload_id: &str, output: &str) -> Result<()> {
-    let resp = client.http
-        .get(format!("{}/api/v1/payload/{}", client.server_url, payload_id))
+    let resp = client
+        .http
+        .get(format!(
+            "{}/api/v1/payload/{}",
+            client.server_url, payload_id
+        ))
         .send()
         .await?;
 
@@ -397,12 +530,17 @@ async fn download_payload(client: &Client, payload_id: &str, output: &str) -> Re
     Ok(())
 }
 
-async fn download_payload_by_ref(client: &Client, pref: &glide_core::payload::PayloadRef, output: &str) -> Result<()> {
+async fn download_payload_by_ref(
+    client: &Client,
+    pref: &glide_core::payload::PayloadRef,
+    output: &str,
+) -> Result<()> {
     download_payload(client, &pref.payload_id, output).await
 }
 
 async fn get_history(client: &Client, limit: usize) -> Result<Vec<ClipboardItem>> {
-    let resp = client.http
+    let resp = client
+        .http
         .get(format!("{}/api/v1/clipboard/history", client.server_url))
         .query(&[("limit", limit.to_string())])
         .query(&client.auth_query())
@@ -416,7 +554,10 @@ async fn get_history(client: &Client, limit: usize) -> Result<Vec<ClipboardItem>
 
     let body: serde_json::Value = resp.json().await?;
     let empty = vec![];
-    let items = body.get("items").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let items = body
+        .get("items")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
 
     let mut result = Vec::new();
     for item in items {
@@ -430,11 +571,16 @@ async fn get_history(client: &Client, limit: usize) -> Result<Vec<ClipboardItem>
 
 async fn send_clipboard_item(client: &Client, item: &ClipboardItem) -> Result<()> {
     // Connect via WebSocket and send the clipboard event.
-    let ws_url = client.server_url
+    let ws_url = client
+        .server_url
         .replace("http://", "ws://")
         .replace("https://", "wss://");
 
-    let url = format!("{}/ws/sync?{}", ws_url, format!("device_id={}", client.device_id));
+    let url = format!(
+        "{}/ws/sync?{}",
+        ws_url,
+        format!("device_id={}", client.device_id)
+    );
     let (ws_stream, _) = tokio_tungstenite::connect_async(&url).await?;
 
     let msg = serde_json::json!({
@@ -445,7 +591,11 @@ async fn send_clipboard_item(client: &Client, item: &ClipboardItem) -> Result<()
     });
 
     let (mut write, _) = ws_stream.split();
-    write.send(tokio_tungstenite::tungstenite::Message::Text(msg.to_string())).await?;
+    write
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            msg.to_string(),
+        ))
+        .await?;
 
     Ok(())
 }
@@ -456,5 +606,69 @@ pub fn clipboard_kind_str(kind: &glide_core::clipboard::ClipboardKind) -> &str {
         glide_core::clipboard::ClipboardKind::Text => "text",
         glide_core::clipboard::ClipboardKind::Image => "image",
         glide_core::clipboard::ClipboardKind::File => "file",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{copy_directory, copy_file, copy_image, ClipboardKind};
+    use glide_core::mime_rep::RepresentationContent;
+    use std::fs;
+
+    fn temp_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("glide-cli-test-{}-{}", name, uuid::Uuid::new_v4()))
+    }
+
+    #[tokio::test]
+    async fn copy_file_tracks_source_for_payload_upload() {
+        let path = temp_path("file.txt");
+        fs::write(&path, b"hello file").unwrap();
+
+        let (kind, reps, pending, size, checksum) =
+            copy_file(path.to_str().unwrap()).await.unwrap();
+
+        assert_eq!(ClipboardKind::File, kind);
+        assert_eq!(10, size);
+        assert_eq!(checksum, pending[0].reference.checksum);
+        assert_eq!(path, pending[0].source_path);
+        assert!(!pending[0].cleanup_after_upload);
+        assert!(matches!(
+            reps[0].content,
+            RepresentationContent::PayloadRef(_)
+        ));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn copy_image_uses_image_kind_but_tracks_source() {
+        let path = temp_path("image.png");
+        fs::write(&path, b"not-a-real-png").unwrap();
+
+        let (kind, _reps, pending, _size, _checksum) =
+            copy_image(path.to_str().unwrap()).await.unwrap();
+
+        assert_eq!(ClipboardKind::Image, kind);
+        assert_eq!(path, pending[0].source_path);
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn copy_directory_keeps_archive_until_upload_cleanup() {
+        let dir = temp_path("dir");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.txt"), b"hello").unwrap();
+
+        let (kind, _reps, pending, size, _checksum) =
+            copy_directory(dir.to_str().unwrap()).await.unwrap();
+
+        assert_eq!(ClipboardKind::File, kind);
+        assert!(size > 0);
+        assert!(pending[0].source_path.exists());
+        assert!(pending[0].cleanup_after_upload);
+
+        let _ = fs::remove_file(&pending[0].source_path);
+        let _ = fs::remove_dir_all(dir);
     }
 }

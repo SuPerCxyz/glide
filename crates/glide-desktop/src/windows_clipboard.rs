@@ -2,7 +2,6 @@
 ///
 /// Provides text, image, and file/folder clipboard operations
 /// using the standard Windows clipboard API.
-
 use anyhow::{anyhow, Result};
 
 use crate::clipboard_adapter::ClipboardBackend;
@@ -122,8 +121,8 @@ const FORMAT_HDROP: u32 = 15;
 
 #[cfg(target_os = "windows")]
 fn open_clipboard() -> Result<()> {
-    use winapi::um::winuser::OpenClipboard;
     use std::ptr::null_mut;
+    use winapi::um::winuser::OpenClipboard;
     unsafe {
         if OpenClipboard(null_mut()) == 0 {
             Err(anyhow!("Failed to open clipboard"))
@@ -136,7 +135,9 @@ fn open_clipboard() -> Result<()> {
 #[cfg(target_os = "windows")]
 fn close_clipboard() {
     use winapi::um::winuser::CloseClipboard;
-    unsafe { CloseClipboard(); }
+    unsafe {
+        CloseClipboard();
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -147,9 +148,9 @@ fn is_format_available(format: u32) -> bool {
 
 #[cfg(target_os = "windows")]
 fn read_clipboard_format(format: u32) -> Result<String> {
-    use winapi::um::winuser::GetClipboardData;
-    use winapi::um::winbase::GlobalLock;
     use std::ptr::null_mut;
+    use winapi::um::winbase::GlobalLock;
+    use winapi::um::winuser::GetClipboardData;
 
     open_clipboard()?;
     let result = (|| {
@@ -178,28 +179,26 @@ fn read_clipboard_format(format: u32) -> Result<String> {
 
 #[cfg(target_os = "windows")]
 fn read_clipboard_format_bytes(format: u32) -> Result<Vec<u8>> {
-    use winapi::um::winuser::GetClipboardData;
     use winapi::um::winbase::GlobalLock;
+    use winapi::um::winuser::GetClipboardData;
 
     open_clipboard()?;
-    let result = (|| {
-        unsafe {
-            let handle = GetClipboardData(format);
-            if handle.is_null() {
-                return Err(anyhow!("No data in clipboard for format {}", format));
-            }
-            let ptr = GlobalLock(handle);
-            if ptr.is_null() {
-                return Err(anyhow!("GlobalLock failed"));
-            }
-            use winapi::um::winbase::GlobalSize;
-            let size = GlobalSize(handle) as usize;
-            if size == 0 {
-                return Err(anyhow!("GlobalSize returned 0"));
-            }
-            let data = std::slice::from_raw_parts(ptr as *const u8, size);
-            Ok(data.to_vec())
+    let result = (|| unsafe {
+        let handle = GetClipboardData(format);
+        if handle.is_null() {
+            return Err(anyhow!("No data in clipboard for format {}", format));
         }
+        let ptr = GlobalLock(handle);
+        if ptr.is_null() {
+            return Err(anyhow!("GlobalLock failed"));
+        }
+        use winapi::um::winbase::GlobalSize;
+        let size = GlobalSize(handle) as usize;
+        if size == 0 {
+            return Err(anyhow!("GlobalSize returned 0"));
+        }
+        let data = std::slice::from_raw_parts(ptr as *const u8, size);
+        Ok(data.to_vec())
     })();
     close_clipboard();
     result
@@ -207,9 +206,9 @@ fn read_clipboard_format_bytes(format: u32) -> Result<Vec<u8>> {
 
 #[cfg(target_os = "windows")]
 fn set_clipboard_format_bytes(format: u32, data: &[u8]) -> Result<()> {
-    use winapi::um::winuser::{SetClipboardData, EmptyClipboard};
-    use winapi::um::winbase::{GlobalAlloc, GlobalLock, GMEM_MOVEABLE, GMEM_ZEROINIT};
     use std::ptr::null_mut;
+    use winapi::um::winbase::{GlobalAlloc, GlobalLock, GMEM_MOVEABLE, GMEM_ZEROINIT};
+    use winapi::um::winuser::{EmptyClipboard, SetClipboardData};
 
     open_clipboard()?;
     let result = (|| {
@@ -241,7 +240,9 @@ fn set_clipboard_format_bytes(format: u32, data: &[u8]) -> Result<()> {
         close_clipboard();
     } else {
         use winapi::um::winuser::CloseClipboard;
-        unsafe { CloseClipboard(); }
+        unsafe {
+            CloseClipboard();
+        }
     }
     result
 }
@@ -288,7 +289,10 @@ fn parse_hdrop(data: &[u8]) -> Result<Vec<String>> {
 #[cfg(target_os = "windows")]
 fn create_hdrop(paths: &[String]) -> Vec<u8> {
     let mut data = vec![0u8; 20];
-    data[0] = 20; data[1] = 0; data[2] = 0; data[3] = 0;
+    data[0] = 20;
+    data[1] = 0;
+    data[2] = 0;
+    data[3] = 0;
     data[16] = 1; // fWide = 1
 
     for path in paths {
@@ -304,13 +308,17 @@ fn create_hdrop(paths: &[String]) -> Vec<u8> {
 // --- Stub implementations for non-Windows targets ---
 
 #[cfg(not(target_os = "windows"))]
-fn open_clipboard() -> Result<()> { Err(anyhow!("Windows clipboard not available")) }
+fn open_clipboard() -> Result<()> {
+    Err(anyhow!("Windows clipboard not available"))
+}
 
 #[cfg(not(target_os = "windows"))]
 fn close_clipboard() {}
 
 #[cfg(not(target_os = "windows"))]
-fn is_format_available(_format: u32) -> bool { false }
+fn is_format_available(_format: u32) -> bool {
+    false
+}
 
 #[cfg(not(target_os = "windows"))]
 fn read_clipboard_format(_format: u32) -> Result<String> {
@@ -356,7 +364,10 @@ mod tests {
 
     #[test]
     fn test_create_hdrop_roundtrip() {
-        let paths = vec!["C:\\Users\\test\\file.txt".to_string(), "D:\\docs\\readme.pdf".to_string()];
+        let paths = vec![
+            "C:\\Users\\test\\file.txt".to_string(),
+            "D:\\docs\\readme.pdf".to_string(),
+        ];
         let data = create_hdrop(&paths);
         // On Windows this would round-trip; on Linux we just verify it doesn't crash.
         assert!(data.len() > 20);

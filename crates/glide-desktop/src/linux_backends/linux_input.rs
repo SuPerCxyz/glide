@@ -82,7 +82,13 @@ impl InputBackend for LinuxInputBackend {
         Ok(())
     }
 
-    async fn inject_mouse_move(&self, x: i32, y: i32, _dx: Option<i32>, _dy: Option<i32>) -> Result<()> {
+    async fn inject_mouse_move(
+        &self,
+        x: i32,
+        y: i32,
+        _dx: Option<i32>,
+        _dy: Option<i32>,
+    ) -> Result<()> {
         self.run_xdotool(&["mousemove", &x.to_string(), &y.to_string()])
     }
 
@@ -130,11 +136,22 @@ impl InputBackend for LinuxInputBackend {
         let output = cmd.output()?;
         let text = String::from_utf8_lossy(&output.stdout);
         // Parse "dimensions:    1920x1080 pixels"
-        let line = text.lines().find(|l| l.contains("dimensions:")).unwrap_or("");
+        let line = text
+            .lines()
+            .find(|l| l.contains("dimensions:"))
+            .unwrap_or("");
         let dims = line.split_whitespace().nth(1).unwrap_or("1920x1080");
         let mut parts = dims.split('x');
-        let width = parts.next().unwrap_or("1920").parse::<i32>().unwrap_or(1920);
-        let height = parts.next().unwrap_or("1080").parse::<i32>().unwrap_or(1080);
+        let width = parts
+            .next()
+            .unwrap_or("1920")
+            .parse::<i32>()
+            .unwrap_or(1920);
+        let height = parts
+            .next()
+            .unwrap_or("1080")
+            .parse::<i32>()
+            .unwrap_or(1080);
         Ok((width, height))
     }
 }

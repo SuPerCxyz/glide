@@ -37,12 +37,18 @@ impl Default for HeadlessClipboard {
 impl ClipboardBackend for HeadlessClipboard {
     async fn read_text(&self) -> Result<String> {
         let store = self.clipboard.read().await;
-        store.text.clone().ok_or_else(|| anyhow!("No text on clipboard"))
+        store
+            .text
+            .clone()
+            .ok_or_else(|| anyhow!("No text on clipboard"))
     }
 
     async fn read_image(&self) -> Result<Vec<u8>> {
         let store = self.clipboard.read().await;
-        store.image.clone().ok_or_else(|| anyhow!("No image on clipboard"))
+        store
+            .image
+            .clone()
+            .ok_or_else(|| anyhow!("No image on clipboard"))
     }
 
     async fn read_files(&self) -> Result<Vec<String>> {
@@ -90,17 +96,21 @@ impl ClipboardBackend for HeadlessClipboard {
     async fn get_mime_content(&self, mime_type: &str) -> Result<Vec<u8>> {
         let store = self.clipboard.read().await;
         match mime_type {
-            "text/plain" | "UTF8_STRING" => {
-                store.text.clone().map(|t| t.into_bytes()).ok_or_else(|| anyhow!("No text"))
-            }
-            "image/png" => {
-                store.image.clone().ok_or_else(|| anyhow!("No image"))
-            }
+            "text/plain" | "UTF8_STRING" => store
+                .text
+                .clone()
+                .map(|t| t.into_bytes())
+                .ok_or_else(|| anyhow!("No text")),
+            "image/png" => store.image.clone().ok_or_else(|| anyhow!("No image")),
             "text/uri-list" => {
                 if store.files.is_empty() {
                     Err(anyhow!("No files"))
                 } else {
-                    let uri = store.files.iter().map(|f| format!("file://{}\n", f)).collect::<String>();
+                    let uri = store
+                        .files
+                        .iter()
+                        .map(|f| format!("file://{}\n", f))
+                        .collect::<String>();
                     Ok(uri.into_bytes())
                 }
             }
@@ -124,7 +134,10 @@ mod tests {
     #[tokio::test]
     async fn test_headless_write_read_image() {
         let clipboard = HeadlessClipboard::new();
-        clipboard.write_image(&[0x89, 0x50, 0x4E, 0x47]).await.unwrap();
+        clipboard
+            .write_image(&[0x89, 0x50, 0x4E, 0x47])
+            .await
+            .unwrap();
         let data = clipboard.read_image().await.unwrap();
         assert_eq!(data, vec![0x89, 0x50, 0x4E, 0x47]);
     }
@@ -132,7 +145,10 @@ mod tests {
     #[tokio::test]
     async fn test_headless_write_read_files() {
         let clipboard = HeadlessClipboard::new();
-        clipboard.write_files(&["/tmp/a.txt".to_string(), "/tmp/b.zip".to_string()]).await.unwrap();
+        clipboard
+            .write_files(&["/tmp/a.txt".to_string(), "/tmp/b.zip".to_string()])
+            .await
+            .unwrap();
         let files = clipboard.read_files().await.unwrap();
         assert_eq!(files, vec!["/tmp/a.txt", "/tmp/b.zip"]);
     }
@@ -173,7 +189,10 @@ mod tests {
     #[tokio::test]
     async fn test_headless_uri_list() {
         let clipboard = HeadlessClipboard::new();
-        clipboard.write_files(&["/home/user/doc.pdf".to_string()]).await.unwrap();
+        clipboard
+            .write_files(&["/home/user/doc.pdf".to_string()])
+            .await
+            .unwrap();
 
         let data = clipboard.get_mime_content("text/uri-list").await.unwrap();
         assert!(String::from_utf8_lossy(&data).contains("file:///home/user/doc.pdf"));

@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use glide_server::temp_token::{TempTokenOperation, create_temp_token, validate_and_use_token, cleanup_expired_tokens};
+    use glide_server::temp_token::{
+        cleanup_expired_tokens, create_temp_token, validate_and_use_token, TempTokenOperation,
+    };
     use sqlx::SqlitePool;
     use std::time::Duration;
 
@@ -15,7 +17,15 @@ mod tests {
     #[tokio::test]
     async fn test_temp_token_valid() {
         let pool = create_test_pool().await;
-        let token = create_temp_token(&pool, 3600, 5, vec!["copy".to_string(), "paste".to_string()], 10_000_000).await.unwrap();
+        let token = create_temp_token(
+            &pool,
+            3600,
+            5,
+            vec!["copy".to_string(), "paste".to_string()],
+            10_000_000,
+        )
+        .await
+        .unwrap();
 
         let result = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, None).await;
         assert!(result.is_ok(), "Token should be valid: {:?}", result);
@@ -25,17 +35,24 @@ mod tests {
     async fn test_temp_token_expired() {
         let pool = create_test_pool().await;
         // Create token that expires immediately (0 seconds TTL).
-        let token = create_temp_token(&pool, 0, 5, vec!["copy".to_string()], 10_000_000).await.unwrap();
+        let token = create_temp_token(&pool, 0, 5, vec!["copy".to_string()], 10_000_000)
+            .await
+            .unwrap();
 
         let result = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, None).await;
         assert!(result.is_err(), "Token should be expired");
-        assert!(matches!(result.unwrap_err(), glide_core::error::GlideError::TokenExpired));
+        assert!(matches!(
+            result.unwrap_err(),
+            glide_core::error::GlideError::TokenExpired
+        ));
     }
 
     #[tokio::test]
     async fn test_temp_token_max_use_counting() {
         let pool = create_test_pool().await;
-        let token = create_temp_token(&pool, 3600, 2, vec!["copy".to_string()], 10_000_000).await.unwrap();
+        let token = create_temp_token(&pool, 3600, 2, vec!["copy".to_string()], 10_000_000)
+            .await
+            .unwrap();
 
         // First use should succeed.
         let result1 = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, None).await;
@@ -48,13 +65,18 @@ mod tests {
         // Third use should exceed max uses.
         let result3 = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, None).await;
         assert!(result3.is_err());
-        assert!(matches!(result3.unwrap_err(), glide_core::error::GlideError::TokenMaxUsesExceeded));
+        assert!(matches!(
+            result3.unwrap_err(),
+            glide_core::error::GlideError::TokenMaxUsesExceeded
+        ));
     }
 
     #[tokio::test]
     async fn test_temp_token_allowed_operation_check() {
         let pool = create_test_pool().await;
-        let token = create_temp_token(&pool, 3600, 5, vec!["copy".to_string()], 10_000_000).await.unwrap();
+        let token = create_temp_token(&pool, 3600, 5, vec!["copy".to_string()], 10_000_000)
+            .await
+            .unwrap();
 
         // Copy should work.
         let result = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, None).await;
@@ -63,39 +85,58 @@ mod tests {
         // Paste should fail (not in allowed operations).
         let result = validate_and_use_token(&pool, &token, TempTokenOperation::Paste, None).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), glide_core::error::GlideError::TokenOperationNotAllowed(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            glide_core::error::GlideError::TokenOperationNotAllowed(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_temp_token_item_size_limit() {
         let pool = create_test_pool().await;
-        let token = create_temp_token(&pool, 3600, 5, vec!["copy".to_string()], 1000).await.unwrap();
+        let token = create_temp_token(&pool, 3600, 5, vec!["copy".to_string()], 1000)
+            .await
+            .unwrap();
 
         // Within limit.
-        let result = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, Some(500)).await;
+        let result =
+            validate_and_use_token(&pool, &token, TempTokenOperation::Copy, Some(500)).await;
         assert!(result.is_ok());
 
         // Over limit.
-        let result = validate_and_use_token(&pool, &token, TempTokenOperation::Copy, Some(2000)).await;
+        let result =
+            validate_and_use_token(&pool, &token, TempTokenOperation::Copy, Some(2000)).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), glide_core::error::GlideError::ItemTooLarge { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            glide_core::error::GlideError::ItemTooLarge { .. }
+        ));
     }
 
     #[tokio::test]
     async fn test_temp_token_nonexistent() {
         let pool = create_test_pool().await;
-        let result = validate_and_use_token(&pool, "nonexistent_token", TempTokenOperation::Copy, None).await;
+        let result =
+            validate_and_use_token(&pool, "nonexistent_token", TempTokenOperation::Copy, None)
+                .await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), glide_core::error::GlideError::InvalidToken(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            glide_core::error::GlideError::InvalidToken(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_temp_token_cleanup_expired() {
         let pool = create_test_pool().await;
         // Create an already-expired token.
-        let _token = create_temp_token(&pool, 0, 1, vec!["copy".to_string()], 10_000_000).await.unwrap();
+        let _token = create_temp_token(&pool, 0, 1, vec!["copy".to_string()], 10_000_000)
+            .await
+            .unwrap();
         // Create a valid token.
-        let _valid = create_temp_token(&pool, 3600, 1, vec!["copy".to_string()], 10_000_000).await.unwrap();
+        let _valid = create_temp_token(&pool, 3600, 1, vec!["copy".to_string()], 10_000_000)
+            .await
+            .unwrap();
 
         let deleted = cleanup_expired_tokens(&pool).await.unwrap();
         assert_eq!(deleted, 1, "Should have deleted 1 expired token");
@@ -103,10 +144,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_temp_token_operation_from_str() {
-        assert_eq!(TempTokenOperation::from_str("copy"), Some(TempTokenOperation::Copy));
-        assert_eq!(TempTokenOperation::from_str("paste"), Some(TempTokenOperation::Paste));
-        assert_eq!(TempTokenOperation::from_str("history"), Some(TempTokenOperation::History));
-        assert_eq!(TempTokenOperation::from_str("devices"), Some(TempTokenOperation::Devices));
+        assert_eq!(
+            TempTokenOperation::from_str("copy"),
+            Some(TempTokenOperation::Copy)
+        );
+        assert_eq!(
+            TempTokenOperation::from_str("paste"),
+            Some(TempTokenOperation::Paste)
+        );
+        assert_eq!(
+            TempTokenOperation::from_str("history"),
+            Some(TempTokenOperation::History)
+        );
+        assert_eq!(
+            TempTokenOperation::from_str("devices"),
+            Some(TempTokenOperation::Devices)
+        );
         assert_eq!(TempTokenOperation::from_str("invalid"), None);
     }
 

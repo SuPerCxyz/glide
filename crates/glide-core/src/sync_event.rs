@@ -7,33 +7,23 @@ use super::clipboard::ClipboardItem;
 #[serde(tag = "event_type", content = "data")]
 pub enum SyncEvent {
     /// A new clipboard item was captured on a device.
-    ClipboardCaptured {
-        item: ClipboardItem,
-    },
+    ClipboardCaptured { item: ClipboardItem },
     /// Clipboard item was delivered to a target device.
     ClipboardDelivered {
         item_id: String,
         target_device_id: String,
     },
     /// A device joined the mesh.
-    DeviceJoined {
-        device_id: String,
-        name: String,
-    },
+    DeviceJoined { device_id: String, name: String },
     /// A device left the mesh.
-    DeviceLeft {
-        device_id: String,
-    },
+    DeviceLeft { device_id: String },
     /// A device's LAN address was updated.
     DeviceAddressUpdated {
         device_id: String,
         lan_address: String,
     },
     /// Heartbeat from a device to signal liveness.
-    Heartbeat {
-        device_id: String,
-        timestamp: i64,
-    },
+    Heartbeat { device_id: String, timestamp: i64 },
     /// Sync session established between two nodes.
     SyncSessionEstablished {
         local_device_id: String,

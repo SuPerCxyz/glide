@@ -35,8 +35,10 @@ impl DisplayInfo {
 
     /// Check if a point (x, y) is within this display's bounds.
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < self.x + self.effective_width()
-            && y >= self.y && y < self.y + self.effective_height()
+        x >= self.x
+            && x < self.x + self.effective_width()
+            && y >= self.y
+            && y < self.y + self.effective_height()
     }
 
     /// Get the right edge X coordinate.
@@ -163,24 +165,20 @@ impl DisplayLayout {
         };
 
         // Check right-left adjacency.
-        let right_left = d1.right_edge() == d2.x
-            && d1.y < d2.bottom_edge()
-            && d1.bottom_edge() > d2.y;
+        let right_left =
+            d1.right_edge() == d2.x && d1.y < d2.bottom_edge() && d1.bottom_edge() > d2.y;
 
         // Check left-right adjacency.
-        let left_right = d2.right_edge() == d1.x
-            && d2.y < d1.bottom_edge()
-            && d2.bottom_edge() > d1.y;
+        let left_right =
+            d2.right_edge() == d1.x && d2.y < d1.bottom_edge() && d2.bottom_edge() > d1.y;
 
         // Check top-bottom adjacency.
-        let top_bottom = d1.bottom_edge() == d2.y
-            && d1.x < d2.right_edge()
-            && d1.right_edge() > d2.x;
+        let top_bottom =
+            d1.bottom_edge() == d2.y && d1.x < d2.right_edge() && d1.right_edge() > d2.x;
 
         // Check bottom-top adjacency.
-        let bottom_top = d2.bottom_edge() == d1.y
-            && d2.x < d1.right_edge()
-            && d2.right_edge() > d1.x;
+        let bottom_top =
+            d2.bottom_edge() == d1.y && d2.x < d1.right_edge() && d2.right_edge() > d1.x;
 
         right_left || left_right || top_bottom || bottom_top
     }

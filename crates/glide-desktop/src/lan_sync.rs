@@ -1,14 +1,14 @@
+use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock, Mutex};
-use tracing::{info, warn, error};
-use futures::{SinkExt, StreamExt};
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::{error, info, warn};
 
 use glide_core::clipboard::ClipboardItem;
-use glide_core::sync_event::SyncEvent;
-use glide_core::discovery::{PeerRegistry};
-use glide_core::discovery::{UdpMulticastDiscovery, UdpMulticastConfig};
+use glide_core::discovery::PeerRegistry;
+use glide_core::discovery::{UdpMulticastConfig, UdpMulticastDiscovery};
 use glide_core::route::ClipboardRouteSelector;
+use glide_core::sync_event::SyncEvent;
 
 /// LAN sync engine - enables direct peer-to-peer clipboard sync
 /// on the same Layer 2 network without server dependency.
@@ -50,9 +50,7 @@ impl LanSyncEngine {
             service_port,
             peer_registry: Arc::new(RwLock::new(registry)),
             route_selector: Arc::new(RwLock::new(ClipboardRouteSelector::new(
-                device_id,
-                true,
-                false,
+                device_id, true, false,
             ))),
             peers: Arc::new(RwLock::new(HashMap::new())),
             clipboard_rx: Arc::new(Mutex::new(Some(clipboard_rx))),
@@ -67,9 +65,13 @@ impl LanSyncEngine {
     /// - LAN WebSocket server (accept incoming connections)
     /// - Periodic peer connection attempts
     pub async fn start(&self) -> anyhow::Result<()> {
-        self.running.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.running
+            .store(true, std::sync::atomic::Ordering::SeqCst);
 
-        info!("LAN sync engine starting: device={} port={}", self.device_id, self.service_port);
+        info!(
+            "LAN sync engine starting: device={} port={}",
+            self.device_id, self.service_port
+        );
 
         // 1. Start UDP multicast discovery.
         let discovery_config = UdpMulticastConfig {
@@ -128,14 +130,17 @@ impl LanSyncEngine {
         let running = self.running.clone();
 
         tokio::spawn(async move {
+            use futures::{SinkExt, StreamExt};
             use tokio::net::TcpListener;
             use tokio_tungstenite::accept_async;
-            use futures::{SinkExt, StreamExt};
 
             let listener = match TcpListener::bind(&listen_addr).await {
                 Ok(l) => l,
                 Err(e) => {
-                    error!("Failed to bind LAN WebSocket server on {}: {}", listen_addr, e);
+                    error!(
+                        "Failed to bind LAN WebSocket server on {}: {}",
+                        listen_addr, e
+                    );
                     return;
                 }
             };
@@ -173,7 +178,11 @@ impl LanSyncEngine {
                     let send_task = tokio::spawn(async move {
                         while let Some(event) = rx.recv().await {
                             if let Ok(msg) = serde_json::to_string(&event) {
-                                if ws_tx.send(tokio_tungstenite::tungstenite::Message::Text(msg)).await.is_err() {
+                                if ws_tx
+                                    .send(tokio_tungstenite::tungstenite::Message::Text(msg))
+                                    .await
+                                    .is_err()
+                                {
                                     break;
                                 }
                             }
@@ -186,10 +195,16 @@ impl LanSyncEngine {
                             if let Ok(event) = serde_json::from_str::<SyncEvent>(&text) {
                                 match &event {
                                     SyncEvent::ClipboardCaptured { item } => {
-                                        info!("LAN clipboard received: {} from {}", item.item_id, item.source_device_id);
+                                        info!(
+                                            "LAN clipboard received: {} from {}",
+                                            item.item_id, item.source_device_id
+                                        );
                                         let _ = clipboard_tx.send(item.clone());
                                     }
-                                    SyncEvent::DeviceJoined { device_id: did, name } => {
+                                    SyncEvent::DeviceJoined {
+                                        device_id: did,
+                                        name,
+                                    } => {
                                         info!("LAN peer identified: {} ({})", name, did);
                                         peers.write().await.insert(did.clone(), tx.clone());
                                     }
@@ -230,10 +245,9 @@ impl LanSyncEngine {
 
                     match tokio::net::TcpStream::connect(addr).await {
                         Ok(stream) => {
-                            match tokio_tungstenite::client_async(
-                                &format!("ws://{}", addr),
-                                stream,
-                            ).await {
+                            match tokio_tungstenite::client_async(&format!("ws://{}", addr), stream)
+                                .await
+                            {
                                 Ok((ws_stream, _)) => {
                                     let (mut ws_tx, mut ws_rx) = ws_stream.split();
                                     let (tx, mut rx) = mpsc::unbounded_channel::<SyncEvent>();
@@ -244,9 +258,11 @@ impl LanSyncEngine {
                                         name: "LAN Peer".to_string(),
                                     };
                                     if let Ok(msg) = serde_json::to_string(&identify) {
-                                        let _ = ws_tx.send(
-                                            tokio_tungstenite::tungstenite::Message::Text(msg)
-                                        ).await;
+                                        let _ = ws_tx
+                                            .send(tokio_tungstenite::tungstenite::Message::Text(
+                                                msg,
+                                            ))
+                                            .await;
                                     }
 
                                     peers.write().await.insert(peer_id.clone(), tx.clone());
@@ -272,8 +288,13 @@ impl LanSyncEngine {
                                     let peer_id_for_recv = peer_id.clone();
                                     tokio::spawn(async move {
                                         while let Some(Ok(msg)) = ws_rx.next().await {
-                                            if let tokio_tungstenite::tungstenite::Message::Text(text) = msg {
-                                                if let Ok(event) = serde_json::from_str::<SyncEvent>(&text) {
+                                            if let tokio_tungstenite::tungstenite::Message::Text(
+                                                text,
+                                            ) = msg
+                                            {
+                                                if let Ok(event) =
+                                                    serde_json::from_str::<SyncEvent>(&text)
+                                                {
                                                     // Forward to connected peers.
                                                     let peers = peers_for_recv.read().await;
                                                     for (pid, ptx) in peers.iter() {
@@ -314,9 +335,7 @@ impl LanSyncEngine {
             return Ok(());
         }
 
-        let event = SyncEvent::ClipboardCaptured {
-            item: item.clone(),
-        };
+        let event = SyncEvent::ClipboardCaptured { item: item.clone() };
 
         let mut sent = 0;
         for (pid, tx) in peers.iter() {
@@ -356,7 +375,8 @@ impl LanSyncEngine {
 
     /// Stop the LAN sync engine.
     pub fn stop(&self) {
-        self.running.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.running
+            .store(false, std::sync::atomic::Ordering::SeqCst);
         info!("LAN sync engine stopping");
     }
 }

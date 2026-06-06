@@ -5,15 +5,92 @@ mod gui_backend;
 
 use gui_backend::{AppSettings, GuiBackend, MockBackend};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use std::env;
+use std::error::Error;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
 use std::rc::Rc;
 use tracing::{info, warn};
 
 slint::include_modules!();
 
-fn main() -> Result<(), slint::PlatformError> {
-    tracing_subscriber::fmt::init();
+fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
+        println!("glide-gui {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
 
+    install_panic_logger();
+    let _ = tracing_subscriber::fmt::try_init();
+    write_diagnostic("process", "glide-gui starting");
+
+    if args.iter().any(|arg| arg == "--diagnostics-path") {
+        println!("{}", diagnostic_log_path().display());
+        return Ok(());
+    }
+
+    if args.iter().any(|arg| arg == "--smoke") {
+        run_smoke()?;
+        return Ok(());
+    }
+
+    run_gui()
+}
+
+fn run_gui() -> Result<(), Box<dyn Error>> {
     let backend = MockBackend::new();
+    let window = create_window(&backend)?;
+
+    info!("Glide GUI started");
+    write_diagnostic("process", "glide-gui window running");
+    window.run()?;
+    Ok(())
+}
+
+fn run_smoke() -> Result<(), Box<dyn Error>> {
+    let backend = MockBackend::new();
+    let _window = create_window(&backend)?;
+
+    let log_path = diagnostic_log_path();
+    let status = backend.get_service_status().data;
+    let settings = backend.get_settings().data.unwrap_or_else(default_settings);
+    let devices = backend.list_devices().data.unwrap_or_default();
+
+    write_diagnostic(
+        "smoke",
+        &format!(
+            "ok version={} os={} arch={} devices={} server_url={}",
+            env!("CARGO_PKG_VERSION"),
+            env::consts::OS,
+            env::consts::ARCH,
+            devices.len(),
+            settings.server_url
+        ),
+    );
+
+    println!("glide-gui smoke ok");
+    println!("version={}", env!("CARGO_PKG_VERSION"));
+    println!("os={}", env::consts::OS);
+    println!("arch={}", env::consts::ARCH);
+    println!(
+        "service_running={}",
+        status.as_ref().map(|value| value.running).unwrap_or(false)
+    );
+    println!(
+        "connection_status={}",
+        status
+            .as_ref()
+            .map(|value| value.connection_status.as_str())
+            .unwrap_or("unknown")
+    );
+    println!("diagnostics={}", log_path.display());
+
+    Ok(())
+}
+
+fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformError> {
     let window = MainWindow::new()?;
 
     refresh_window(&window, &backend);
@@ -137,8 +214,7 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
-    info!("Glide GUI started");
-    window.run()
+    Ok(window)
 }
 
 fn refresh_window(window: &MainWindow, backend: &MockBackend) {
@@ -195,5 +271,80 @@ fn default_settings() -> AppSettings {
         auto_connect: false,
         clipboard_enabled: true,
         input_enabled: false,
+    }
+}
+
+fn install_panic_logger() {
+    std::panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info
+            .location()
+            .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+            .unwrap_or_else(|| "unknown".to_string());
+        write_diagnostic("panic", &format!("{panic_info} at {location}"));
+    }));
+}
+
+fn write_diagnostic(stage: &str, message: &str) {
+    let path = diagnostic_log_path();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(
+            file,
+            "{} [{}] {}",
+            chrono::Utc::now().to_rfc3339(),
+            stage,
+            message
+        );
+    }
+}
+
+fn diagnostic_log_path() -> PathBuf {
+    if let Ok(path) = env::var("GLIDE_GUI_LOG") {
+        return PathBuf::from(path);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = env::var("APPDATA") {
+            return PathBuf::from(appdata)
+                .join("Glide")
+                .join("logs")
+                .join("glide-gui.log");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(state_home) = env::var("XDG_STATE_HOME") {
+            return PathBuf::from(state_home)
+                .join("glide")
+                .join("glide-gui.log");
+        }
+        if let Ok(home) = env::var("HOME") {
+            return PathBuf::from(home)
+                .join(".local")
+                .join("state")
+                .join("glide")
+                .join("glide-gui.log");
+        }
+    }
+
+    env::temp_dir().join("glide-gui.log")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::diagnostic_log_path;
+
+    #[test]
+    fn diagnostics_path_uses_override() {
+        std::env::set_var("GLIDE_GUI_LOG", "/tmp/glide-test.log");
+        assert_eq!(
+            diagnostic_log_path().to_string_lossy(),
+            "/tmp/glide-test.log"
+        );
+        std::env::remove_var("GLIDE_GUI_LOG");
     }
 }

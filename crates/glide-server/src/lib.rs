@@ -1,13 +1,12 @@
+pub mod cleanup;
 /// Glide server — Docker-deployable central server for clipboard relay,
 /// device registration, and temporary token authentication.
-
 pub mod database;
 pub mod handlers;
+pub mod input_relay;
 pub mod models;
 pub mod state;
 pub mod temp_token;
-pub mod cleanup;
-pub mod input_relay;
 pub mod ws;
 
 use anyhow::Result;

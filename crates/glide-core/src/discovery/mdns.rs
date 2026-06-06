@@ -60,19 +60,13 @@ impl MdnsDiscovery {
     ///
     /// For a production implementation, use the `libmdns` crate
     /// or a proper mDNS stack.
-    pub fn run_discovery(
-        &self,
-        registry: &mut PeerRegistry,
-    ) -> anyhow::Result<()> {
+    pub fn run_discovery(&self, registry: &mut PeerRegistry) -> anyhow::Result<()> {
         use std::net::{IpAddr, Ipv4Addr, UdpSocket};
         use std::time::{Duration, Instant};
 
         // mDNS uses port 5353 on all interfaces.
         let mdns_port = 5353;
-        let mdns_multicast = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(224, 0, 0, 251)),
-            mdns_port,
-        );
+        let mdns_multicast = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(224, 0, 0, 251)), mdns_port);
 
         // Bind to a random high port and join multicast group.
         let socket = match UdpSocket::bind("0.0.0.0:0") {
@@ -85,7 +79,10 @@ impl MdnsDiscovery {
         };
 
         // Join mDNS multicast group.
-        if socket.join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 251), &Ipv4Addr::UNSPECIFIED).is_err() {
+        if socket
+            .join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 251), &Ipv4Addr::UNSPECIFIED)
+            .is_err()
+        {
             warn!("mDNS discovery: failed to join multicast group");
             return self.run_announcement_only(registry);
         }
@@ -136,7 +133,13 @@ impl MdnsDiscovery {
 
             // Periodically announce our own service.
             if last_query.elapsed() >= Duration::from_secs(10) {
-                let _ = announce_our_service(&socket, &mdns_multicast, &self.name, &self.device_id, self.port);
+                let _ = announce_our_service(
+                    &socket,
+                    &mdns_multicast,
+                    &self.name,
+                    &self.device_id,
+                    self.port,
+                );
             }
 
             // Tick the registry.
@@ -193,7 +196,7 @@ fn send_mdns_query(socket: &std::net::UdpSocket, target: &SocketAddr) -> anyhow:
     // Question: _glide._tcp.local. IN PTR
     encode_dns_name(&mut buf, MDNS_SERVICE_TYPE);
     buf.extend_from_slice(&12u16.to_be_bytes()); // PTR type
-    buf.extend_from_slice(&1u16.to_be_bytes());  // IN class
+    buf.extend_from_slice(&1u16.to_be_bytes()); // IN class
 
     socket.send_to(&buf, target)?;
     Ok(())

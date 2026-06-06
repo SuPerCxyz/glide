@@ -2,8 +2,8 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let listen_addr = std::env::var("GLIDE_LISTEN_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+    let listen_addr =
+        std::env::var("GLIDE_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
 
     let data_dir = std::env::var("GLIDE_DATA_DIR").unwrap_or_else(|_| "./data".to_string());
     std::fs::create_dir_all(&data_dir)?;

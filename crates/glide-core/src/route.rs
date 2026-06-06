@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 use std::time::Instant;
 
-use crate::transfer::TransferRoute;
-use crate::input_event::InputRoute;
 use crate::discovery::PeerRegistry;
+use crate::input_event::InputRoute;
+use crate::transfer::TransferRoute;
 
 /// Result of a route selection for clipboard transfer.
 #[derive(Debug, Clone)]
@@ -46,11 +46,7 @@ pub struct ClipboardRouteSelector {
 }
 
 impl ClipboardRouteSelector {
-    pub fn new(
-        local_device_id: String,
-        lan_available: bool,
-        server_available: bool,
-    ) -> Self {
+    pub fn new(local_device_id: String, lan_available: bool, server_available: bool) -> Self {
         Self {
             local_device_id,
             lan_available,
@@ -142,11 +138,7 @@ pub struct InputRouteSelector {
 }
 
 impl InputRouteSelector {
-    pub fn new(
-        local_device_id: String,
-        lan_available: bool,
-        server_relay_enabled: bool,
-    ) -> Self {
+    pub fn new(local_device_id: String, lan_available: bool, server_relay_enabled: bool) -> Self {
         Self {
             local_device_id,
             lan_available,
@@ -241,7 +233,9 @@ impl LatencyTracker {
 
     /// Check if latency exceeds the threshold.
     pub fn exceeds(&self, threshold_ms: u64) -> bool {
-        self.estimate().map(|est| est > threshold_ms).unwrap_or(false)
+        self.estimate()
+            .map(|est| est > threshold_ms)
+            .unwrap_or(false)
     }
 
     /// Check if the last measurement is stale.
@@ -267,11 +261,7 @@ mod tests {
 
     #[test]
     fn test_local_loop_prevention() {
-        let selector = ClipboardRouteSelector::new(
-            "my-device".to_string(),
-            true,
-            true,
-        );
+        let selector = ClipboardRouteSelector::new("my-device".to_string(), true, true);
 
         let result = selector.select_route("my-device");
         // Should route to self (local, no network).
@@ -284,11 +274,8 @@ mod tests {
         let mut registry = PeerRegistry::default();
         registry.upsert("peer-1".to_string(), "Laptop".to_string(), make_addr(9999));
 
-        let selector = ClipboardRouteSelector::new(
-            "my-device".to_string(),
-            true,
-            true,
-        ).with_registry(registry);
+        let selector = ClipboardRouteSelector::new("my-device".to_string(), true, true)
+            .with_registry(registry);
 
         let result = selector.select_route("peer-1");
         assert_eq!(result.route, TransferRoute::LanDirect);
@@ -312,11 +299,8 @@ mod tests {
     #[test]
     fn test_server_fallback_when_peer_not_in_registry() {
         let registry = PeerRegistry::default(); // Empty.
-        let selector = ClipboardRouteSelector::new(
-            "my-device".to_string(),
-            true,
-            true,
-        ).with_registry(registry);
+        let selector = ClipboardRouteSelector::new("my-device".to_string(), true, true)
+            .with_registry(registry);
 
         let result = selector.select_route("unknown-peer");
         assert_eq!(result.route, TransferRoute::ServerFallback);
@@ -328,11 +312,8 @@ mod tests {
         registry.upsert("peer-1".to_string(), "Laptop".to_string(), make_addr(9999));
         registry.upsert("peer-2".to_string(), "Desktop".to_string(), make_addr(9999));
 
-        let selector = ClipboardRouteSelector::new(
-            "my-device".to_string(),
-            true,
-            true,
-        ).with_registry(registry);
+        let selector = ClipboardRouteSelector::new("my-device".to_string(), true, true)
+            .with_registry(registry);
 
         let routes = selector.select_all_routes(&[
             "my-device".to_string(),
@@ -351,13 +332,14 @@ mod tests {
     #[test]
     fn test_input_lan_direct() {
         let mut registry = PeerRegistry::default();
-        registry.upsert("target".to_string(), "Target PC".to_string(), make_addr(9999));
+        registry.upsert(
+            "target".to_string(),
+            "Target PC".to_string(),
+            make_addr(9999),
+        );
 
-        let selector = InputRouteSelector::new(
-            "my-device".to_string(),
-            true,
-            true,
-        ).with_registry(registry);
+        let selector =
+            InputRouteSelector::new("my-device".to_string(), true, true).with_registry(registry);
 
         let result = selector.select_route("target").unwrap();
         assert_eq!(result.route, InputRoute::LanDirect);
@@ -371,7 +353,8 @@ mod tests {
             "my-device".to_string(),
             false, // No LAN.
             true,  // Server relay enabled.
-        ).with_registry(registry);
+        )
+        .with_registry(registry);
 
         let result = selector.select_route("target").unwrap();
         assert_eq!(result.route, InputRoute::ServerRelay);
@@ -385,7 +368,8 @@ mod tests {
             "my-device".to_string(),
             false, // No LAN.
             false, // No server relay.
-        ).with_registry(registry);
+        )
+        .with_registry(registry);
 
         let result = selector.select_route("target");
         assert!(result.is_none()); // Should return None = disconnect.
@@ -407,7 +391,7 @@ mod tests {
     fn test_latency_tracker_exponential_moving_average() {
         let mut tracker = LatencyTracker::new(0.5);
         tracker.record(100); // First: 100
-        tracker.record(50);  // EMA: 0.5 * 50 + 0.5 * 100 = 75
+        tracker.record(50); // EMA: 0.5 * 50 + 0.5 * 100 = 75
 
         let est = tracker.estimate().unwrap();
         assert_eq!(est, 75);

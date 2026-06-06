@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use super::device::DeviceId;
 use super::clipboard::ClipboardKind;
+use super::device::DeviceId;
 
 /// Sync policy for a specific device.
 #[derive(Debug, Clone, Serialize, Deserialize)]

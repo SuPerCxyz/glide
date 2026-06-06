@@ -1,6 +1,6 @@
-use glide_core::policy::{DevicePolicy, Policy, TypePolicy};
-use glide_core::device::DeviceId;
 use glide_core::clipboard::ClipboardKind;
+use glide_core::device::DeviceId;
+use glide_core::policy::{DevicePolicy, Policy, TypePolicy};
 
 /// Policy UI state for the desktop app.
 #[derive(Debug, Clone)]
@@ -24,9 +24,16 @@ impl Default for PolicyState {
 
 impl PolicyState {
     /// Add a per-device sync policy.
-    pub fn set_device_policy(&mut self, device_id: DeviceId, sync_enabled: bool, input_enabled: bool) {
+    pub fn set_device_policy(
+        &mut self,
+        device_id: DeviceId,
+        sync_enabled: bool,
+        input_enabled: bool,
+    ) {
         // Remove existing policy for this device.
-        self.global.device_policies.retain(|dp| dp.device_id != device_id);
+        self.global
+            .device_policies
+            .retain(|dp| dp.device_id != device_id);
 
         self.global.device_policies.push(DevicePolicy {
             device_id,
@@ -36,7 +43,12 @@ impl PolicyState {
     }
 
     /// Add a per-type policy.
-    pub fn set_type_policy(&mut self, kind: ClipboardKind, sync_enabled: bool, max_size: Option<u64>) {
+    pub fn set_type_policy(
+        &mut self,
+        kind: ClipboardKind,
+        sync_enabled: bool,
+        max_size: Option<u64>,
+    ) {
         self.global.type_policies.retain(|tp| tp.kind != kind);
 
         self.global.type_policies.push(TypePolicy {
@@ -79,6 +91,9 @@ pub enum ConnectionStatus {
 
 impl ConnectionStatus {
     pub fn is_connected(&self) -> bool {
-        matches!(self, Self::Connected { .. } | Self::LanDirect { .. } | Self::ServerFallback)
+        matches!(
+            self,
+            Self::Connected { .. } | Self::LanDirect { .. } | Self::ServerFallback
+        )
     }
 }

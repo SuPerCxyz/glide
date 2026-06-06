@@ -8,11 +8,28 @@ use glide_core::policy::Policy;
 #[async_trait::async_trait]
 pub trait InputBackend: Send + Sync {
     /// Inject a keyboard event.
-    async fn inject_key(&self, key_code: &str, pressed: bool, modifiers: &[String]) -> anyhow::Result<()>;
+    async fn inject_key(
+        &self,
+        key_code: &str,
+        pressed: bool,
+        modifiers: &[String],
+    ) -> anyhow::Result<()>;
     /// Inject a mouse button event.
-    async fn inject_mouse_button(&self, button: &str, pressed: bool, x: i32, y: i32) -> anyhow::Result<()>;
+    async fn inject_mouse_button(
+        &self,
+        button: &str,
+        pressed: bool,
+        x: i32,
+        y: i32,
+    ) -> anyhow::Result<()>;
     /// Inject a mouse move event.
-    async fn inject_mouse_move(&self, x: i32, y: i32, dx: Option<i32>, dy: Option<i32>) -> anyhow::Result<()>;
+    async fn inject_mouse_move(
+        &self,
+        x: i32,
+        y: i32,
+        dx: Option<i32>,
+        dy: Option<i32>,
+    ) -> anyhow::Result<()>;
     /// Inject a mouse scroll event.
     async fn inject_mouse_scroll(&self, dx: i32, dy: i32) -> anyhow::Result<()>;
     /// Get current cursor position.
@@ -135,7 +152,9 @@ impl InputSharing {
     /// Process an incoming input event.
     pub async fn process_event(&self, event: InputEvent) -> anyhow::Result<()> {
         let session = self.session.read().await;
-        let session = session.as_ref().ok_or_else(|| anyhow::anyhow!("No active input session"))?;
+        let session = session
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No active input session"))?;
 
         if !session.active {
             anyhow::bail!("Input session is not active");
@@ -158,11 +177,24 @@ impl InputSharing {
 
         // Inject the event.
         match event.event {
-            InputEventKind::Key { key_code, pressed, modifiers } => {
-                self.backend.inject_key(&key_code, pressed, &modifiers).await?;
+            InputEventKind::Key {
+                key_code,
+                pressed,
+                modifiers,
+            } => {
+                self.backend
+                    .inject_key(&key_code, pressed, &modifiers)
+                    .await?;
             }
-            InputEventKind::MouseButton { button, pressed, x, y } => {
-                self.backend.inject_mouse_button(&button, pressed, x, y).await?;
+            InputEventKind::MouseButton {
+                button,
+                pressed,
+                x,
+                y,
+            } => {
+                self.backend
+                    .inject_mouse_button(&button, pressed, x, y)
+                    .await?;
             }
             InputEventKind::MouseMove { x, y, dx, dy } => {
                 self.backend.inject_mouse_move(x, y, dx, dy).await?;

@@ -78,10 +78,16 @@ impl PeerRegistry {
     }
 
     /// Register or update a discovered peer.
-    pub fn upsert(&mut self, device_id: String, name: String, address: SocketAddr) -> &DiscoveredPeer {
-        let entry = self.peers.entry(device_id.clone()).or_insert_with(|| {
-            DiscoveredPeer::new(device_id, name.clone(), address)
-        });
+    pub fn upsert(
+        &mut self,
+        device_id: String,
+        name: String,
+        address: SocketAddr,
+    ) -> &DiscoveredPeer {
+        let entry = self
+            .peers
+            .entry(device_id.clone())
+            .or_insert_with(|| DiscoveredPeer::new(device_id, name.clone(), address));
         entry.name = name;
         entry.address = address;
         entry.state = PeerState::Active;
@@ -196,7 +202,11 @@ mod tests {
     fn test_upsert_updates_existing() {
         let mut registry = PeerRegistry::default();
         registry.upsert("dev-1".to_string(), "Laptop".to_string(), make_addr(9999));
-        registry.upsert("dev-1".to_string(), "Laptop Pro".to_string(), make_addr(8888));
+        registry.upsert(
+            "dev-1".to_string(),
+            "Laptop Pro".to_string(),
+            make_addr(8888),
+        );
 
         let peer = registry.get("dev-1").unwrap();
         assert_eq!(peer.name, "Laptop Pro");

@@ -71,16 +71,17 @@ impl ClipboardBackend for X11Clipboard {
 
     async fn read_files(&self) -> Result<Vec<String>> {
         // X11 file lists come as text/uri-list.
-        let data = self.run_xclip(&["-o", "-selection", "clipboard", "-t", "text/uri-list"], None)?;
+        let data = self.run_xclip(
+            &["-o", "-selection", "clipboard", "-t", "text/uri-list"],
+            None,
+        )?;
         let text = String::from_utf8(data)?;
         let paths: Vec<String> = text
             .lines()
             .filter(|l| !l.is_empty() && !l.starts_with('#'))
             .map(|uri| {
                 // Strip "file://" prefix.
-                uri.strip_prefix("file://")
-                    .unwrap_or(uri)
-                    .to_string()
+                uri.strip_prefix("file://").unwrap_or(uri).to_string()
             })
             .collect();
 
@@ -98,7 +99,10 @@ impl ClipboardBackend for X11Clipboard {
 
     async fn write_image(&self, data: &[u8]) -> Result<()> {
         // xclip can write images via -t image/png.
-        self.run_xclip(&["-i", "-selection", "clipboard", "-t", "image/png"], Some(data))?;
+        self.run_xclip(
+            &["-i", "-selection", "clipboard", "-t", "image/png"],
+            Some(data),
+        )?;
         Ok(())
     }
 
@@ -108,7 +112,10 @@ impl ClipboardBackend for X11Clipboard {
             .iter()
             .map(|p| format!("file://{}\n", p))
             .collect::<String>();
-        self.run_xclip(&["-i", "-selection", "clipboard", "-t", "text/uri-list"], Some(uri_list.as_bytes()))?;
+        self.run_xclip(
+            &["-i", "-selection", "clipboard", "-t", "text/uri-list"],
+            Some(uri_list.as_bytes()),
+        )?;
         Ok(())
     }
 

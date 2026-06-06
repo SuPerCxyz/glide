@@ -66,7 +66,8 @@ pub async fn handle_input_ws(
                     _ => {
                         // In a full implementation, this would relay to the target device.
                         let _ = tx_ch.send(Message::Text(format!(
-                            "relayed: {}", text.chars().take(50).collect::<String>()
+                            "relayed: {}",
+                            text.chars().take(50).collect::<String>()
                         )));
                     }
                 }

@@ -1,5 +1,11 @@
 # Glide 产品需求与设计文档
 
+> 注意：本文是历史产品需求与设计记录，部分状态可能已经过期。
+> 当前稳定事实来源请优先阅读：
+> [TECHNICAL.md](TECHNICAL.md)、[PRODUCT.md](PRODUCT.md)、
+> [ARCHITECTURE.md](ARCHITECTURE.md)、[DESIGN.md](DESIGN.md)。
+> 如果本文与当前代码或稳定文档冲突，以当前代码和稳定文档为准。
+
 > 本文档记录 Glide 产品的所有需求、设计决策和技术实现细节。
 
 ---

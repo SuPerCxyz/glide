@@ -214,6 +214,19 @@ jobs:
       - name: Build glide-gui (Slint GUI)
         run: cargo build --package glide-gui --verbose
 
+      - name: Smoke test glide-gui diagnostics
+        shell: pwsh
+        run: |
+          $env:GLIDE_GUI_LOG = Join-Path $env:RUNNER_TEMP "glide-gui-smoke.log"
+          target\debug\glide-gui.exe --smoke
+          if ($LASTEXITCODE -ne 0) {
+            throw "glide-gui smoke failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path $env:GLIDE_GUI_LOG)) {
+            throw "glide-gui did not create diagnostics log: $env:GLIDE_GUI_LOG"
+          }
+          Get-Content $env:GLIDE_GUI_LOG
+
       - name: Upload Windows binaries
         uses: actions/upload-artifact@v4
         with:
@@ -223,4 +236,5 @@ jobs:
             target/debug/glide-daemon.exe
             target/debug/glide-cli.exe
             target/debug/glide-server.exe
+            ${{ runner.temp }}/glide-gui-smoke.log
           retention-days: 30

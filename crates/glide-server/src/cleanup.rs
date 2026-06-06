@@ -68,11 +68,10 @@ pub async fn run_cleanup(pool: &Pool<Sqlite>) -> Result<CleanupResult> {
         let overflow = total_size - max_storage;
         let mut freed: i64 = 0;
 
-        let oldest_payloads: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT p.payload_id, p.size FROM payloads p ORDER BY p.created_at ASC",
-        )
-        .fetch_all(pool)
-        .await?;
+        let oldest_payloads: Vec<(String, i64)> =
+            sqlx::query_as("SELECT p.payload_id, p.size FROM payloads p ORDER BY p.created_at ASC")
+                .fetch_all(pool)
+                .await?;
 
         for (pid, size) in oldest_payloads {
             if freed >= overflow {
@@ -102,7 +101,9 @@ pub async fn run_cleanup(pool: &Pool<Sqlite>) -> Result<CleanupResult> {
     }
 
     // 3. Clean up expired tokens.
-    let tokens_deleted = crate::temp_token::cleanup_expired_tokens(pool).await.unwrap_or(0);
+    let tokens_deleted = crate::temp_token::cleanup_expired_tokens(pool)
+        .await
+        .unwrap_or(0);
 
     // 4. Log cleanup run.
     let _ = sqlx::query(

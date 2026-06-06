@@ -4,7 +4,7 @@ mod tests {
     use tokio::sync::RwLock;
 
     use glide_core::clipboard::{ClipboardItem, ClipboardKind, DeliveryPolicy, SessionType};
-    use glide_core::discovery::{PeerRegistry, DiscoveredPeer, PeerState};
+    use glide_core::discovery::{DiscoveredPeer, PeerRegistry, PeerState};
     use glide_core::route::ClipboardRouteSelector;
     use glide_core::transfer::TransferRoute;
 
@@ -36,9 +36,10 @@ mod tests {
 
         let selector = ClipboardRouteSelector::new(
             "my-device".to_string(),
-            true, // LAN available
+            true,  // LAN available
             false, // No server
-        ).with_registry(registry);
+        )
+        .with_registry(registry);
 
         let result = selector.select_route("peer-1");
         assert_eq!(result.route, TransferRoute::LanDirect);
@@ -54,7 +55,8 @@ mod tests {
             "my-device".to_string(),
             true,
             true, // Server available as fallback.
-        ).with_registry(registry);
+        )
+        .with_registry(registry);
 
         let result = selector.select_route("unknown-peer");
         assert_eq!(result.route, TransferRoute::ServerFallback);
@@ -63,11 +65,7 @@ mod tests {
 
     #[test]
     fn test_lan_sync_loop_prevention() {
-        let selector = ClipboardRouteSelector::new(
-            "my-device".to_string(),
-            true,
-            true,
-        );
+        let selector = ClipboardRouteSelector::new("my-device".to_string(), true, true);
 
         let result = selector.select_route("my-device");
         // Should not sync to self.
@@ -110,9 +108,21 @@ mod tests {
     fn test_peer_registry_multiple_peers() {
         let mut registry = PeerRegistry::default();
 
-        registry.upsert("peer-1".to_string(), "Laptop".to_string(), "192.168.1.100:9998".parse().unwrap());
-        registry.upsert("peer-2".to_string(), "Desktop".to_string(), "192.168.1.101:9998".parse().unwrap());
-        registry.upsert("peer-3".to_string(), "Phone".to_string(), "192.168.1.102:9998".parse().unwrap());
+        registry.upsert(
+            "peer-1".to_string(),
+            "Laptop".to_string(),
+            "192.168.1.100:9998".parse().unwrap(),
+        );
+        registry.upsert(
+            "peer-2".to_string(),
+            "Desktop".to_string(),
+            "192.168.1.101:9998".parse().unwrap(),
+        );
+        registry.upsert(
+            "peer-3".to_string(),
+            "Phone".to_string(),
+            "192.168.1.102:9998".parse().unwrap(),
+        );
 
         assert_eq!(registry.active_count(), 3);
         assert_eq!(registry.all_peers().len(), 3);
@@ -142,15 +152,24 @@ mod tests {
     #[test]
     fn test_route_select_all_routes() {
         let mut registry = PeerRegistry::default();
-        registry.upsert("peer-1".to_string(), "Laptop".to_string(), "192.168.1.100:9998".parse().unwrap());
-        registry.upsert("peer-2".to_string(), "Desktop".to_string(), "192.168.1.101:9998".parse().unwrap());
-        registry.upsert("my-device".to_string(), "Self".to_string(), "192.168.1.102:9998".parse().unwrap());
-
-        let selector = ClipboardRouteSelector::new(
+        registry.upsert(
+            "peer-1".to_string(),
+            "Laptop".to_string(),
+            "192.168.1.100:9998".parse().unwrap(),
+        );
+        registry.upsert(
+            "peer-2".to_string(),
+            "Desktop".to_string(),
+            "192.168.1.101:9998".parse().unwrap(),
+        );
+        registry.upsert(
             "my-device".to_string(),
-            true,
-            true,
-        ).with_registry(registry);
+            "Self".to_string(),
+            "192.168.1.102:9998".parse().unwrap(),
+        );
+
+        let selector = ClipboardRouteSelector::new("my-device".to_string(), true, true)
+            .with_registry(registry);
 
         let routes = selector.select_all_routes(&[
             "my-device".to_string(),
@@ -161,7 +180,9 @@ mod tests {
         // Should have 2 routes (skipping self).
         assert_eq!(routes.len(), 2);
         assert!(routes.iter().all(|(id, _)| id != "my-device"));
-        assert!(routes.iter().all(|(_, r)| r.route == TransferRoute::LanDirect));
+        assert!(routes
+            .iter()
+            .all(|(_, r)| r.route == TransferRoute::LanDirect));
     }
 
     // --- Delivery Policy Tests ---
@@ -175,7 +196,8 @@ mod tests {
     #[test]
     fn test_delivery_policy_targeted() {
         let mut item = make_test_item("dev-1", "test");
-        item.delivery_policy = DeliveryPolicy::Targeted(vec!["dev-2".to_string(), "dev-3".to_string()]);
+        item.delivery_policy =
+            DeliveryPolicy::Targeted(vec!["dev-2".to_string(), "dev-3".to_string()]);
 
         match &item.delivery_policy {
             DeliveryPolicy::Targeted(ids) => assert_eq!(ids.len(), 2),
