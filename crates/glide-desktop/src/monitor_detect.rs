@@ -130,115 +130,78 @@ fn detect_linux_monitors(device_id: &str) -> Result<DisplayLayout> {
 
 #[cfg(target_os = "windows")]
 fn detect_windows_monitors(device_id: &str) -> Result<DisplayLayout> {
-    use winapi::shared::windef::{HDC, HMONITOR, RECT};
-    use winapi::um::wingdi::{DEVMODEW, DM_DISPLAYFREQUENCY};
-    use winapi::um::winuser::{
-        EnumDisplayDevicesW, EnumDisplayMonitors, EnumDisplaySettingsW, GetDC, GetDeviceCaps,
-        ReleaseDC, MONITORINFOEXW, CCHDEVICENAME, CCHFORMNAME, DEVICENAMEW, DM_PELSWIDTH,
-        DM_PELSHEIGHT, EDD_GET_DEVICE_INTERFACE_NAME, ENUM_CURRENT_SETTINGS, HORZRES, VERTRES,
-    };
-
-    use std::ffi::OsString;
-    use std::os::windows::ffi::OsStringExt;
-    use std::ptr;
-
     let mut layout = DisplayLayout::new("Auto-detected Layout".to_string());
 
-    // Use EnumDisplayMonitors to get all monitors
-    let device_id_clone = device_id.to_string();
-    let monitors = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let monitors_clone = monitors.clone();
-
     unsafe {
-        let _ = EnumDisplayMonitors(
+        use winapi::um::winuser::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFOEXW};
+        use winapi::shared::windef::{HMONITOR, HDC, RECT};
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
+        use std::ptr;
+
+        struct Monitors(Vec<MONITORINFOEXW>);
+
+        let monitors = std::sync::Mutex::new(Monitors(Vec::new()));
+
+        unsafe extern "system" fn enum_proc(
+            hmonitor: HMONITOR,
+            _hdc: HDC,
+            _lprc: *mut RECT,
+            dw_data: isize,
+        ) -> i32 {
+            let monitors = &mut *(dw_data as *mut std::sync::Mutex<Monitors>);
+            let mut info: MONITORINFOEXW = std::mem::zeroed();
+            info.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+            if GetMonitorInfoW(hmonitor, &mut info) != 0 {
+                if let Ok(mut m) = monitors.lock() {
+                    m.0.push(info);
+                }
+            }
+            1
+        }
+
+        EnumDisplayMonitors(
             ptr::null_mut(),
             ptr::null(),
-            Some(monitor_enum_proc),
-            monitors_clone.as_ref().unwrap().as_mut_ptr() as isize,
+            Some(enum_proc),
+            &monitors as *const _ as isize,
         );
-    }
 
-    // Extract monitors from the closure
-    let monitor_list = monitors.lock().unwrap();
+        let info_list = monitors.into_inner().unwrap_or_else(|_| Monitors(Vec::new()));
+        let mut index = 0;
 
-    for (i, monitor_info) in monitor_list.iter().enumerate() {
-        let mut devmode: DEVMODEW = unsafe { std::mem::zeroed() };
-        devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u32;
-
-        let device_name: Vec<u16> = monitor_info
-            .szDevice
-            .iter()
-            .take_while(|&&c| c != 0)
-            .copied()
-            .collect();
-        let device_name_str = OsString::from_wide(&device_name).to_string_lossy().to_string();
-
-        if unsafe {
-            EnumDisplaySettingsW(
-                device_name.as_ptr(),
-                ENUM_CURRENT_SETTINGS,
-                &mut devmode,
-            )
-        } != 0
-        {
-            let name = if !device_name_str.is_empty() {
-                device_name_str
-            } else {
-                format!("Monitor {}", i + 1)
-            };
+        for info in &info_list.0 {
+            let name_wide: Vec<u16> = info.szDevice.iter()
+                .take_while(|&&c| c != 0).copied().collect();
+            let name = OsString::from_wide(&name_wide)
+                .to_string_lossy().to_string();
+            let width = info.rcMonitor.right - info.rcMonitor.left;
+            let height = info.rcMonitor.bottom - info.rcMonitor.top;
 
             let mut monitor = MonitorInfo::new(
                 device_id.to_string(),
-                name,
-                devmode.dmPelsWidth as i32,
-                devmode.dmPelsHeight as i32,
-                monitor_info.rcMonitor.left,
-                monitor_info.rcMonitor.top,
-                i == 0, // First monitor is primary
+                if name.is_empty() { format!("Monitor {}", index + 1) } else { name },
+                width,
+                height,
+                info.rcMonitor.left,
+                info.rcMonitor.top,
+                index == 0,
             );
-
-            monitor.refresh_rate = devmode.dmDisplayFrequency as i32;
             monitor.is_active = true;
-
             layout.add_monitor(monitor);
+            index += 1;
         }
     }
 
-    // If no monitors detected, create a default one
     if layout.monitors.is_empty() {
         layout.add_monitor(MonitorInfo::new(
             device_id.to_string(),
             "Default Monitor".to_string(),
-            1920,
-            1080,
-            0,
-            0,
-            true,
+            1920, 1080, 0, 0, true,
         ));
     }
 
     Ok(layout)
-}
-
-#[cfg(target_os = "windows")]
-unsafe extern "system" fn monitor_enum_proc(
-    h_monitor: HMONITOR,
-    hdc_monitor: HDC,
-    lprc_monitor: *mut RECT,
-    dw_data: isize,
-) -> i32 {
-    use winapi::um::winuser::GetMonitorInfoW;
-    use winapi::um::winuser::MONITORINFOEXW;
-
-    let mut monitor_info: MONITORINFOEXW = unsafe { std::mem::zeroed() };
-    monitor_info.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
-
-    if GetMonitorInfoW(h_monitor, &mut monitor_info) != 0 {
-        let monitors = &mut *(dw_data as *mut Vec<MONITORINFOEXW>);
-        monitors.push(monitor_info);
-    }
-
-    1 // Continue enumeration
 }
 
 /// Save a display layout to a JSON file.

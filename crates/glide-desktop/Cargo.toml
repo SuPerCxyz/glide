@@ -22,4 +22,4 @@ futures = "0.3"
 
 # Windows clipboard (only on Windows)
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "winbase"] }
+winapi = { version = "0.3", features = ["winuser", "winbase", "windef"] }
