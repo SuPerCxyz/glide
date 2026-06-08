@@ -64,7 +64,8 @@ export component Sidebar inherits Rectangle {
         SidebarItem { icon: "📋";  label: "日志";     index: 3; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "⚙";   label: "设置";     index: 4; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "💻";  label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "ℹ";   label: "关于";     index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "🖥️";  label: "显示器";   index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "ℹ";   label: "关于";     index: 7; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
     }
 }
 
@@ -143,6 +144,8 @@ export component DeviceCard inherits Rectangle {
     in property <bool> is-trusted;
     in property <bool> is-lan;
     callback trust-request(string);
+    callback untrust-request(string);
+    callback remove-request(string);
     height: 72px;
     background: AppColors.page-surface;
     border-radius: 8px;
@@ -167,6 +170,8 @@ export component DeviceCard inherits Rectangle {
         StatusBadge { label: is-trusted ? "已信任" : "未信任"; badge-color: is-trusted ? AppColors.status-online : AppColors.status-unpaired; badge-bg: is-trusted ? AppColors.status-online-bg : AppColors.status-unpaired-bg; }
         StatusBadge { label: status-text; badge-color: is-online ? AppColors.status-online : AppColors.status-offline; badge-bg: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg; }
         if is-lan && !is-trusted : Button { text: "信任"; clicked => { root.trust-request(device-id); } }
+        if is-lan && is-trusted : Button { text: "取消信任"; clicked => { root.untrust-request(device-id); } }
+        Button { text: "移除"; clicked => { root.remove-request(device-id); } }
     }
 }
 

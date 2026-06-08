@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use reqwest::blocking::Client as BlockingHttpClient;
+use glide_core::display_layout::DisplayLayout;
 
 /// Result from a backend operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +105,11 @@ pub trait GuiBackend: Send + Sync {
     fn tail_logs(&self, limit: usize) -> BackendResult<Vec<String>>;
     fn export_diagnostics(&self) -> BackendResult<String>;
     fn get_platform_capabilities(&self) -> BackendResult<PlatformCapabilities>;
+
+    // Monitor layout management
+    fn detect_display_layout(&self) -> BackendResult<DisplayLayout>;
+    fn save_display_layout(&self, layout: &DisplayLayout) -> BackendResult<()>;
+    fn load_display_layout(&self) -> BackendResult<Option<DisplayLayout>>;
 }
 
 /// Mock backend for first phase.
@@ -595,6 +601,82 @@ impl GuiBackend for MockBackend {
             file_transfer: "规划通过后台服务通信接入".to_string(),
             notes,
         })
+    }
+
+    fn detect_display_layout(&self) -> BackendResult<DisplayLayout> {
+        self.log("正在检测显示器布局...");
+        match glide_desktop::monitor_detect::detect_monitor_layout(&self.device_id) {
+            Ok(layout) => {
+                self.log(&format!("检测到 {} 个显示器", layout.monitors.len()));
+                Self::success(layout)
+            }
+            Err(e) => {
+                self.log(&format!("显示器检测失败: {}", e));
+                Self::failure(format!("显示器检测失败: {}", e))
+            }
+        }
+    }
+
+    fn save_display_layout(&self, layout: &DisplayLayout) -> BackendResult<()> {
+        let config_dir = self.get_config_dir();
+        let layout_path = config_dir.join("display_layout.json");
+
+        match glide_desktop::monitor_detect::save_display_layout(layout, &layout_path) {
+            Ok(()) => {
+                self.log("显示器布局已保存");
+                Self::success(())
+            }
+            Err(e) => {
+                self.log(&format!("保存显示器布局失败: {}", e));
+                Self::failure(format!("保存显示器布局失败: {}", e))
+            }
+        }
+    }
+
+    fn load_display_layout(&self) -> BackendResult<Option<DisplayLayout>> {
+        let config_dir = self.get_config_dir();
+        let layout_path = config_dir.join("display_layout.json");
+
+        if !layout_path.exists() {
+            self.log("未找到已保存的显示器布局");
+            return Self::success(None);
+        }
+
+        match glide_desktop::monitor_detect::load_display_layout(&layout_path) {
+            Ok(layout) => {
+                self.log("已加载显示器布局");
+                Self::success(Some(layout))
+            }
+            Err(e) => {
+                self.log(&format!("加载显示器布局失败: {}", e));
+                Self::failure(format!("加载显示器布局失败: {}", e))
+            }
+        }
+    }
+}
+
+impl MockBackend {
+    fn get_config_dir(&self) -> std::path::PathBuf {
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                return std::path::PathBuf::from(appdata).join("Glide");
+            }
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+                return std::path::PathBuf::from(config_home).join("glide");
+            }
+            if let Ok(home) = std::env::var("HOME") {
+                return std::path::PathBuf::from(home)
+                    .join(".config")
+                    .join("glide");
+            }
+        }
+
+        std::env::temp_dir().join("glide")
     }
 }
 

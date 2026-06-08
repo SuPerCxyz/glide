@@ -428,6 +428,35 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
     {
         let backend = backend.clone();
         let win = window.as_weak();
+        window.on_untrust_device(move |device_id| {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            let id = device_id.to_string();
+            if backend.untrust_device(&id).success {
+                info!("Untrusted LAN device: {}", id);
+            } else {
+                warn!("Failed to untrust LAN device: {}", id);
+            }
+            refresh_window(&win, &backend);
+        });
+    }
+
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
+        window.on_remove_device(move |device_id| {
+            let Some(_win) = win.upgrade() else {
+                return;
+            };
+            info!("Remove request for device: {}", device_id);
+            // TODO: Implement actual device removal
+        });
+    }
+
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
         window.on_save_auth(move |username, password| {
             let Some(win) = win.upgrade() else {
                 return;
@@ -475,7 +504,11 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
                 is_lan,
             }})
             .collect();
+        let total = rows.len();
+        let online = rows.iter().filter(|r| r.status == "在线").count();
         window.set_devices(ModelRc::from(Rc::new(VecModel::from(rows))));
+        window.set_total_devices(total as i32);
+        window.set_online_devices(online as i32);
     }
 
     if let Some(logs) = backend.tail_logs(200).data {

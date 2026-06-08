@@ -82,11 +82,30 @@ export component StatusPage inherits VerticalLayout {
 
 export component DevicesPage inherits VerticalLayout {
     in property <[DeviceRow]> devices;
+    in property <int> total-devices: 0;
+    in property <int> online-devices: 0;
     callback trust-device(string);
+    callback untrust-device(string);
+    callback remove-device(string);
     padding: 24px;
     spacing: 16px;
 
-    SectionTitle { label: "局域网设备"; }
+    // Header with stats
+    HorizontalLayout {
+        spacing: 16px;
+        alignment: start;
+        SectionTitle { label: "局域网设备"; }
+        Rectangle {
+            width: 1px; height: 24px;
+            background: AppColors.border-base;
+        }
+        Text {
+            text: "在线: " + online-devices + " / 总计: " + total-devices;
+            font-size: 13px;
+            color: AppColors.text-secondary;
+            vertical-alignment: center;
+        }
+    }
 
     if devices.length == 0 : Rectangle {
         background: AppColors.page-surface;
@@ -132,6 +151,8 @@ export component DevicesPage inherits VerticalLayout {
                 is-trusted: device.trusted;
                 is-lan: device.is-lan;
                 trust-request(id) => { root.trust-device(id); }
+                untrust-request(id) => { root.untrust-device(id); }
+                remove-request(id) => { root.remove-device(id); }
             }
         }
     }
