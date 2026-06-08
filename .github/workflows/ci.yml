@@ -251,14 +251,21 @@ jobs:
           Invoke-GlideGuiSmoke "--interaction-smoke" "glide-gui interaction smoke failed"
           Get-Content $env:GLIDE_GUI_LOG
 
-      - name: Upload Windows binaries
+      - name: Upload Windows GUI (glide-gui.exe)
         uses: actions/upload-artifact@v4
         with:
-          name: windows-binaries
+          name: windows-gui
           path: |
             target/debug/glide-gui.exe
-            target/debug/glide-daemon.exe
+            ${{ runner.temp }}/glide-gui-smoke.log
+          retention-days: 30
+
+      - name: Upload Windows CLI tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-cli
+          path: |
             target/debug/glide-cli.exe
             target/debug/glide-server.exe
-            ${{ runner.temp }}/glide-gui-smoke.log
+            target/debug/glide-daemon.exe
           retention-days: 30
