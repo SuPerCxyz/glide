@@ -241,9 +241,11 @@ Get-Content $env:GLIDE_GUI_LOG
 
 - 普通启动、启动失败和 panic 都会写入诊断日志。
 - 默认日志路径是 `%APPDATA%\Glide\logs\glide-gui.log`。
-- Windows 默认使用 Slint software renderer，避免 Win11 虚拟机或无 OpenGL
-  环境中出现 `Failed to initialize OpenGL driver: Could not locate
-  glCreateShader symbol` 后退出。需要强制 OpenGL 时可手动设置
+- Windows 默认使用自动渲染选择：先尝试 Slint `winit-femtovg` GPU
+  renderer，物理机可用时走 GPU；如果 Win11 虚拟机或无 OpenGL 环境出现
+  `Failed to initialize OpenGL driver: Could not locate glCreateShader symbol`，
+  会自动回退到 `winit-software`。诊断日志会记录 `auto selected ...`。
+  需要强制指定时可手动设置 `$env:SLINT_BACKEND="winit-software"` 或
   `$env:SLINT_BACKEND="winit-femtovg"` 后再启动。
 - 如果你下载的是 GitHub Actions 里的 `windows-binaries`，当前是 debug
   artifact，显示终端窗口是正常现象；release 构建会隐藏控制台窗口。

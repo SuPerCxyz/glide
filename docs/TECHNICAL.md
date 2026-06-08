@@ -123,9 +123,10 @@ glide-daemon --print-status
 - 构建 `glide-gui.exe`、`glide-daemon.exe`、`glide-cli.exe`、`glide-server.exe`。
 - GUI 使用 Slint，不依赖 WebView2。
 - Release workflow 产出 Windows portable zip，zip 内同时包含 `glide.exe` 和 `glide-gui.exe` 两个 GUI 启动名。
-- GUI 默认设置 `SLINT_BACKEND=winit-software`，避免 Windows 虚拟机、
-  远程桌面或缺少可用 OpenGL 的环境中因 `glCreateShader` 缺失退出。
-  用户显式设置 `SLINT_BACKEND` 时以用户设置为准。
+- GUI 默认使用自动渲染选择：先以 `SLINT_BACKEND=winit-femtovg`
+  启动子进程，物理机可用时使用 GPU renderer；如果日志显示 OpenGL
+  初始化失败或 `glCreateShader` 缺失，则回退到
+  `SLINT_BACKEND=winit-software`。用户显式设置 `SLINT_BACKEND` 时以用户设置为准。
 
 当前限制：
 

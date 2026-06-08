@@ -10,6 +10,8 @@ use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
+#[cfg(target_os = "windows")]
+use std::process::{self, Command};
 use std::rc::Rc;
 use tracing::{info, warn};
 
@@ -33,7 +35,6 @@ fn run_app() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    configure_default_slint_backend();
     install_panic_logger();
     let _ = tracing_subscriber::fmt::try_init();
     write_diagnostic("process", "glide-gui starting");
@@ -53,6 +54,10 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     if args.iter().any(|arg| arg == "--diagnostics") {
         print_diagnostics()?;
         return Ok(());
+    }
+
+    if should_run_windows_renderer_auto(&args) {
+        return run_windows_renderer_auto(&args);
     }
 
     if args.iter().any(|arg| arg == "--smoke") {
@@ -378,13 +383,103 @@ fn install_panic_logger() {
     }));
 }
 
-fn configure_default_slint_backend() {
+fn should_run_windows_renderer_auto(args: &[String]) -> bool {
     #[cfg(target_os = "windows")]
     {
-        if env::var_os("SLINT_BACKEND").is_none() {
-            env::set_var("SLINT_BACKEND", "winit-software");
-        }
+        env::var_os("SLINT_BACKEND").is_none()
+            && env::var_os("GLIDE_GUI_RENDERER_CHILD").is_none()
+            && args.iter().any(|arg| {
+                arg == "--smoke" || arg == "--interaction-smoke" || !arg.starts_with('-')
+            })
     }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = args;
+        false
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn run_windows_renderer_auto(args: &[String]) -> Result<(), Box<dyn Error>> {
+    let current_exe = env::current_exe()?;
+    let child_args: Vec<String> = args.iter().skip(1).cloned().collect();
+
+    write_diagnostic("renderer", "auto trying winit-femtovg");
+    let log_start = diagnostic_log_len();
+    let gpu_status = Command::new(&current_exe)
+        .args(&child_args)
+        .env("GLIDE_GUI_RENDERER_CHILD", "1")
+        .env("SLINT_BACKEND", "winit-femtovg")
+        .status()?;
+
+    if gpu_status.success() {
+        write_diagnostic("renderer", "auto selected winit-femtovg");
+        return Ok(());
+    }
+
+    if !diagnostics_indicate_renderer_failure(log_start) {
+        write_diagnostic(
+            "renderer",
+            &format!(
+                "winit-femtovg failed with status {:?}; not a renderer failure",
+                gpu_status.code()
+            ),
+        );
+        process::exit(gpu_status.code().unwrap_or(1));
+    }
+
+    write_diagnostic(
+        "renderer",
+        "winit-femtovg failed; falling back to winit-software",
+    );
+    let software_status = Command::new(current_exe)
+        .args(child_args)
+        .env("GLIDE_GUI_RENDERER_CHILD", "1")
+        .env("SLINT_BACKEND", "winit-software")
+        .status()?;
+
+    if software_status.success() {
+        write_diagnostic("renderer", "auto selected winit-software");
+        Ok(())
+    } else {
+        write_diagnostic(
+            "renderer",
+            &format!(
+                "winit-software failed with status {:?}",
+                software_status.code()
+            ),
+        );
+        process::exit(software_status.code().unwrap_or(1));
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn run_windows_renderer_auto(_args: &[String]) -> Result<(), Box<dyn Error>> {
+    unreachable!("renderer auto is only enabled on Windows")
+}
+
+#[cfg(target_os = "windows")]
+fn diagnostic_log_len() -> u64 {
+    fs::metadata(diagnostic_log_path())
+        .map(|metadata| metadata.len())
+        .unwrap_or(0)
+}
+
+#[cfg(target_os = "windows")]
+fn diagnostics_indicate_renderer_failure(start_at: u64) -> bool {
+    fs::read(diagnostic_log_path())
+        .ok()
+        .and_then(|bytes| {
+            let start = usize::try_from(start_at).ok()?;
+            Some(bytes.get(start..).unwrap_or(&[]).to_vec())
+        })
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .map(|content| {
+            content.contains("Failed to initialize OpenGL driver")
+                || content.contains("Could not locate glCreateShader symbol")
+        })
+        .unwrap_or(false)
 }
 
 fn write_diagnostic(stage: &str, message: &str) {
