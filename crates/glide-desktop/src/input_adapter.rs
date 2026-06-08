@@ -32,6 +32,8 @@ pub trait InputBackend: Send + Sync {
     ) -> anyhow::Result<()>;
     /// Inject a mouse scroll event.
     async fn inject_mouse_scroll(&self, dx: i32, dy: i32) -> anyhow::Result<()>;
+    /// Inject a media key event.
+    async fn inject_media_key(&self, key: &str, pressed: bool) -> anyhow::Result<()>;
     /// Get current cursor position.
     async fn cursor_position(&self) -> anyhow::Result<(i32, i32)>;
     /// Get screen dimensions.
@@ -201,6 +203,10 @@ impl InputSharing {
             }
             InputEventKind::MouseScroll { dx, dy } => {
                 self.backend.inject_mouse_scroll(dx, dy).await?;
+            }
+            InputEventKind::MediaKey { key, pressed } => {
+                let key_str = format!("{:?}", key);
+                self.backend.inject_media_key(&key_str, pressed).await?;
             }
             InputEventKind::EmergencyRelease => {
                 self.emergency_release().await?;

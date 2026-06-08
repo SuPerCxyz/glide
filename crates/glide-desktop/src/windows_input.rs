@@ -134,6 +134,33 @@ impl InputBackend for WindowsInputBackend {
         Ok(())
     }
 
+    async fn inject_media_key(&self, key: &str, pressed: bool) -> Result<()> {
+        if !pressed {
+            return Ok(());
+        }
+        use winapi::um::winuser::{
+            keybd_event, VK_MEDIA_NEXT_TRACK, VK_MEDIA_PLAY_PAUSE,
+            VK_MEDIA_PREV_TRACK, VK_MEDIA_STOP, VK_VOLUME_DOWN, VK_VOLUME_MUTE, VK_VOLUME_UP,
+        };
+
+        let vk = match key {
+            "Play" | "PlayPause" => VK_MEDIA_PLAY_PAUSE,
+            "Pause" => VK_MEDIA_PLAY_PAUSE,
+            "Stop" => VK_MEDIA_STOP,
+            "Next" => VK_MEDIA_NEXT_TRACK,
+            "Previous" => VK_MEDIA_PREV_TRACK,
+            "VolumeUp" => VK_VOLUME_UP,
+            "VolumeDown" => VK_VOLUME_DOWN,
+            "Mute" => VK_VOLUME_MUTE,
+            _ => return Err(anyhow!("Unknown media key: {}", key)),
+        };
+
+        unsafe {
+            keybd_event(vk as u8, 0, 0, 0);
+        }
+        Ok(())
+    }
+
     async fn cursor_position(&self) -> Result<(i32, i32)> {
         let mut point = POINT { x: 0, y: 0 };
         let ok = unsafe { GetCursorPos(&mut point) };

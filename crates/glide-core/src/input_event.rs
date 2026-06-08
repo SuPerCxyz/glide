@@ -55,8 +55,33 @@ pub enum InputEventKind {
         /// Vertical scroll amount.
         dy: i32,
     },
+    /// Media/multimedia key press or release.
+    MediaKey {
+        /// Media key identifier (e.g. "Play", "Stop", "Next", "Prev", "VolumeUp", "VolumeDown", "Mute").
+        key: MediaKeyKind,
+        /// True for press, false for release.
+        pressed: bool,
+    },
     /// Emergency release: disconnect all input sharing immediately.
     EmergencyRelease,
+}
+
+/// Multimedia key types.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MediaKeyKind {
+    Play,
+    Pause,
+    Stop,
+    Next,
+    Previous,
+    VolumeUp,
+    VolumeDown,
+    Mute,
+    FastForward,
+    Rewind,
+    Eject,
+    MediaSelect,
+    PlayPause,
 }
 
 /// Route used for input events.

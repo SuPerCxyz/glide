@@ -106,6 +106,29 @@ impl InputBackend for LinuxInputBackend {
         Ok(())
     }
 
+    async fn inject_media_key(&self, key: &str, pressed: bool) -> Result<()> {
+        if !pressed {
+            return Ok(());
+        }
+        let xdotool_key = match key {
+            "Play" => "XF86AudioPlay",
+            "Pause" => "XF86AudioPause",
+            "Stop" => "XF86AudioStop",
+            "Next" => "XF86AudioNext",
+            "Previous" => "XF86AudioPrev",
+            "VolumeUp" => "XF86AudioRaiseVolume",
+            "VolumeDown" => "XF86AudioLowerVolume",
+            "Mute" => "XF86AudioMute",
+            "FastForward" => "XF86AudioForward",
+            "Rewind" => "XF86AudioRewind",
+            "Eject" => "XF86Eject",
+            "MediaSelect" => "XF86AudioMedia",
+            "PlayPause" => "XF86AudioPlay",
+            _ => return Err(anyhow::anyhow!("Unknown media key: {}", key)),
+        };
+        self.run_xdotool(&["key", xdotool_key])
+    }
+
     async fn cursor_position(&self) -> Result<(i32, i32)> {
         let mut cmd = std::process::Command::new("xdotool");
         cmd.arg("getmouselocation");
