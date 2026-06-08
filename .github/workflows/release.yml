@@ -189,10 +189,28 @@ jobs:
         run: |
           rm -rf dist
           mkdir -p dist
-          cp target/release/glide-server.exe dist/
-          cp target/release/glide-cli.exe dist/
+          mkdir -p dist/windows-gui
+          mkdir -p dist/windows-cli
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
           VERSION="${VERSION#v}"
+          # GUI package
+          cp target/release/glide-gui.exe dist/windows-gui/
+          cp target/release/glide-gui.exe dist/windows-gui/glide.exe
+          cp target/release/glide-daemon.exe dist/windows-gui/
+          echo "Glide ${VERSION} - GUI" > dist/windows-gui/README.txt
+          echo "" >> dist/windows-gui/README.txt
+          echo "  glide-gui.exe / glide.exe   Launch GUI (portable)" >> dist/windows-gui/README.txt
+          echo "  glide-daemon.exe            Background LAN daemon" >> dist/windows-gui/README.txt
+          # CLI package
+          cp target/release/glide-cli.exe dist/windows-cli/
+          cp target/release/glide-server.exe dist/windows-cli/
+          cp target/release/glide-daemon.exe dist/windows-cli/
+          echo "Glide ${VERSION} - CLI Tools" > dist/windows-cli/README.txt
+          echo "" >> dist/windows-cli/README.txt
+          echo "  glide-cli.exe     CLI client for clipboard sync" >> dist/windows-cli/README.txt
+          echo "  glide-server.exe  Start relay server" >> dist/windows-cli/README.txt
+          echo "  glide-daemon.exe  Background LAN daemon" >> dist/windows-cli/README.txt
+          # Legacy: original portable zip (for GitHub Releases)
           mkdir -p "dist/glide-${VERSION}-windows-portable"
           cp target/release/glide-gui.exe "dist/glide-${VERSION}-windows-portable/glide.exe"
           cp target/release/glide-gui.exe "dist/glide-${VERSION}-windows-portable/glide-gui.exe"
@@ -210,18 +228,25 @@ jobs:
           cd dist && 7z a "glide-${VERSION}-windows-portable.zip" "glide-${VERSION}-windows-portable/"
         shell: bash
 
-      - name: Upload Windows packages
+      - name: Upload Windows GUI
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gui
+          path: dist/windows-gui/*
+          retention-days: 90
+
+      - name: Upload Windows CLI tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-cli
+          path: dist/windows-cli/*
+          retention-days: 90
+
+      - name: Upload Windows portable zip
         uses: actions/upload-artifact@v4
         with:
           name: windows-packages
-          path: dist/*
-          retention-days: 90
-
-      - name: Upload Windows GUI diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-gui-diagnostics
-          path: ${{ runner.temp }}/glide-gui-release-smoke.log
+          path: dist/glide-*-windows-portable.zip
           retention-days: 90
 
   # --- Docker: Build runtime image from pre-built binaries ---
@@ -288,7 +313,19 @@ jobs:
           name: linux-packages
           path: dist/linux/
 
-      - name: Download Windows packages
+      - name: Download Windows GUI
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-gui
+          path: dist/windows/gui/
+
+      - name: Download Windows CLI tools
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-cli
+          path: dist/windows/cli/
+
+      - name: Download Windows portable zip
         uses: actions/download-artifact@v4
         with:
           name: windows-packages
