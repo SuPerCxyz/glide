@@ -187,9 +187,9 @@ CI 状态：
 - 普通 CI：Linux build/test、Docker verify、Linux package artifact、Windows native build artifact。
 - Release workflow：按输入或 tag 构建 Linux package、Windows portable zip、Docker image。
 - Windows GUI smoke：普通 CI 和 Release 都执行 `glide-gui.exe --smoke`
-  与 `--interaction-smoke`。PowerShell 步骤必须同时检查 `$?` 和非空
-  `$LASTEXITCODE`，避免 Windows runner 上 `$LASTEXITCODE` 为空时把成功
-  smoke 误判为失败。
+  与 `--interaction-smoke`。Windows release GUI 使用 GUI subsystem，
+  PowerShell 直接调用时不会稳定等待和填充 `$LASTEXITCODE`，workflow
+  必须使用 `Start-Process -Wait -PassThru` 并检查进程 `ExitCode`。
 - Docker verify：启动容器 10 秒后通过 `curl http://127.0.0.1:18080/` 验证管理页响应。
 
 ## 8. 测试与验证

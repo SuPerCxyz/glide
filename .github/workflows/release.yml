@@ -147,11 +147,23 @@ jobs:
               [string]$FailureMessage
             )
 
-            & target\release\glide-gui.exe $Mode
-            $commandSucceeded = $?
-            $exitCode = $LASTEXITCODE
-            if (-not $commandSucceeded -or ($null -ne $exitCode -and $exitCode -ne 0)) {
-              throw "$FailureMessage with exit code $exitCode"
+            $suffix = $Mode.Replace("--", "")
+            $stdout = Join-Path $env:RUNNER_TEMP "glide-gui-release-$suffix.out"
+            $stderr = Join-Path $env:RUNNER_TEMP "glide-gui-release-$suffix.err"
+            $process = Start-Process -FilePath "target\release\glide-gui.exe" `
+              -ArgumentList $Mode `
+              -Wait `
+              -PassThru `
+              -RedirectStandardOutput $stdout `
+              -RedirectStandardError $stderr
+            if (Test-Path $stdout) {
+              Get-Content $stdout
+            }
+            if (Test-Path $stderr) {
+              Get-Content $stderr
+            }
+            if ($process.ExitCode -ne 0) {
+              throw "$FailureMessage with exit code $($process.ExitCode)"
             }
           }
 
