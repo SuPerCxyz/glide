@@ -133,7 +133,7 @@
             --status-unpaired-bg: #1e293b;
         }
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:"IBM Plex Mono","Fira Code","Source Code Pro","Cascadia Code","Consolas","Monaco",monospace;font-size:16px;line-height:1.5;background:var(--page-bg);color:var(--text-primary);min-height:100vh;transition:background 200ms ease-out,color 200ms ease-out}
+        body{font-family:"Maple Mono NF CN","IBM Plex Mono","Fira Code","Source Code Pro","Cascadia Code","Consolas","Monaco",monospace;font-size:16px;line-height:1.5;background:var(--page-bg);color:var(--text-primary);min-height:100vh;transition:background 200ms ease-out,color 200ms ease-out}
         button{cursor:pointer;font-family:inherit}
         a{color:var(--color-brand);text-decoration:none}
         a:hover{text-decoration:underline}
@@ -215,9 +215,46 @@
         .theme-toggle:hover{background:var(--page-surface-alt)}
         .footer{text-align:center;padding:16px;color:var(--text-tertiary);font-size:14px;border-top:1px solid var(--border-subtle)}
         @media(max-width:768px){.sidebar{width:160px}.content{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}}
+
+        /* === Login Page === */
+        #login-page{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--page-bg)}
+        #login-page .login-card{background:var(--page-surface);border:1px solid var(--border-base);border-radius:8px;padding:40px 36px;width:380px;max-width:90vw;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+        #login-page .login-logo{font-size:32px;font-weight:800;color:var(--color-brand);letter-spacing:-0.5px;text-align:center;margin-bottom:4px}
+        #login-page .login-subtitle{text-align:center;color:var(--text-tertiary);font-size:14px;margin-bottom:28px}
+        #login-page .login-card h3{font-size:17px;font-weight:600;margin-bottom:20px;text-align:center}
+        #login-page .login-card .form-group{margin-bottom:16px}
+        #login-page .login-card .btn.primary{width:100%;justify-content:center;padding:10px 0;font-size:15px;margin-top:4px}
+        #login-page .login-error{color:var(--status-offline);font-size:14px;margin-top:12px;display:none;text-align:center}
+        #login-page .login-card .hint{text-align:center;font-size:13px;color:var(--text-tertiary);margin-top:20px;line-height:1.6}
+        #login-page .login-card .hint code{font-size:13px;background:var(--page-surface-alt);padding:1px 6px;border-radius:3px}
     </style>
 </head>
 <body>
+    <!-- Login Page (shown when not authenticated) -->
+    <div id="login-page">
+        <div class="login-card">
+            <div class="login-logo">Glide</div>
+            <div class="login-subtitle">Server Admin Panel</div>
+            <h3>登录</h3>
+            <div class="form-group">
+                <label for="loginUser">用户名</label>
+                <input type="text" id="loginUser" placeholder="admin" value="admin" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="loginPass">密码</label>
+                <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
+            </div>
+            <div class="login-error" id="loginPageError" role="alert"></div>
+            <button class="btn primary" id="loginPageBtn" onclick="doLogin()">登录</button>
+            <div class="hint">
+                默认用户名密码：<code>admin / admin</code><br>
+                通过 <code>GLIDE_USERNAME</code> 和 <code>GLIDE_PASSWORD</code> 环境变量配置
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin App (shown after login) -->
+    <div id="app-shell" style="display:none">
     <div class="app">
         <nav class="sidebar" aria-label="主导航">
             <div class="logo">Glide<span class="version">v0.1.0</span></div>
@@ -240,7 +277,7 @@
                     </div>
                     <button class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换浅色/深色主题">◑</button>
                     <span id="loginLabel" style="font-size:14px;color:var(--text-secondary)">未登录</span>
-                    <button class="btn" id="loginBtn" onclick="showLogin()">登录</button>
+                    <button class="btn" id="loginBtn" style="display:none">登录</button>
                     <button class="btn" id="logoutBtn" onclick="doLogout()" style="display:none">退出</button>
                 </div>
             </header>
@@ -248,26 +285,7 @@
             <div class="footer">Glide Server Admin &bull; LAN-first clipboard sync</div>
         </div>
     </div>
-
-    <!-- Login Modal -->
-    <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-        <div class="modal">
-            <h3 id="loginTitle">登录</h3>
-            <div class="form-group">
-                <label for="loginUser">用户名</label>
-                <input type="text" id="loginUser" placeholder="admin" value="admin" autocomplete="username">
-            </div>
-            <div class="form-group">
-                <label for="loginPass">密码</label>
-                <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
-            </div>
-            <div id="loginError" style="color:var(--status-offline);font-size:14px;margin-top:8px;display:none" role="alert"></div>
-            <div class="modal-actions">
-                <button class="btn" onclick="closeModal('loginModal')">取消</button>
-                <button class="btn primary" onclick="doLogin()">登录</button>
-            </div>
-        </div>
-    </div>
+    </div><!-- /app-shell -->
 
     <!-- Create Token Modal -->
     <div class="modal-overlay" id="tokenModal" role="dialog" aria-modal="true" aria-labelledby="tokenTitle">
@@ -297,8 +315,42 @@
 <script>
 const API = window.location.origin;
 let startTime = Date.now();
-let authToken = null;
+let authToken = localStorage.getItem('glide-auth-token');
+let authUser = localStorage.getItem('glide-auth-user');
 let currentPage = 'overview';
+
+// === Auth State Management ===
+function showAuthView() {
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app-shell').style.display = '';
+    navigateTo(currentPage);
+    refresh();
+    document.getElementById('loginLabel').textContent = authUser || 'Admin';
+    document.getElementById('loginBtn').style.display = 'none';
+    document.getElementById('logoutBtn').style.display = '';
+}
+
+function showLoginView() {
+    document.getElementById('login-page').style.display = '';
+    document.getElementById('app-shell').style.display = 'none';
+    document.getElementById('loginLabel').textContent = '未登录';
+    document.getElementById('loginBtn').style.display = '';
+    document.getElementById('logoutBtn').style.display = 'none';
+    authToken = null;
+    authUser = null;
+    localStorage.removeItem('glide-auth-token');
+    localStorage.removeItem('glide-auth-user');
+}
+
+// Enter key in login form
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') {
+        const active = document.activeElement;
+        if (active && (active.id === 'loginUser' || active.id === 'loginPass')) {
+            doLogin();
+        }
+    }
+});
 
 // === Theme ===
 const savedTheme = localStorage.getItem('glide-theme') || 'light';
@@ -581,10 +633,6 @@ function updateSettingsTheme() {
 // === Modal ===
 function showModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-function showLogin() {
-    document.getElementById('loginError').style.display = 'none';
-    showModal('loginModal');
-}
 document.querySelectorAll('.modal-overlay').forEach(o => {
     o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
 });
@@ -596,8 +644,11 @@ document.addEventListener('keydown', e => {
 async function doLogin() {
     const user = document.getElementById('loginUser').value;
     const pass = document.getElementById('loginPass').value;
-    const errEl = document.getElementById('loginError');
+    const errEl = document.getElementById('loginPageError');
+    const btn = document.getElementById('loginPageBtn');
     errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = '登录中...';
     try {
         const r = await fetch(API + '/api/v1/auth/login', {
             method: 'POST', headers: {'Content-Type':'application/json'},
@@ -606,11 +657,10 @@ async function doLogin() {
         const data = await r.json();
         if (r.ok && data.token) {
             authToken = data.token;
-            document.getElementById('loginLabel').textContent = user;
-            document.getElementById('loginBtn').style.display = 'none';
-            document.getElementById('logoutBtn').style.display = '';
-            closeModal('loginModal');
-            refresh();
+            authUser = user;
+            localStorage.setItem('glide-auth-token', authToken);
+            localStorage.setItem('glide-auth-user', authUser);
+            showAuthView();
         } else {
             errEl.textContent = data.error || '登录失败';
             errEl.style.display = 'block';
@@ -618,20 +668,19 @@ async function doLogin() {
     } catch(e) {
         errEl.textContent = '连接失败: ' + e.message;
         errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '登录';
     }
 }
 
 function doLogout() {
-    authToken = null;
-    document.getElementById('loginLabel').textContent = '未登录';
-    document.getElementById('loginBtn').style.display = '';
-    document.getElementById('logoutBtn').style.display = 'none';
-    refresh();
+    showLoginView();
 }
 
 // === Token Creation ===
 function showCreateToken() {
-    if (!authToken) { showLogin(); return; }
+    if (!authToken) { showLoginView(); return; }
     document.getElementById('tokenResult').style.display = 'none';
     document.getElementById('tokenError').style.display = 'none';
     showModal('tokenModal');
@@ -672,11 +721,18 @@ async function fetchJSON(path) {
         const headers = {};
         if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
         const r = await fetch(API + path, {headers});
+        if (r.status === 401 && authToken) {
+            // Token expired or invalid — redirect to login
+            showLoginView();
+            return null;
+        }
         return await r.json();
     } catch(e) { return null; }
 }
 
 async function refresh() {
+    // Only refresh if authToken is present (logged in)
+    if (!authToken) return;
     const health = await fetchJSON('/api/v1/health');
     const running = !!health;
     const ts = document.getElementById('topbarStatus');
@@ -785,9 +841,16 @@ async function refresh() {
     if (ac) ac.textContent = devices.filter(d=>d.last_seen_at).length + ' 台';
 }
 
+// === Auth Init ===
+// Must run after all declarations (pageTitles, navigateTo, etc.)
+if (authToken) {
+    showAuthView();
+} else {
+    showLoginView();
+}
+
 // === Init ===
-navigateTo('overview');
-refresh();
+// Auto-refresh every 5 seconds when logged in.
 setInterval(refresh, 5000);
 </script>
 </body>
