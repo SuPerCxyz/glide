@@ -133,7 +133,7 @@ fn detect_windows_monitors(device_id: &str) -> Result<DisplayLayout> {
     let mut layout = DisplayLayout::new("Auto-detected Layout".to_string());
 
     unsafe {
-        use winapi::um::winuser::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFOEXW};
+        use winapi::um::winuser::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFO, MONITORINFOEXW};
         use winapi::shared::windef::{HMONITOR, HDC, RECT};
         use std::ffi::OsString;
         use std::os::windows::ffi::OsStringExt;
@@ -152,7 +152,9 @@ fn detect_windows_monitors(device_id: &str) -> Result<DisplayLayout> {
             let monitors = &mut *(dw_data as *mut std::sync::Mutex<Monitors>);
             let mut info: MONITORINFOEXW = std::mem::zeroed();
             info.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
-            if GetMonitorInfoW(hmonitor, &mut info) != 0 {
+            // Cast MONITORINFOEXW* to MONITORINFO* as GetMonitorInfoW expects the base type
+            let info_ptr = &mut info as *mut MONITORINFOEXW as *mut MONITORINFO;
+            if GetMonitorInfoW(hmonitor, info_ptr) != 0 {
                 if let Ok(mut m) = monitors.lock() {
                     m.0.push(info);
                 }
