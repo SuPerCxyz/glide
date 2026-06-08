@@ -217,18 +217,26 @@ jobs:
       - name: Smoke test glide-gui diagnostics
         shell: pwsh
         run: |
-          $env:GLIDE_GUI_LOG = Join-Path $env:RUNNER_TEMP "glide-gui-smoke.log"
-          target\debug\glide-gui.exe --smoke
-          if ($LASTEXITCODE -ne 0) {
-            throw "glide-gui smoke failed with exit code $LASTEXITCODE"
+          function Invoke-GlideGuiSmoke {
+            param(
+              [string]$Mode,
+              [string]$FailureMessage
+            )
+
+            & target\debug\glide-gui.exe $Mode
+            $commandSucceeded = $?
+            $exitCode = $LASTEXITCODE
+            if (-not $commandSucceeded -or ($null -ne $exitCode -and $exitCode -ne 0)) {
+              throw "$FailureMessage with exit code $exitCode"
+            }
           }
+
+          $env:GLIDE_GUI_LOG = Join-Path $env:RUNNER_TEMP "glide-gui-smoke.log"
+          Invoke-GlideGuiSmoke "--smoke" "glide-gui smoke failed"
           if (-not (Test-Path $env:GLIDE_GUI_LOG)) {
             throw "glide-gui did not create diagnostics log: $env:GLIDE_GUI_LOG"
           }
-          target\debug\glide-gui.exe --interaction-smoke
-          if ($LASTEXITCODE -ne 0) {
-            throw "glide-gui interaction smoke failed with exit code $LASTEXITCODE"
-          }
+          Invoke-GlideGuiSmoke "--interaction-smoke" "glide-gui interaction smoke failed"
           Get-Content $env:GLIDE_GUI_LOG
 
       - name: Upload Windows binaries
