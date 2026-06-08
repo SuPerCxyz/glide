@@ -239,6 +239,9 @@ Get-Content $env:GLIDE_GUI_LOG
 - 默认日志路径是 `%APPDATA%\Glide\logs\glide-gui.log`。
 - 如果你下载的是 GitHub Actions 里的 `windows-binaries`，当前是 debug
   artifact，显示终端窗口是正常现象；release 构建会隐藏控制台窗口。
+- 当前 Slint GUI 阶段的 Windows 下载项是 `glide-<version>-windows-portable.zip`。
+  zip 中 `glide.exe` 和 `glide-gui.exe` 都是 GUI 入口。不要使用旧的
+  `Glide_*_x64-setup.exe` 或 `.msi`，那些是 Tauri 时代的安装器产物。
 - 当前 GUI 第一阶段仍使用 mock backend，窗口能启动不代表真实连接、剪贴板和
   键鼠链路已经接入。
 

@@ -149,10 +149,15 @@ jobs:
           if (-not (Test-Path $env:GLIDE_GUI_LOG)) {
             throw "glide-gui did not create diagnostics log: $env:GLIDE_GUI_LOG"
           }
+          target\release\glide-gui.exe --interaction-smoke
+          if ($LASTEXITCODE -ne 0) {
+            throw "glide-gui interaction smoke failed with exit code $LASTEXITCODE"
+          }
           Get-Content $env:GLIDE_GUI_LOG
 
       - name: Collect Windows packages
         run: |
+          rm -rf dist
           mkdir -p dist
           cp target/release/glide-server.exe dist/
           cp target/release/glide-cli.exe dist/
@@ -160,10 +165,18 @@ jobs:
           VERSION="${VERSION#v}"
           mkdir -p "dist/glide-${VERSION}-windows-portable"
           cp target/release/glide-gui.exe "dist/glide-${VERSION}-windows-portable/glide.exe"
+          cp target/release/glide-gui.exe "dist/glide-${VERSION}-windows-portable/glide-gui.exe"
           cp target/release/glide-daemon.exe "dist/glide-${VERSION}-windows-portable/"
           cp target/release/glide-server.exe "dist/glide-${VERSION}-windows-portable/"
           cp target/release/glide-cli.exe "dist/glide-${VERSION}-windows-portable/"
           cp README.md "dist/glide-${VERSION}-windows-portable/"
+          test -f "dist/glide-${VERSION}-windows-portable/glide.exe"
+          test -f "dist/glide-${VERSION}-windows-portable/glide-gui.exe"
+          if find dist -iname '*setup.exe' -o -iname '*.msi' | grep -q .; then
+            echo "Unexpected installer artifact found in Slint release dist"
+            find dist -iname '*setup.exe' -o -iname '*.msi'
+            exit 1
+          fi
           cd dist && 7z a "glide-${VERSION}-windows-portable.zip" "glide-${VERSION}-windows-portable/"
         shell: bash
 

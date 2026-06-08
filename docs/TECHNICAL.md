@@ -122,11 +122,11 @@ glide-daemon --print-status
 
 - 构建 `glide-gui.exe`、`glide-daemon.exe`、`glide-cli.exe`、`glide-server.exe`。
 - GUI 使用 Slint，不依赖 WebView2。
-- Release workflow 产出 Windows portable zip。
+- Release workflow 产出 Windows portable zip，zip 内同时包含 `glide.exe` 和 `glide-gui.exe` 两个 GUI 启动名。
 
 当前限制：
 
-- 没有 NSIS/MSI 安装器。
+- 没有当前 Slint 版 NSIS/MSI 安装器；旧 `Glide_*_x64-setup.exe` / `.msi` 是 Tauri 时代产物，不应继续使用。
 - Windows 11 Enterprise Evaluation 25H2 QEMU VM 中 `glide-gui.exe --smoke` 已真实执行通过。
 - 安装包模式、普通桌面双击启动、真实连接、剪贴板、键鼠验证仍需执行。
 - GUI 当前 mock backend 不代表真实 Windows 剪贴板和输入链路。

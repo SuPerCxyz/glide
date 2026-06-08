@@ -129,9 +129,9 @@ GUI 状态页和日志页已存在。当前日志来自 mock backend。后续应
 
 Windows：
 
-- 当前产物：portable zip，包含 `glide.exe`、`glide-daemon.exe`、`glide-cli.exe`、`glide-server.exe` 和 README。
+- 当前产物：portable zip，包含 `glide.exe`、`glide-gui.exe`、`glide-daemon.exe`、`glide-cli.exe`、`glide-server.exe` 和 README。
 - GUI 不依赖 WebView2。
-- 安装器为规划中。
+- 安装器为规划中；旧 `Glide_*_x64-setup.exe` / `.msi` 属于 Tauri 时代产物，不是当前 Slint GUI 下载项。
 
 Linux：
 

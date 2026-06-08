@@ -225,6 +225,10 @@ jobs:
           if (-not (Test-Path $env:GLIDE_GUI_LOG)) {
             throw "glide-gui did not create diagnostics log: $env:GLIDE_GUI_LOG"
           }
+          target\debug\glide-gui.exe --interaction-smoke
+          if ($LASTEXITCODE -ne 0) {
+            throw "glide-gui interaction smoke failed with exit code $LASTEXITCODE"
+          }
           Get-Content $env:GLIDE_GUI_LOG
 
       - name: Upload Windows binaries

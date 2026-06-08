@@ -52,6 +52,11 @@ fn run_app() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    if args.iter().any(|arg| arg == "--interaction-smoke") {
+        run_interaction_smoke()?;
+        return Ok(());
+    }
+
     run_gui()
 }
 
@@ -102,6 +107,71 @@ fn run_smoke() -> Result<(), Box<dyn Error>> {
             .unwrap_or("unknown")
     );
     println!("diagnostics={}", log_path.display());
+
+    Ok(())
+}
+
+fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
+    let backend = MockBackend::new();
+    let window = create_window(&backend)?;
+
+    window.invoke_toggle_clipboard();
+    window.invoke_toggle_input();
+    window.invoke_connect();
+    window.invoke_page_changed(3);
+    window.invoke_pair_device();
+    window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
+    window.invoke_save_name(SharedString::from("glide-smoke"));
+
+    let status = backend.get_service_status().data.unwrap_or_else(|| {
+        panic!("mock backend did not return service status during interaction smoke")
+    });
+    let settings = backend
+        .get_settings()
+        .data
+        .unwrap_or_else(|| panic!("mock backend did not return settings during interaction smoke"));
+    let logs = backend.tail_logs(20).data.unwrap_or_default();
+
+    if status.connection_status != "已连接" {
+        return Err("interaction smoke failed: connect callback did not update status".into());
+    }
+    if status.clipboard_enabled {
+        return Err("interaction smoke failed: clipboard toggle did not update status".into());
+    }
+    if !status.input_enabled {
+        return Err("interaction smoke failed: input toggle did not update status".into());
+    }
+    if settings.server_url != "http://192.0.2.10:8080" {
+        return Err(
+            "interaction smoke failed: save-server callback did not update settings".into(),
+        );
+    }
+    if settings.device_name != "glide-smoke" {
+        return Err("interaction smoke failed: save-name callback did not update settings".into());
+    }
+    if !logs.iter().any(|line| line.contains("Pairing requested")) {
+        return Err("interaction smoke failed: pair callback did not write log".into());
+    }
+
+    write_diagnostic(
+        "interaction-smoke",
+        &format!(
+            "ok connected={} clipboard={} input={} page={}",
+            status.connection_status,
+            status.clipboard_enabled,
+            status.input_enabled,
+            window.get_current_page()
+        ),
+    );
+
+    println!("glide-gui interaction smoke ok");
+    println!("current_page={}", window.get_current_page());
+    println!("connection_status={}", window.get_connection_status());
+    println!("clipboard_enabled={}", window.get_clipboard_enabled());
+    println!("input_enabled={}", window.get_input_enabled());
+    println!("server_url={}", settings.server_url);
+    println!("device_name={}", settings.device_name);
+    println!("diagnostics={}", diagnostic_log_path().display());
 
     Ok(())
 }

@@ -95,6 +95,7 @@ macOS：
 Windows：
 
 - 当前是 portable zip。
+- portable zip 中 `glide.exe` 和 `glide-gui.exe` 都是 Slint GUI 入口；旧 `Glide_*_x64-setup.exe` / `.msi` 不属于当前 GUI 方案。
 - 后续 installer 需要保证干净 Windows 10/11 x64 可直接安装运行。
 - 不能依赖用户手动安装 WebView2、Node、Rust、Python 或开发工具链。
 

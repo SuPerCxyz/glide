@@ -168,4 +168,4 @@ Get-Process | ? ProcessName -match "glide"
 
 ## 9. 结论
 
-当前 Linux 虚拟环境、Headless GUI、Mock/协议层、Windows platform 模拟、Windows CLI Wine smoke、Windows GUI Wine smoke、QEMU Win11 GUI smoke 下没有已知失败。Windows 客户端无法连接服务端的直接修复是：GUI 现在支持输入并提交 registration token，并在日志中输出连接阶段、目标地址和脱敏 token；CLI 现在支持 `GLIDE_CONFIG_PATH` 覆盖和 Windows `%APPDATA%\Glide\config.json` 默认配置路径。安装包模式、普通桌面双击启动和 Windows GUI 实际剪贴板/键鼠仍需在干净 Windows 10/11 VM 中继续执行已生成脚本验证。
+当前 Linux 虚拟环境、Headless GUI、Mock/协议层、Windows platform 模拟、Windows CLI Wine smoke、Windows GUI Wine smoke、QEMU Win11 GUI smoke 下没有已知失败。Windows 客户端无法连接服务端的直接修复是：GUI 现在支持输入并提交 registration token，并在日志中输出连接阶段、目标地址和脱敏 token；CLI 现在支持 `GLIDE_CONFIG_PATH` 覆盖和 Windows `%APPDATA%\Glide\config.json` 默认配置路径。当前 Slint Windows 分发只应使用 portable zip；旧 `Glide_*_x64-setup.exe`/`.msi` 是废弃 Tauri 产物。安装包模式、普通桌面双击启动和 Windows GUI 实际剪贴板/键鼠仍需在干净 Windows 10/11 VM 中继续执行已生成脚本验证。
