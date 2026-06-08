@@ -71,22 +71,20 @@ jobs:
       - name: Prepare Linux artifacts with README
         run: |
           mkdir -p linux-artifacts
-          cat > linux-artifacts/README.txt << 'EOF'
-Glide - LAN-first clipboard sync
-
-Desktop GUI:
-  ./glide-gui           Launch GUI
-  ./glide-gui --smoke   Smoke test
-
-CLI:
-  ./glide-cli copy "text"   Copy clipboard
-  ./glide-cli paste         Paste clipboard
-  ./glide-cli devices       List devices
-  ./glide-server            Start relay server
-
-Environment:
-  GLIDE_DEVICE_ID, GLIDE_DEVICE_NAME, GLIDE_LAN_SYNC_PORT
-EOF
+          echo "Glide - LAN-first clipboard sync" > linux-artifacts/README.txt
+          echo "" >> linux-artifacts/README.txt
+          echo "Desktop GUI:" >> linux-artifacts/README.txt
+          echo "  ./glide-gui           Launch GUI" >> linux-artifacts/README.txt
+          echo "  ./glide-gui --smoke   Smoke test" >> linux-artifacts/README.txt
+          echo "" >> linux-artifacts/README.txt
+          echo "CLI:" >> linux-artifacts/README.txt
+          echo "  ./glide-cli copy <text>   Copy clipboard" >> linux-artifacts/README.txt
+          echo "  ./glide-cli paste         Paste clipboard" >> linux-artifacts/README.txt
+          echo "  ./glide-cli devices       List devices" >> linux-artifacts/README.txt
+          echo "  ./glide-server            Start relay server" >> linux-artifacts/README.txt
+          echo "" >> linux-artifacts/README.txt
+          echo "Environment variables:" >> linux-artifacts/README.txt
+          echo "  GLIDE_DEVICE_ID, GLIDE_DEVICE_NAME, GLIDE_LAN_SYNC_PORT" >> linux-artifacts/README.txt
 
       - name: Upload Linux binaries
         uses: actions/upload-artifact@v4
@@ -189,18 +187,16 @@ EOF
           test -n "$(find dist -name '*.deb' -print -quit)"
           test -n "$(find dist -name '*.rpm' -print -quit)"
           test -n "$(find dist -name '*.AppImage' -print -quit)"
-          cat > dist/README.txt << 'EOF'
-Glide Linux Packages
-
-  glide_0.1.0_amd64.deb     Debian/Ubuntu:  sudo dpkg -i glide_0.1.0_amd64.deb
-  glide-0.1.0-1.x86_64.rpm  Fedora/RHEL:    sudo rpm -ivh glide-0.1.0-1.x86_64.rpm
-  glide-0.1.0-x86_64.AppImage               chmod +x *.AppImage && ./glide-0.1.0-x86_64.AppImage
-
-After install, run:
-  glide-gui     Launch GUI
-  glide-cli     CLI client
-  glide-server  Start relay server
-EOF
+          echo "Glide Linux Packages" > dist/README.txt
+          echo "" >> dist/README.txt
+          echo "  glide_0.1.0_amd64.deb     Debian/Ubuntu:  sudo dpkg -i glide_0.1.0_amd64.deb" >> dist/README.txt
+          echo "  glide-0.1.0-1.x86_64.rpm  Fedora/RHEL:    sudo rpm -ivh glide-0.1.0-1.x86_64.rpm" >> dist/README.txt
+          echo "  glide-0.1.0-x86_64.AppImage               chmod +x *.AppImage && ./glide-0.1.0-x86_64.AppImage" >> dist/README.txt
+          echo "" >> dist/README.txt
+          echo "After install, run:" >> dist/README.txt
+          echo "  glide-gui     Launch GUI" >> dist/README.txt
+          echo "  glide-cli     CLI client" >> dist/README.txt
+          echo "  glide-server  Start relay server" >> dist/README.txt
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
@@ -297,39 +293,36 @@ EOF
           Copy-Item target\debug\glide-daemon.exe windows-artifacts\cli\
           Copy-Item ${{ runner.temp }}\glide-gui-smoke.log windows-artifacts\gui\
 
-          # Add README
-          @"
-Glide - LAN-first clipboard sync
+          # Add GUI README
+          echo "Glide - LAN-first clipboard sync" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8
+          echo "" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "Usage:" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "  glide-gui.exe            Launch the GUI (no install needed)" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "  glide-gui.exe --smoke    Run smoke test" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "CLI tools:" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "  glide-cli.exe --help" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "  glide-server.exe --help" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "  glide-daemon.exe --help" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "Windows requirements: None (portable, no WebView2 dependency)" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
 
-Usage:
-  glide-gui.exe            Launch the GUI (no install needed)
-  glide-gui.exe --smoke    Run smoke test
-
-CLI tools:
-  glide-cli.exe --help
-  glide-server.exe --help
-  glide-daemon.exe --help
-
-Windows requirements: None (portable, no WebView2 dependency)
-"@ | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8
-
-          @"
-Glide CLI Tools
-
-glide-cli.exe     CLI client for clipboard sync
-  glide-cli.exe copy "text"
-  glide-cli.exe paste
-  glide-cli.exe devices
-
-glide-server.exe  Central relay server
-  glide-server.exe
-
-glide-daemon.exe  Background daemon (LAN discovery + sync)
-  glide-daemon.exe --print-status
-
-Environment variables:
-  GLIDE_SERVER_URL, GLIDE_DEVICE_ID, GLIDE_DEVICE_NAME
-"@ | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8
+          # Add CLI README
+          echo "Glide CLI Tools" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8
+          echo "" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "glide-cli.exe     CLI client for clipboard sync" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "  glide-cli.exe copy <text>" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "  glide-cli.exe paste" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "  glide-cli.exe devices" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "glide-server.exe  Central relay server" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "  glide-server.exe" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "glide-daemon.exe  Background daemon (LAN discovery + sync)" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "  glide-daemon.exe --print-status" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "Environment variables:" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
+          echo "  GLIDE_SERVER_URL, GLIDE_DEVICE_ID, GLIDE_DEVICE_NAME" | Out-File -FilePath windows-artifacts\cli\README.txt -Encoding UTF8 -Append
 
       - name: Upload Windows GUI
         uses: actions/upload-artifact@v4
