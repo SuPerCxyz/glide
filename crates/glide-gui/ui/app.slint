@@ -347,10 +347,14 @@ component StatusPage inherits VerticalLayout {
     in property <string> connection-status;
     in property <string> device-count-text;
     in property <string> server-url;
+    in property <string> server-username;
+    in property <string> server-password;
+    in property <string> login-error;
     in property <bool> clipboard-enabled;
     in property <bool> input-enabled;
     callback connect();
     callback disconnect();
+    callback login();
     callback toggle-clipboard();
     callback toggle-input();
     padding: 24px;
@@ -359,45 +363,75 @@ component StatusPage inherits VerticalLayout {
     SectionTitle { label: "后台服务"; }
 
     Rectangle {
-        height: 100px;
+        height: connection-status == "已连接" ? 100px : 200px;
         background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
         border-color: AppColors.border-base;
 
-        HorizontalLayout {
+        VerticalLayout {
             padding: 16px;
-            spacing: 16px;
-            alignment: center;
+            spacing: 8px;
 
-            VerticalLayout {
-                spacing: 6px;
-                horizontal-stretch: 1;
-                Text {
-                    text: service-running ? "后台服务运行中" : "后台服务未运行";
-                    font-size: 18px;
-                    font-weight: 700;
-                    color: AppColors.text-primary;
-                }
-                Text {
-                    text: server-url == "" ? "尚未配置服务端地址" : server-url;
+            Text {
+                text: service-running ? "后台服务运行中" : "后台服务未运行";
+                font-size: 18px;
+                font-weight: 700;
+                color: AppColors.text-primary;
+            }
+            Text {
+                text: server-url == "" ? "尚未配置服务端地址" : server-url;
+                font-size: 14px;
+                color: AppColors.text-secondary;
+            }
+            Text {
+                text: "已连接设备: " + device-count-text;
+                font-size: 14px;
+                color: AppColors.text-secondary;
+            }
+
+            // Login form (shown when not connected)
+            if connection-status != "已连接" : HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+
+                LineEdit {
+                    placeholder-text: "用户名";
+                    text: server-username;
                     font-size: 14px;
-                    color: AppColors.text-secondary;
+                    edited(text) => { root.server-username = text; }
                 }
-                Text {
-                    text: "已连接设备: " + device-count-text;
+                LineEdit {
+                    placeholder-text: "密码";
+                    text: server-password;
                     font-size: 14px;
-                    color: AppColors.text-secondary;
+                    password: true;
+                    edited(text) => { root.server-password = text; }
                 }
             }
 
-            if connection-status == "已连接" : Button {
-                text: "断开";
-                clicked => { root.disconnect(); }
+            if login-error != "" : Text {
+                text: login-error;
+                font-size: 13px;
+                color: AppColors.status-offline;
             }
-            if connection-status != "已连接" : Button {
-                text: "连接";
-                clicked => { root.connect(); }
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+
+                if connection-status == "已连接" : Button {
+                    text: "断开";
+                    clicked => { root.disconnect(); }
+                }
+                if connection-status == "未连接" : Button {
+                    text: "连接";
+                    clicked => { root.login(); }
+                }
+                if connection-status == "正在登录" : Button {
+                    text: "登录中...";
+                    enabled: false;
+                }
             }
         }
     }
@@ -668,6 +702,9 @@ export component MainWindow inherits Window {
     in-out property <string> connection-status: "未连接";
     in-out property <string> device-count-text: "0";
     in-out property <string> server-url: "";
+    in-out property <string> server-username: "";
+    in-out property <string> server-password: "";
+    in-out property <string> login-error: "";
     in-out property <string> device-name: "";
     in-out property <bool> clipboard-enabled: true;
     in-out property <bool> input-enabled: false;
@@ -679,6 +716,7 @@ export component MainWindow inherits Window {
     callback page-changed(int);
     callback connect();
     callback disconnect();
+    callback login(string, string);
     callback toggle-clipboard();
     callback toggle-input();
     callback save-server(string);
@@ -707,10 +745,14 @@ export component MainWindow inherits Window {
                 connection-status: connection-status;
                 device-count-text: device-count-text;
                 server-url: server-url;
+                server-username: server-username;
+                server-password: server-password;
+                login-error: login-error;
                 clipboard-enabled: clipboard-enabled;
                 input-enabled: input-enabled;
                 connect => { root.connect(); }
                 disconnect => { root.disconnect(); }
+                login => { root.login(server-username, server-password); }
                 toggle-clipboard => { root.toggle-clipboard(); }
                 toggle-input => { root.toggle-input(); }
             }

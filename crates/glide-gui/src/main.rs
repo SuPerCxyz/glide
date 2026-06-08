@@ -42,7 +42,7 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     // Suppress ICU4X segmentation warnings for CJK text rendering
     // (upstream issue: https://github.com/slint-ui/slint/issues/11638)
     let filter = EnvFilter::try_from_env("GLIDE_GUI_LOG")
-        .unwrap_or_else(|_| EnvFilter::new("info,icu_provider=error"));
+        .unwrap_or_else(|_| EnvFilter::new("info,icu_provider=error,icu_segmenter=error"));
     let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
     write_diagnostic("process", "glide-gui starting");
     write_diagnostic(

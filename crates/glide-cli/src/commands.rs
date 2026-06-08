@@ -337,6 +337,62 @@ pub async fn devices(client: &Client) -> Result<()> {
     Ok(())
 }
 
+/// Initiate pairing and print the pairing code.
+pub async fn pair_initiate(client: &Client) -> Result<()> {
+    let device_id = client.device_id.clone();
+    let resp = client
+        .http
+        .post(format!("{}/api/v1/pairing/initiate", client.server_url))
+        .query(&client.auth_query())
+        .json(&serde_json::json!({"device_id": device_id}))
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let text = resp.text().await?;
+        bail!("Failed to initiate pairing: {}", text);
+    }
+
+    let body: serde_json::Value = resp.json().await?;
+    let code = body.get("code").and_then(|c| c.as_str()).unwrap_or("?");
+    println!("Pairing code: {}", code);
+    println!("Valid for 5 minutes. Enter this code on the other device.");
+    Ok(())
+}
+
+/// Confirm pairing with a code from another device.
+pub async fn pair_confirm(client: &Client, code: Option<&str>, device_id: Option<&str>) -> Result<()> {
+    let code = code.ok_or_else(|| anyhow::anyhow!("--code is required for confirm"))?;
+    let device_id = match device_id {
+        Some(id) => id.to_string(),
+        None => client.device_id.clone(),
+    };
+
+    let resp = client
+        .http
+        .post(format!("{}/api/v1/pairing/confirm", client.server_url))
+        .query(&client.auth_query())
+        .json(&serde_json::json!({
+            "code": code,
+            "device_id": device_id,
+        }))
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let text = resp.text().await?;
+        bail!("Failed to confirm pairing: {}", text);
+    }
+
+    let body: serde_json::Value = resp.json().await?;
+    if body.get("paired").and_then(|p| p.as_bool()).unwrap_or(false) {
+        println!("Pairing successful! Device is now trusted.");
+    } else {
+        println!("Pairing failed: {}", body.get("error").and_then(|e| e.as_str()).unwrap_or("unknown error"));
+    }
+    Ok(())
+}
+
 // --- Internal helpers ---
 
 fn compute_checksum(data: &[u8]) -> String {

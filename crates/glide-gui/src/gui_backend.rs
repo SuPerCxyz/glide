@@ -36,8 +36,11 @@ pub struct DeviceInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub server_url: String,
+    pub server_username: String,
+    pub server_password: String,
     pub device_name: String,
     pub auto_connect: bool,
+    pub auth_token: Option<String>,
     pub clipboard_enabled: bool,
     pub input_enabled: bool,
 }
@@ -88,6 +91,8 @@ pub trait GuiBackend: Send + Sync {
     fn disconnect_device(&self, device_id: &str) -> BackendResult<String>;
     fn connect_server(&self, url: &str) -> BackendResult<String>;
     fn disconnect_server(&self) -> BackendResult<String>;
+    fn login_server(&self, url: &str, username: &str, password: &str) -> BackendResult<String>;
+    fn check_server(&self, url: &str) -> BackendResult<bool>;
     fn get_clipboard_status(&self) -> BackendResult<ClipboardStatus>;
     fn set_clipboard_enabled(&self, enabled: bool) -> BackendResult<()>;
     fn get_input_status(&self) -> BackendResult<InputStatus>;
@@ -128,6 +133,9 @@ impl MockBackend {
                 connected: false,
                 settings: AppSettings {
                     server_url: "http://127.0.0.1:8080".to_string(),
+                    server_username: "admin".to_string(),
+                    server_password: "admin".to_string(),
+                    auth_token: None,
                     device_name,
                     auto_connect: false,
                     clipboard_enabled: true,

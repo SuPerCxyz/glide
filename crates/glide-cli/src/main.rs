@@ -51,6 +51,17 @@ enum Commands {
     },
     /// List registered devices.
     Devices,
+    /// Initiate pairing and get a pairing code.
+    Pair {
+        /// Action: initiate or confirm
+        action: String,
+        /// Device ID (required for confirm)
+        #[arg(long)]
+        device_id: Option<String>,
+        /// Pairing code (required for confirm)
+        #[arg(long)]
+        code: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -76,5 +87,15 @@ async fn main() -> Result<()> {
         Commands::Paste { output } => commands::paste(&client, output).await,
         Commands::History { limit } => commands::history(&client, limit).await,
         Commands::Devices => commands::devices(&client).await,
+        Commands::Pair { action, device_id, code } => {
+            match action.as_str() {
+                "initiate" => commands::pair_initiate(&client).await,
+                "confirm" => commands::pair_confirm(&client, code.as_deref(), device_id.as_deref()).await,
+                _ => {
+                    eprintln!("Usage: glide pair initiate | glide pair confirm --code <CODE> --device-id <DEVICE_ID>");
+                    std::process::exit(1);
+                }
+            }
+        },
     }
 }
