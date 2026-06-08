@@ -80,8 +80,82 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     run_gui()
 }
 
+fn default_device_id() -> String {
+    env::var("GLIDE_DEVICE_ID")
+        .ok()
+        .filter(|id| !id.trim().is_empty())
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string())
+}
+
+fn default_device_name() -> String {
+    env::var("GLIDE_DEVICE_NAME")
+        .ok()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "glide-device".to_string()))
+}
+
 fn run_gui() -> Result<(), Box<dyn Error>> {
     let backend = MockBackend::new();
+
+    // Start LAN engines in background threads with their own tokio runtimes
+    let device_id = default_device_id();
+    let device_name = default_device_name();
+    let lan_sync_port: u16 = env::var("GLIDE_LAN_SYNC_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(9999);
+
+    std::thread::spawn({
+        let device_id = device_id.clone();
+        let device_name = device_name.clone();
+        move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                warn!("failed to create tokio runtime for LAN sync: {}", e);
+                return;
+            }
+        };
+        let engine = glide_desktop::lan_sync::LanSyncEngine::new(
+            device_id,
+            device_name,
+            lan_sync_port,
+        );
+        rt.block_on(async {
+            info!("Starting LAN sync engine on port {}", lan_sync_port);
+            if let Err(e) = engine.start().await {
+                warn!("LAN sync engine failed: {}", e);
+            }
+        });
+    }
+    });
+
+    std::thread::spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                warn!("failed to create tokio runtime for LAN input: {}", e);
+                return;
+            }
+        };
+        let engine = glide_desktop::lan_input::LanInputEngine::new(
+            device_id,
+            device_name,
+            lan_sync_port + 1,
+        );
+        rt.block_on(async {
+            info!("Starting LAN input engine on port {}", lan_sync_port + 1);
+            if let Err(e) = engine.start().await {
+                warn!("LAN input engine failed: {}", e);
+            }
+        });
+    });
+
+    // Give engines a moment to start before opening window
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
     let window = create_window(&backend)?;
 
     info!("Glide GUI started");

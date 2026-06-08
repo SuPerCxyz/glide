@@ -2053,13 +2053,16 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "glide-core",
+ "glide-desktop",
  "hostname",
  "serde",
  "serde_json",
  "slint",
  "slint-build",
+ "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
