@@ -2061,6 +2061,7 @@ dependencies = [
  "slint-build",
  "tokio",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
  "uuid",
 ]

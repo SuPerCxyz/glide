@@ -1,5 +1,5 @@
-// Disable console window on Windows release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Disable console window on Windows (all builds).
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod gui_backend;
 
@@ -41,8 +41,10 @@ fn run_app() -> Result<(), Box<dyn Error>> {
 
     // Suppress ICU4X segmentation warnings for CJK text rendering
     // (upstream issue: https://github.com/slint-ui/slint/issues/11638)
+    // Bridge log crate -> tracing so ICU4X messages are caught by our filter
+    let _ = tracing_log::LogTracer::init();
     let filter = EnvFilter::try_from_env("GLIDE_GUI_LOG")
-        .unwrap_or_else(|_| EnvFilter::new("info,icu_provider=error,icu_segmenter=error"));
+        .unwrap_or_else(|_| EnvFilter::new("info,icu_provider=error,icu_segmenter=error,icu_locid=error,icu_list=error,icu_locale=error"));
     let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
     write_diagnostic("process", "glide-gui starting");
     write_diagnostic(
