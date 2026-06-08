@@ -38,6 +38,28 @@ pub enum SyncEvent {
     TrustAccept {
         device_id: String,
     },
+    /// Screen saver state changed on a device.
+    ScreenSaverChanged {
+        device_id: String,
+        active: bool,
+        timestamp: i64,
+    },
+    /// Lock state changed on a device (screen locked/unlocked).
+    LockStateChanged {
+        device_id: String,
+        locked: bool,
+        timestamp: i64,
+    },
+    /// System is going to sleep / shutting down.
+    SystemSleep {
+        device_id: String,
+        timestamp: i64,
+    },
+    /// System is waking up from sleep.
+    SystemWake {
+        device_id: String,
+        timestamp: i64,
+    },
 }
 
 impl SyncEvent {
