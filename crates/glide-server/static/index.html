@@ -1,159 +1,253 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glide Server Admin</title>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
-        .header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
-        .header h1{font-size:20px;color:#58a6ff;display:flex;align-items:center;gap:8px}
-        .header h1 span{font-size:11px;color:#8b949e;background:#21262d;padding:2px 8px;border-radius:10px}
-        .container{max-width:1200px;margin:0 auto;padding:24px}
+        :root, [data-theme="light"] {
+            --page-bg: #ffffff;
+            --page-surface: #f8fafc;
+            --page-surface-alt: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-tertiary: #94a3b8;
+            --text-inverse: #ffffff;
+            --border-base: #e2e8f0;
+            --border-subtle: #f1f5f9;
+            --color-brand: #2563eb;
+            --color-brand-hover: #1d4ed8;
+            --btn-primary: #2563eb;
+            --btn-primary-text: #ffffff;
+            --btn-secondary: #f8fafc;
+            --btn-secondary-text: #475569;
+            --btn-danger: #dc2626;
+            --btn-danger-text: #ffffff;
+            --sidebar-bg: #f8fafc;
+            --sidebar-text: #475569;
+            --sidebar-active: #eff6ff;
+            --sidebar-active-text: #2563eb;
+            --input-bg: #ffffff;
+            --input-border: #cbd5e1;
+            --input-focus: #2563eb;
+            --focus-ring: rgba(37,99,235,0.4);
+            --log-bg: #0f172a;
+            --log-text: #cbd5e1;
+            --log-info: #38bdf8;
+            --log-warn: #fbbf24;
+            --log-error: #f87171;
+            --info-bg: #eff6ff;
+            --info-border: #2563eb;
+            --info-text: #1e40af;
+            --warning-bg: #fffbeb;
+            --warning-border: #d97706;
+            --warning-text: #92400e;
+            --success-bg: #dcfce7;
+            --success-border: #16a34a;
+            --success-text: #166534;
+            --danger-bg: #fee2e2;
+            --danger-border: #dc2626;
+            --danger-text: #991b1b;
+            --modal-scrim: rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
+            --status-online: #16a34a;
+            --status-online-bg: #dcfce7;
+            --status-offline: #dc2626;
+            --status-offline-bg: #fee2e2;
+            --status-connecting: #2563eb;
+            --status-connecting-bg: #dbeafe;
+            --status-error: #dc2626;
+            --status-error-bg: #fee2e2;
+            --status-limited: #d97706;
+            --status-limited-bg: #fef3c7;
+            --status-unpaired: #64748b;
+            --status-unpaired-bg: #f1f5f9;
+        }
+        [data-theme="dark"] {
+            --page-bg: #0f172a;
+            --page-surface: #1e293b;
+            --page-surface-alt: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-tertiary: #64748b;
+            --text-inverse: #0f172a;
+            --border-base: #334155;
+            --border-subtle: #1e293b;
+            --color-brand: #3b82f6;
+            --color-brand-hover: #60a5fa;
+            --btn-primary: #3b82f6;
+            --btn-primary-text: #0f172a;
+            --btn-secondary: #334155;
+            --btn-secondary-text: #cbd5e1;
+            --btn-danger: #ef4444;
+            --btn-danger-text: #0f172a;
+            --sidebar-bg: #0c1222;
+            --sidebar-text: #cbd5e1;
+            --sidebar-active: #1e3a5f;
+            --sidebar-active-text: #3b82f6;
+            --input-bg: #0f172a;
+            --input-border: #475569;
+            --input-focus: #3b82f6;
+            --focus-ring: rgba(59,130,246,0.4);
+            --log-bg: #020617;
+            --log-text: #e2e8f0;
+            --info-bg: #1e3a5f;
+            --info-border: #3b82f6;
+            --info-text: #93c5fd;
+            --warning-bg: #451a03;
+            --warning-border: #f59e0b;
+            --warning-text: #fcd34d;
+            --success-bg: #14532d;
+            --success-border: #22c55e;
+            --success-text: #86efac;
+            --danger-bg: #451a1a;
+            --danger-border: #ef4444;
+            --danger-text: #fca5a5;
+            --modal-scrim: rgba(0,0,0,0.6);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+            --status-online: #22c55e;
+            --status-online-bg: #14532d;
+            --status-offline: #ef4444;
+            --status-offline-bg: #451a1a;
+            --status-connecting: #3b82f6;
+            --status-connecting-bg: #1e3a5f;
+            --status-error: #ef4444;
+            --status-error-bg: #451a1a;
+            --status-limited: #f59e0b;
+            --status-limited-bg: #451a03;
+            --status-unpaired: #94a3b8;
+            --status-unpaired-bg: #1e293b;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:"JetBrains Mono","Fira Code","Consolas","Monaco",monospace;font-size:14px;line-height:1.5;background:var(--page-bg);color:var(--text-primary);min-height:100vh;transition:background 200ms ease-out,color 200ms ease-out}
+        button{cursor:pointer;font-family:inherit}
+        a{color:var(--color-brand);text-decoration:none}
+        a:hover{text-decoration:underline}
+        .app{display:flex;min-height:100vh}
+        .sidebar{width:180px;background:var(--sidebar-bg);border-right:1px solid var(--border-base);display:flex;flex-direction:column;padding:16px 0;transition:background 200ms ease-out;flex-shrink:0}
+        .sidebar .logo{font-size:22px;font-weight:800;padding:0 16px 16px;color:var(--color-brand);letter-spacing:-0.5px}
+        .sidebar .logo .version{font-size:11px;font-weight:400;color:var(--text-tertiary);margin-left:4px}
+        .nav-item{display:block;width:100%;padding:10px 16px;font-size:13px;font-weight:400;color:var(--sidebar-text);background:none;border:none;text-align:left;transition:background 150ms ease-out,color 150ms ease-out}
+        .nav-item:hover{background:var(--page-surface-alt)}
+        .nav-item.active{background:var(--sidebar-active);color:var(--sidebar-active-text);font-weight:600}
+        .main{flex:1;display:flex;flex-direction:column;min-width:0}
+        .topbar{height:52px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;padding:0 24px;background:var(--page-surface);gap:12px;transition:background 200ms ease-out}
+        .topbar-title{font-size:20px;font-weight:700;flex:1}
+        .topbar-actions{display:flex;align-items:center;gap:8px}
+        .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:500;color:var(--badge-color,var(--text-tertiary));background:var(--badge-bg,var(--page-surface-alt))}
+        .status-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+        .status-dot.pulse{animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:500;border:1px solid var(--border-base);background:var(--btn-secondary);color:var(--btn-secondary-text);transition:background 150ms ease-out}
+        .btn:hover{filter:brightness(0.95)}
+        .btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+        .btn.primary{background:var(--btn-primary);color:var(--btn-primary-text);border-color:var(--btn-primary)}
+        .btn.danger{background:var(--btn-danger);color:var(--btn-danger-text);border-color:var(--btn-danger)}
+        .content{padding:24px;flex:1;overflow-y:auto}
+        .page{display:none}.page.active{display:block}
         .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
-        .stat{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px}
-        .stat .label{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:1px}
-        .stat .value{font-size:28px;font-weight:700;margin-top:4px}
-        .stat .value.green{color:#3fb950}
-        .stat .value.blue{color:#58a6ff}
-        .stat .value.yellow{color:#d29922}
-        .stat .value.red{color:#f85149}
-        .section{background:#161b22;border:1px solid #30363d;border-radius:8px;margin-bottom:24px;overflow:hidden}
-        .section-header{padding:16px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
+        .stat-card{background:var(--page-surface);border:1px solid var(--border-base);border-radius:6px;padding:20px;transition:background 200ms ease-out,border-color 200ms ease-out}
+        .stat-card .label{font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+        .stat-card .value{font-size:28px;font-weight:700;margin-top:4px}
+        .stat-card .value.green{color:var(--status-online)}
+        .stat-card .value.blue{color:var(--color-brand)}
+        .stat-card .value.yellow{color:var(--status-limited)}
+        .stat-card .value.red{color:var(--status-offline)}
+        .section{background:var(--page-surface);border:1px solid var(--border-base);border-radius:6px;margin-bottom:24px;overflow:hidden;transition:background 200ms ease-out,border-color 200ms ease-out}
+        .section-header{padding:14px 20px;border-bottom:1px solid var(--border-base);display:flex;align-items:center;justify-content:space-between}
         .section-header h2{font-size:15px;font-weight:600}
-        .section-header .badge{font-size:11px;background:#21262d;padding:2px 8px;border-radius:10px;color:#8b949e}
-        .section-body{padding:0}
+        .section-header .badge{font-size:11px;background:var(--page-surface-alt);padding:2px 8px;border-radius:10px;color:var(--text-secondary)}
         table{width:100%;border-collapse:collapse}
-        th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #21262d;font-size:13px}
-        th{color:#8b949e;font-weight:500;background:#0d1117}
-        td{color:#c9d1d9}
-        .status{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
-        .status.online{background:#1a3a2a;color:#3fb950}
-        .status.offline{background:#3a1a1a;color:#f85149}
-        .status.trusted{background:#1a2a3a;color:#58a6ff}
-        .empty{text-align:center;color:#8b949e;padding:40px;font-size:14px}
-        .btn{padding:6px 14px;border:1px solid #30363d;border-radius:6px;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:12px}
-        .btn:hover{background:#30363d}
-        .btn.primary{background:#238636;border-color:#238636;color:#fff}
-        .btn.primary:hover{background:#2ea043}
-        .btn.danger{background:#b91c1c;border-color:#b91c1c;color:#fff}
-        .btn.danger:hover{background:#dc2626}
-        .env-table{width:100%}
-        .env-table td:first-child{font-family:monospace;color:#58a6ff;width:40%}
-        .env-table td:last-child{color:#c9d1d9}
-        .footer{text-align:center;padding:20px;color:#484f58;font-size:12px}
-        .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center}
-        .modal.active{display:flex}
-        .modal-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;min-width:360px;max-width:480px}
-        .modal-box h3{margin-bottom:16px;font-size:16px;color:#58a6ff}
+        th,td{padding:10px 16px;text-align:left;border-bottom:1px solid var(--border-base);font-size:13px}
+        th{color:var(--text-secondary);font-weight:500;background:var(--page-bg)}
+        td{color:var(--text-primary)}
+        tr:last-child td{border-bottom:none}
+        .mono{font-family:inherit;font-size:12px}
+        .alert{display:flex;gap:12px;padding:14px 16px;border-radius:6px;margin-bottom:16px;border-left:3px solid var(--alert-border);background:var(--alert-bg)}
+        .alert .alert-icon{font-size:16px;line-height:1.4;flex-shrink:0}
+        .alert .alert-body{flex:1}
+        .alert .alert-title{font-size:13px;font-weight:600;color:var(--alert-text);margin-bottom:2px}
+        .alert .alert-desc{font-size:12px;color:var(--text-secondary)}
+        .alert .alert-action{font-size:12px;color:var(--color-brand);margin-top:6px;display:inline-block}
+        .alert.info{--alert-bg:var(--info-bg);--alert-border:var(--info-border);--alert-text:var(--info-text)}
+        .alert.warning{--alert-bg:var(--warning-bg);--alert-border:var(--warning-border);--alert-text:var(--warning-text)}
+        .alert.success{--alert-bg:var(--success-bg);--alert-border:var(--success-border);--alert-text:var(--success-text)}
+        .alert.danger{--alert-bg:var(--danger-bg);--alert-border:var(--danger-border);--alert-text:var(--danger-text)}
+        .empty-state{text-align:center;padding:40px 20px;color:var(--text-secondary)}
+        .empty-state .title{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
+        .empty-state .desc{font-size:12px}
+        .modal-overlay{display:none;position:fixed;inset:0;background:var(--modal-scrim);z-index:1000;align-items:center;justify-content:center}
+        .modal-overlay.active{display:flex}
+        .modal{background:var(--page-surface);border:1px solid var(--border-base);border-radius:8px;padding:24px;min-width:360px;max-width:480px;box-shadow:var(--shadow-md)}
+        .modal h3{margin-bottom:16px;font-size:16px;font-weight:600}
         .form-group{margin-bottom:12px}
-        .form-group label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px}
-        .form-group input{width:100%;padding:8px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px}
-        .form-group input:focus{outline:none;border-color:#58a6ff}
+        .form-group label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+        .form-group input{width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--text-primary);font-size:13px;font-family:inherit}
+        .form-group input:focus{outline:none;border-color:var(--input-focus);box-shadow:0 0 0 2px var(--focus-ring)}
         .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-        .token-result{background:#0d1117;border:1px solid #238636;border-radius:6px;padding:12px;font-family:monospace;font-size:13px;color:#3fb950;margin-top:12px;word-break:break-all}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        .pulse{animation:pulse 2s infinite}
-        .login-bar{display:flex;align-items:center;gap:8px;font-size:12px}
-        .login-bar .user{color:#58a6ff;font-weight:600}
+        .token-result{background:var(--input-bg);border:1px solid var(--success-border);border-radius:4px;padding:12px;font-family:inherit;font-size:13px;color:var(--status-online);margin-top:12px;word-break:break-all;white-space:pre-wrap}
+        .log-view{background:var(--log-bg);border-radius:6px;overflow:hidden}
+        .log-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #1e293b}
+        .log-toolbar input{flex:1;padding:4px 8px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:var(--log-text);font-size:12px;font-family:inherit}
+        .log-toolbar input:focus{outline:none;border-color:#3b82f6}
+        .log-toolbar .btn{background:#1e293b;color:#cbd5e1;border-color:#334155;padding:4px 10px}
+        .log-toolbar .btn:hover{background:#334155}
+        .log-content{padding:12px;max-height:500px;overflow:auto}
+        .log-content pre{font-family:inherit;font-size:12px;line-height:1.6;color:var(--log-text);white-space:pre;margin:0}
+        .log-content pre .log-info{color:var(--log-info)}
+        .log-content pre .log-warn{color:var(--log-warn)}
+        .log-content pre .log-error{color:var(--log-error)}
+        .theme-toggle{background:none;border:1px solid var(--border-base);border-radius:4px;padding:6px 10px;color:var(--text-secondary);font-size:16px;line-height:1;transition:background 150ms ease-out,color 150ms ease-out}
+        .theme-toggle:hover{background:var(--page-surface-alt)}
+        .footer{text-align:center;padding:16px;color:var(--text-tertiary);font-size:12px;border-top:1px solid var(--border-subtle)}
+        @media(max-width:768px){.sidebar{width:160px}.content{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}}
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📋 Glide Server <span>v0.1.0</span></h1>
-        <div class="login-bar">
-            <span id="loginStatus" style="color:#8b949e">未登录</span>
-            <button class="btn" id="loginBtn" onclick="showLogin()">🔑 登录</button>
-            <button class="btn" id="logoutBtn" onclick="doLogout()" style="display:none">退出</button>
-        </div>
-    </div>
-
-    <div class="container" id="mainContent">
-        <div class="stats">
-            <div class="stat">
-                <div class="label">服务状态</div>
-                <div class="value green" id="status">运行中</div>
-            </div>
-            <div class="stat">
-                <div class="label">已注册设备</div>
-                <div class="value blue" id="deviceCount">-</div>
-            </div>
-            <div class="stat">
-                <div class="label">剪贴板项目</div>
-                <div class="value yellow" id="itemCount">-</div>
-            </div>
-            <div class="stat">
-                <div class="label">运行时间</div>
-                <div class="value" id="uptime">-</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="section-header">
-                <h2>已注册设备</h2>
-                <span class="badge" id="deviceBadge">0 台</span>
-            </div>
-            <div class="section-body">
-                <table>
-                    <thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>最后在线</th></tr></thead>
-                    <tbody id="deviceList"><tr><td colspan="5" class="empty">加载中...</td></tr></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="section-header">
-                <h2>剪贴板历史</h2>
-                <span class="badge" id="historyBadge">0 条</span>
-            </div>
-            <div class="section-body">
-                <table>
-                    <thead><tr><th>时间</th><th>来源</th><th>类型</th><th>大小</th><th>预览</th></tr></thead>
-                    <tbody id="historyList"><tr><td colspan="5" class="empty">暂无剪贴板记录</td></tr></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="section" id="tokenSection">
-            <div class="section-header">
-                <h2>临时令牌</h2>
-                <button class="btn primary" onclick="showCreateToken()">🔑 创建令牌</button>
-            </div>
-            <div class="section-body" id="tokenList">
-                <div class="empty">登录后可创建临时令牌</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="section-header">
-                <h2>环境变量配置</h2>
-            </div>
-            <div class="section-body" style="padding:16px 20px">
-                <table class="env-table">
-                    <tr><td>GLIDE_USERNAME</td><td>admin</td></tr>
-                    <tr><td>GLIDE_DATA_DIR</td><td>/data</td></tr>
-                    <tr><td>GLIDE_MAX_STORAGE_BYTES</td><td>1 GB</td></tr>
-                    <tr><td>GLIDE_RETENTION_DAYS</td><td>30 天</td></tr>
-                    <tr><td>GLIDE_INPUT_RELAY_ENABLED</td><td>false</td></tr>
-                </table>
-            </div>
+    <div class="app">
+        <nav class="sidebar" aria-label="主导航">
+            <div class="logo">Glide<span class="version">v0.1.0</span></div>
+            <button class="nav-item active" data-page="overview" aria-current="page">总览</button>
+            <button class="nav-item" data-page="devices">设备</button>
+            <button class="nav-item" data-page="connection">连接状态</button>
+            <button class="nav-item" data-page="pairing">配对/信任</button>
+            <button class="nav-item" data-page="clipboard">剪贴板</button>
+            <button class="nav-item" data-page="files">文件传输</button>
+            <button class="nav-item" data-page="logs">日志诊断</button>
+            <button class="nav-item" data-page="settings">设置</button>
+        </nav>
+        <div class="main">
+            <header class="topbar">
+                <div class="topbar-title" id="pageTitle">总览</div>
+                <div class="topbar-actions">
+                    <div class="status-badge" id="topbarStatus" style="--badge-color:var(--status-online);--badge-bg:var(--status-online-bg)">
+                        <span class="status-dot pulse"></span>
+                        <span id="topbarStatusText">运行中</span>
+                    </div>
+                    <button class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换浅色/深色主题">◑</button>
+                    <span id="loginLabel" style="font-size:12px;color:var(--text-secondary)">未登录</span>
+                    <button class="btn" id="loginBtn" onclick="showLogin()">登录</button>
+                    <button class="btn" id="logoutBtn" onclick="doLogout()" style="display:none">退出</button>
+                </div>
+            </header>
+            <main class="content" id="mainContent"></main>
+            <div class="footer">Glide Server Admin &bull; LAN-first clipboard sync</div>
         </div>
     </div>
 
     <!-- Login Modal -->
-    <div class="modal" id="loginModal">
-        <div class="modal-box">
-            <h3>🔑 登录</h3>
+    <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="modal">
+            <h3 id="loginTitle">登录</h3>
             <div class="form-group">
-                <label>用户名</label>
-                <input type="text" id="loginUser" placeholder="admin" value="admin">
+                <label for="loginUser">用户名</label>
+                <input type="text" id="loginUser" placeholder="admin" value="admin" autocomplete="username">
             </div>
             <div class="form-group">
-                <label>密码</label>
-                <input type="password" id="loginPass" placeholder="密码">
+                <label for="loginPass">密码</label>
+                <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
             </div>
-            <div id="loginError" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div>
+            <div id="loginError" style="color:var(--status-offline);font-size:12px;margin-top:8px;display:none" role="alert"></div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeModal('loginModal')">取消</button>
                 <button class="btn primary" onclick="doLogin()">登录</button>
@@ -162,189 +256,525 @@
     </div>
 
     <!-- Create Token Modal -->
-    <div class="modal" id="tokenModal">
-        <div class="modal-box">
-            <h3>🔑 创建临时令牌</h3>
+    <div class="modal-overlay" id="tokenModal" role="dialog" aria-modal="true" aria-labelledby="tokenTitle">
+        <div class="modal">
+            <h3 id="tokenTitle">创建临时令牌</h3>
             <div class="form-group">
-                <label>有效期（秒）</label>
-                <input type="number" id="tokenTTL" value="3600">
+                <label for="tokenTTL">有效期（秒）</label>
+                <input type="number" id="tokenTTL" value="3600" min="60">
             </div>
             <div class="form-group">
-                <label>最大使用次数</label>
-                <input type="number" id="tokenMaxUses" value="10">
+                <label for="tokenMaxUses">最大使用次数</label>
+                <input type="number" id="tokenMaxUses" value="10" min="1">
             </div>
             <div class="form-group">
-                <label>最大文件大小（字节）</label>
-                <input type="number" id="tokenMaxSize" value="10485760">
+                <label for="tokenMaxSize">最大文件大小（字节）</label>
+                <input type="number" id="tokenMaxSize" value="10485760" min="0">
             </div>
             <div id="tokenResult" class="token-result" style="display:none"></div>
-            <div id="tokenError" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div>
+            <div id="tokenError" style="color:var(--status-offline);font-size:12px;margin-top:8px;display:none" role="alert"></div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeModal('tokenModal')">关闭</button>
-                <button class="btn primary" id="tokenSubmitBtn" onclick="doCreateToken()">创建</button>
+                <button class="btn primary" onclick="doCreateToken()">创建</button>
             </div>
         </div>
     </div>
 
-    <div class="footer">Glide Server Admin Panel • LAN-first clipboard sync</div>
+<script>
+const API = window.location.origin;
+let startTime = Date.now();
+let authToken = null;
+let currentPage = 'overview';
 
-    <script>
-        const API = window.location.origin;
-        let startTime = Date.now();
-        let authToken = null;
+// === Theme ===
+const savedTheme = localStorage.getItem('glide-theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+updateThemeIcon(savedTheme);
+document.getElementById('themeToggle').addEventListener('click', () => {
+    const c = document.documentElement.getAttribute('data-theme');
+    const n = c === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', n);
+    localStorage.setItem('glide-theme', n);
+    updateThemeIcon(n);
+});
+function updateThemeIcon(t) {
+    const el = document.getElementById('themeToggle');
+    el.textContent = t === 'dark' ? '☀' : '◑';
+    el.title = t === 'dark' ? '切换浅色主题' : '切换深色主题';
+}
 
-        function showModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+// === Navigation ===
+const pageTitles = {
+    overview:'总览', devices:'设备', connection:'连接状态',
+    pairing:'配对/信任', clipboard:'剪贴板历史', files:'文件传输',
+    logs:'日志诊断', settings:'设置'
+};
+document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+});
+function navigateTo(page) {
+    currentPage = page;
+    document.querySelectorAll('.nav-item').forEach(b => {
+        const active = b.dataset.page === page;
+        b.classList.toggle('active', active);
+        if (active) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+    });
+    document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+    document.getElementById('mainContent').innerHTML = renderPage(page);
+    if (page === 'logs') initLogHighlight();
+    if (page === 'settings') updateSettingsTheme();
+}
 
-        function showLogin() { showModal('loginModal'); }
+// === Page Rendering ===
+function renderPage(page) {
+    switch (page) {
+        case 'overview': return renderOverview();
+        case 'devices': return renderDevices();
+        case 'connection': return renderConnection();
+        case 'pairing': return renderPairing();
+        case 'clipboard': return renderClipboard();
+        case 'files': return renderFiles();
+        case 'logs': return renderLogs();
+        case 'settings': return renderSettings();
+        default: return '<div class="empty-state"><div class="title">页面不存在</div></div>';
+    }
+}
 
-        async function doLogin() {
-            const user = document.getElementById('loginUser').value;
-            const pass = document.getElementById('loginPass').value;
-            const errEl = document.getElementById('loginError');
-            errEl.style.display = 'none';
+function sb(online, trusted) {
+    if (!online) return '<span class="status-badge" style="--badge-color:var(--status-offline);--badge-bg:var(--status-offline-bg)"><span class="status-dot"></span>离线</span>';
+    let h = '<span class="status-badge" style="--badge-color:var(--status-online);--badge-bg:var(--status-online-bg)"><span class="status-dot pulse"></span>在线</span>';
+    if (trusted) h += ' <span class="status-badge" style="--badge-color:var(--color-brand);--badge-bg:var(--sidebar-active)"><span class="status-dot"></span>受信</span>';
+    return h;
+}
 
-            try {
-                const r = await fetch(API + '/api/v1/auth/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: user, password: pass})
-                });
-                const data = await r.json();
-                if (r.ok && data.token) {
-                    authToken = data.token;
-                    document.getElementById('loginStatus').innerHTML = '<span class="user">👤 ' + user + '</span>';
-                    document.getElementById('loginBtn').style.display = 'none';
-                    document.getElementById('logoutBtn').style.display = '';
-                    closeModal('loginModal');
-                    refresh();
-                } else {
-                    errEl.textContent = data.error || '登录失败';
-                    errEl.style.display = 'block';
-                }
-            } catch(e) {
-                errEl.textContent = '连接失败: ' + e.message;
-                errEl.style.display = 'block';
-            }
-        }
+function renderOverview() {
+    return `<div class="stats">
+        <div class="stat-card"><div class="label">服务状态</div><div class="value green" id="statStatus">运行中</div></div>
+        <div class="stat-card"><div class="label">已注册设备</div><div class="value blue" id="statDevices">-</div></div>
+        <div class="stat-card"><div class="label">剪贴板项目</div><div class="value yellow" id="statClipboard">-</div></div>
+        <div class="stat-card"><div class="label">运行时间</div><div class="value" id="statUptime">-</div></div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>最近活动</h2><span class="badge" id="deviceBadge">加载中...</span></div>
+        <table><thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>最后在线</th></tr></thead>
+        <tbody id="deviceList"><tr><td colspan="5"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>剪贴板历史</h2><span class="badge" id="historyBadge">0 条</span></div>
+        <table><thead><tr><th>时间</th><th>来源</th><th>类型</th><th>大小</th><th>预览</th></tr></thead>
+        <tbody id="historyList"><tr><td colspan="5"><div class="empty-state"><div class="title">暂无剪贴板记录</div></div></td></tr></tbody></table>
+    </div>`;
+}
 
-        function doLogout() {
-            authToken = null;
-            document.getElementById('loginStatus').textContent = '未登录';
-            document.getElementById('loginBtn').style.display = '';
-            document.getElementById('logoutBtn').style.display = 'none';
+function renderDevices() {
+    return `<div class="alert info">
+        <span class="alert-icon">i</span>
+        <div class="alert-body">
+            <div class="alert-title">设备管理</div>
+            <div class="alert-desc">点击设备可查看详细信息，移除信任将阻止该设备同步数据。</div>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>已注册设备</h2><span class="badge" id="deviceCountBadge">0 台</span></div>
+        <table><thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>最后在线</th><th>操作</th></tr></thead>
+        <tbody id="fullDeviceList"><tr><td colspan="6"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
+    </div>`;
+}
+
+function renderConnection() {
+    return `<div class="section">
+        <div class="section-header"><h2>连接拓扑</h2></div>
+        <div style="padding:20px">
+            <div class="alert info">
+                <span class="alert-icon">i</span>
+                <div class="alert-body">
+                    <div class="alert-title">LAN 优先，Server 回退</div>
+                    <div class="alert-desc">同一二层网络内设备自动发现直连；跨网段时通过 glide-server 中继同步。</div>
+                </div>
+            </div>
+            <table>
+                <thead><tr><th>指标</th><th>值</th></tr></thead>
+                <tbody>
+                    <tr><td>服务状态</td><td><span class="status-badge" style="--badge-color:var(--status-online);--badge-bg:var(--status-online-bg)"><span class="status-dot"></span>运行中</span></td></tr>
+                    <tr><td>WebSocket 同步</td><td id="wsStatus">检测中...</td></tr>
+                    <tr><td>当前连接数</td><td id="activeConnections">-</td></tr>
+                    <tr><td>LAN 发现</td><td id="lanDiscovery"><span class="status-badge" style="--badge-color:var(--status-limited);--badge-bg:var(--status-limited-bg)">规划中</span></td></tr>
+                    <tr><td>Server 回退</td><td id="serverFallback"><span class="status-badge" style="--badge-color:var(--status-limited);--badge-bg:var(--status-limited-bg)">规划中</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>防火墙与端口</h2></div>
+        <div style="padding:20px">
+            <div class="alert warning">
+                <span class="alert-icon">!</span>
+                <div class="alert-body">
+                    <div class="alert-title">端口要求</div>
+                    <div class="alert-desc">
+                        确保以下端口未被防火墙阻断：<br>
+                        &bull; <strong>8080</strong> &mdash; HTTP/WebSocket (glide-server)<br>
+                        &bull; <strong>5353</strong> &mdash; mDNS 自动发现 (UDP)<br>
+                        如果设备无法发现，请检查局域网防火墙是否阻断 UDP 组播或 mDNS。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function renderPairing() {
+    return `<div class="alert info">
+        <span class="alert-icon">i</span>
+        <div class="alert-body">
+            <div class="alert-title">设备配对</div>
+            <div class="alert-desc">配对后的设备将加入受信列表，可以同步剪贴板、文件和键鼠输入。撤销信任将立即阻断该设备的数据同步。</div>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>已信任设备</h2><span class="badge" id="trustedBadge">0 台</span></div>
+        <table><thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>信任时间</th><th>操作</th></tr></thead>
+        <tbody id="trustedList"><tr><td colspan="6"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
+    </div>`;
+}
+
+function renderClipboard() {
+    return `<div class="section">
+        <div class="section-header"><h2>剪贴板历史</h2><span class="badge" id="clipBadge2">0 条</span></div>
+        <table><thead><tr><th>时间</th><th>来源设备</th><th>类型</th><th>大小</th><th>预览</th></tr></thead>
+        <tbody id="clipboardFullList"><tr><td colspan="5"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
+    </div>`;
+}
+
+function renderFiles() {
+    return `<div class="alert warning">
+        <span class="alert-icon">!</span>
+        <div class="alert-body">
+            <div class="alert-title">文件传输待接入</div>
+            <div class="alert-desc">CLI 已支持单文件上传/下载（copy --file / paste --output）。Web 管理端文件传输界面仍在规划中，后续将支持多文件、目录、进度条和接收确认。</div>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>最近传输</h2></div>
+        <div class="empty-state">
+            <div class="title">暂无传输记录</div>
+            <div class="desc">文件传输功能仍在规划中</div>
+        </div>
+    </div>`;
+}
+
+function renderLogs() {
+    return `<div class="section">
+        <div class="section-header"><h2>运行日志</h2><button class="btn" onclick="copyLogs()" id="copyLogBtn">复制日志</button></div>
+        <div class="log-view">
+            <div class="log-toolbar">
+                <input type="text" id="logFilter" placeholder="筛选日志 (ERROR/WARN/INFO)..." oninput="filterLogs()" aria-label="筛选日志">
+            </div>
+            <div class="log-content" id="logContent">
+                <pre>日志功能待 daemon 接入。当前服务端日志可通过以下方式查看：
+
+使用 docker logs &lt;container&gt; 查看容器日志
+使用 journalctl -u glide-server 查看 systemd 日志
+或直接查看 GLIDE_DATA_DIR 中的日志文件</pre>
+            </div>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>环境变量参考</h2></div>
+        <div style="padding:16px 20px">
+            <table>
+                <tr><td class="mono">GLIDE_USERNAME</td><td>admin</td></tr>
+                <tr><td class="mono">GLIDE_DATA_DIR</td><td>/data</td></tr>
+                <tr><td class="mono">GLIDE_MAX_STORAGE_BYTES</td><td>1 GB</td></tr>
+                <tr><td class="mono">GLIDE_RETENTION_DAYS</td><td>30 天</td></tr>
+                <tr><td class="mono">GLIDE_INPUT_RELAY_ENABLED</td><td>false</td></tr>
+            </table>
+        </div>
+    </div>`;
+}
+
+function renderSettings() {
+    return `<div class="section">
+        <div class="section-header"><h2>主题</h2></div>
+        <div style="padding:16px 20px;display:flex;gap:12px;align-items:center">
+            <span style="font-size:13px;color:var(--text-secondary)">当前主题：</span>
+            <span id="settingsTheme" style="font-size:13px;font-weight:600"></span>
+            <button class="btn" onclick="document.getElementById('themeToggle').click()">切换主题</button>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>认证</h2></div>
+        <div style="padding:16px 20px">
+            <div class="form-group">
+                <label>当前用户</label>
+                <div style="font-size:13px;font-weight:600" id="settingsUser">admin</div>
+            </div>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-header"><h2>存储</h2></div>
+        <div style="padding:16px 20px">
+            <table>
+                <tr><td class="mono">数据目录</td><td>/data</td></tr>
+                <tr><td class="mono">最大存储</td><td>1 GB</td></tr>
+                <tr><td class="mono">保留天数</td><td>30 天</td></tr>
+            </table>
+        </div>
+    </div>`;
+}
+
+// === Log Functions ===
+function initLogHighlight() {
+    const pre = document.querySelector('#logContent pre');
+    if (!pre) return;
+    const raw = pre.textContent;
+    const safe = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const highlighted = safe
+        .replace(/\b(ERROR|失败|拒绝|fail|fatal|panic)\b/g, '<span class="log-error">$1</span>')
+        .replace(/\b(WARN|警告|warn|warning)\b/g, '<span class="log-warn">$1</span>')
+        .replace(/\b(INFO|info)\b/g, '<span class="log-info">$1</span>');
+    pre.innerHTML = highlighted;
+}
+
+function filterLogs() {
+    const q = document.getElementById('logFilter').value.toUpperCase();
+    const pre = document.querySelector('#logContent pre');
+    if (!pre) return;
+    const lines = pre.innerHTML.split('\n');
+    const filtered = q ? lines.filter(l => l.toUpperCase().includes(q)) : lines;
+    pre.innerHTML = filtered.join('\n');
+}
+
+function copyLogs() {
+    const el = document.getElementById('logContent');
+    const text = el.textContent || el.innerText;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copyLogBtn');
+            const orig = btn.textContent;
+            btn.textContent = '已复制';
+            setTimeout(() => { btn.textContent = orig; }, 2000);
+        });
+    }
+}
+
+function updateSettingsTheme() {
+    const el = document.getElementById('settingsTheme');
+    if (el) el.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '深色' : '浅色';
+}
+
+// === Modal ===
+function showModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function showLogin() {
+    document.getElementById('loginError').style.display = 'none';
+    showModal('loginModal');
+}
+document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+});
+
+// === Auth ===
+async function doLogin() {
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+    try {
+        const r = await fetch(API + '/api/v1/auth/login', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({username: user, password: pass})
+        });
+        const data = await r.json();
+        if (r.ok && data.token) {
+            authToken = data.token;
+            document.getElementById('loginLabel').textContent = user;
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = '';
+            closeModal('loginModal');
             refresh();
+        } else {
+            errEl.textContent = data.error || '登录失败';
+            errEl.style.display = 'block';
         }
+    } catch(e) {
+        errEl.textContent = '连接失败: ' + e.message;
+        errEl.style.display = 'block';
+    }
+}
 
-        function showCreateToken() {
-            if (!authToken) { showLogin(); return; }
-            document.getElementById('tokenResult').style.display = 'none';
-            document.getElementById('tokenError').style.display = 'none';
-            showModal('tokenModal');
+function doLogout() {
+    authToken = null;
+    document.getElementById('loginLabel').textContent = '未登录';
+    document.getElementById('loginBtn').style.display = '';
+    document.getElementById('logoutBtn').style.display = 'none';
+    refresh();
+}
+
+// === Token Creation ===
+function showCreateToken() {
+    if (!authToken) { showLogin(); return; }
+    document.getElementById('tokenResult').style.display = 'none';
+    document.getElementById('tokenError').style.display = 'none';
+    showModal('tokenModal');
+}
+
+async function doCreateToken() {
+    const errEl = document.getElementById('tokenError');
+    const resultEl = document.getElementById('tokenResult');
+    errEl.style.display = 'none';
+    resultEl.style.display = 'none';
+    try {
+        const r = await fetch(API + '/api/v1/tokens/create', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','Authorization':'Bearer '+authToken},
+            body: JSON.stringify({
+                ttl_secs: parseInt(document.getElementById('tokenTTL').value),
+                max_uses: parseInt(document.getElementById('tokenMaxUses').value),
+                max_item_size: parseInt(document.getElementById('tokenMaxSize').value),
+            })
+        });
+        const data = await r.json();
+        if (r.ok && data.token) {
+            resultEl.textContent = 'Token: '+data.token+'\n\n有效期: '+data.ttl_secs+'s\n最大使用: '+data.max_uses+' 次';
+            resultEl.style.display = 'block';
+        } else {
+            errEl.textContent = data.error || '创建失败';
+            errEl.style.display = 'block';
         }
+    } catch(e) {
+        errEl.textContent = '连接失败: ' + e.message;
+        errEl.style.display = 'block';
+    }
+}
 
-        async function doCreateToken() {
-            const errEl = document.getElementById('tokenError');
-            const resultEl = document.getElementById('tokenResult');
-            errEl.style.display = 'none';
-            resultEl.style.display = 'none';
+// === Data Fetching ===
+async function fetchJSON(path) {
+    try {
+        const headers = {};
+        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+        const r = await fetch(API + path, {headers});
+        return await r.json();
+    } catch(e) { return null; }
+}
 
-            try {
-                const r = await fetch(API + '/api/v1/tokens/create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({
-                        ttl_secs: parseInt(document.getElementById('tokenTTL').value),
-                        max_uses: parseInt(document.getElementById('tokenMaxUses').value),
-                        max_item_size: parseInt(document.getElementById('tokenMaxSize').value),
-                    })
-                });
-                const data = await r.json();
-                if (r.ok && data.token) {
-                    resultEl.textContent = 'Token: ' + data.token + '\n\n有效期: ' + data.ttl_secs + 's\n最大使用: ' + data.max_uses + ' 次';
-                    resultEl.style.display = 'block';
-                } else {
-                    errEl.textContent = data.error || '创建失败';
-                    errEl.style.display = 'block';
-                }
-            } catch(e) {
-                errEl.textContent = '连接失败: ' + e.message;
-                errEl.style.display = 'block';
-            }
+async function refresh() {
+    const health = await fetchJSON('/api/v1/health');
+    const running = !!health;
+    const ts = document.getElementById('topbarStatus');
+    const tt = document.getElementById('topbarStatusText');
+    if (ts && tt) {
+        ts.style.cssText = '--badge-color:'+ (running?'var(--status-online)':'var(--status-offline)') +';--badge-bg:'+(running?'var(--status-online-bg)':'var(--status-offline-bg))+';';
+        tt.textContent = running ? '运行中' : '离线';
+    }
+    const ss = document.getElementById('statStatus');
+    if (ss) { ss.textContent = running ? '运行中' : '离线'; ss.className = 'value '+(running?'green':'red'); }
+
+    const sec = Math.floor((Date.now()-startTime)/1000);
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    const ue = document.getElementById('statUptime');
+    if (ue) ue.textContent = h > 0 ? h+'h '+m+'m' : m+'m '+s+'s';
+
+    const devData = await fetchJSON('/api/v1/devices');
+    const devices = devData?.devices || [];
+    ['statDevices','deviceBadge','deviceCountBadge'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.textContent = devices.length;
+    });
+    const tc = devices.filter(d => d.trusted).length;
+    const tb = document.getElementById('trustedBadge');
+    if (tb) tb.textContent = tc + ' 台';
+
+    // Device list (overview)
+    const dl = document.getElementById('deviceList');
+    if (dl) {
+        if (!devices.length) {
+            dl.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="title">暂无注册设备</div><div class="desc">使用 CLI 或配对流程注册设备</div></div></td></tr>';
+        } else {
+            dl.innerHTML = devices.slice(0,5).map(d => {
+                const time = d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('zh-CN') : '从未';
+                return '<tr><td class="mono">'+d.device_id.slice(0,12)+'…</td><td>'+d.name+'</td><td>'+d.platform+'</td><td>'+sb(!!d.last_seen_at, d.trusted)+'</td><td>'+time+'</td></tr>';
+            }).join('');
         }
+    }
 
-        async function fetchJSON(path) {
-            try {
-                const headers = {};
-                if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-                const r = await fetch(API + path, {headers});
-                return await r.json();
-            } catch(e) { return null; }
+    // Device list (full)
+    const fl = document.getElementById('fullDeviceList');
+    if (fl) {
+        if (!devices.length) {
+            fl.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="title">暂无注册设备</div></div></td></tr>';
+        } else {
+            fl.innerHTML = devices.map(d => {
+                const time = d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('zh-CN') : '从未';
+                return '<tr><td class="mono">'+d.device_id.slice(0,12)+'…</td><td>'+d.name+'</td><td>'+d.platform+'</td><td>'+sb(!!d.last_seen_at, d.trusted)+'</td><td>'+time+'</td><td><button class="btn" onclick="alert(\'详情页规划中\')">详情</button></td></tr>';
+            }).join('');
         }
+    }
 
-        async function refresh() {
-            const health = await fetchJSON('/api/v1/health');
-            document.getElementById('status').textContent = health ? '运行中' : '离线';
-            document.getElementById('status').className = health ? 'value green' : 'value red';
-
-            const devData = await fetchJSON('/api/v1/devices');
-            const devices = devData?.devices || [];
-            document.getElementById('deviceCount').textContent = devices.length;
-            document.getElementById('deviceBadge').textContent = devices.length + ' 台';
-
-            const devBody = document.getElementById('deviceList');
-            if (devices.length === 0) {
-                devBody.innerHTML = '<tr><td colspan="5" class="empty">暂无注册设备</td></tr>';
-            } else {
-                devBody.innerHTML = devices.map(d => {
-                    const time = d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('zh-CN') : '从未';
-                    const statusClass = d.last_seen_at ? 'online' : 'offline';
-                    const statusText = d.last_seen_at ? '在线' : '离线';
-                    return `<tr>
-                        <td style="font-family:monospace;font-size:11px">${d.device_id.slice(0,12)}…</td>
-                        <td>${d.name}</td>
-                        <td>${d.platform}</td>
-                        <td><span class="status ${statusClass}">${statusText}</span> ${d.trusted ? '<span class="status trusted">受信任</span>' : ''}</td>
-                        <td>${time}</td>
-                    </tr>`;
-                }).join('');
-            }
-
-            const histData = await fetchJSON('/api/v1/clipboard/history?limit=20');
-            const items = histData?.items || [];
-            document.getElementById('itemCount').textContent = items.length;
-            document.getElementById('historyBadge').textContent = items.length + ' 条';
-
-            const histBody = document.getElementById('historyList');
-            if (items.length === 0) {
-                histBody.innerHTML = '<tr><td colspan="5" class="empty">暂无剪贴板记录</td></tr>';
-            } else {
-                histBody.innerHTML = items.map(i => {
-                    const time = new Date(i.created_at).toLocaleString('zh-CN');
-                    const preview = (i.representations || []).map(r => {
-                        if (r.content?.Text) return r.content.Text.slice(0, 50);
-                        return '[二进制数据]';
-                    }).join(' ') || '-';
-                    return `<tr>
-                        <td>${time}</td>
-                        <td style="font-family:monospace;font-size:11px">${(i.source_device_id||'').slice(0,8)}…</td>
-                        <td><span class="status ${i.kind==='text'?'online':i.kind==='image'?'trusted':'offline'}">${i.kind}</span></td>
-                        <td>${i.size} B</td>
-                        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</td>
-                    </tr>`;
-                }).join('');
-            }
-
-            const sec = Math.floor((Date.now() - startTime) / 1000);
-            const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
-            document.getElementById('uptime').textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+    // Trusted list
+    const tl = document.getElementById('trustedList');
+    if (tl) {
+        const trusted = devices.filter(d => d.trusted);
+        if (!trusted.length) {
+            tl.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="title">暂无已信任设备</div><div class="desc">请先完成设备配对</div></div></td></tr>';
+        } else {
+            tl.innerHTML = trusted.map(d => {
+                const paired = d.paired_at ? new Date(d.paired_at).toLocaleString('zh-CN') : '未知';
+                return '<tr><td class="mono">'+d.device_id.slice(0,12)+'…</td><td>'+d.name+'</td><td>'+d.platform+'</td><td>'+sb(!!d.last_seen_at, true)+'</td><td>'+paired+'</td><td><button class="btn danger" onclick="alert(\'撤销信任规划中\')">撤销</button></td></tr>';
+            }).join('');
         }
+    }
 
-        refresh();
-        setInterval(refresh, 5000);
-    </script>
+    // Clipboard history
+    const histData = await fetchJSON('/api/v1/clipboard/history?limit=20');
+    const items = histData?.items || [];
+    ['itemCount','historyBadge','clipBadge2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = items.length + (id === 'itemCount' ? '' : ' 条');
+    });
+    const sc = document.getElementById('statClipboard');
+    if (sc) sc.textContent = items.length;
+
+    const hl = document.getElementById('historyList');
+    if (hl) {
+        if (!items.length) {
+            hl.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="title">暂无剪贴板记录</div></div></td></tr>';
+        } else {
+            hl.innerHTML = items.map(i => {
+                const time = new Date(i.created_at).toLocaleString('zh-CN');
+                const preview = (i.representations||[]).map(r => r.content?.Text ? r.content.Text.slice(0,50) : '[二进制数据]').join(' ') || '-';
+                const kc = i.kind==='text'?'online':i.kind==='image'?'trusted':'offline';
+                return '<tr><td>'+time+'</td><td class="mono">'+(i.source_device_id||'').slice(0,8)+'…</td><td><span class="status-badge" style="--badge-color:var(--status-'+kc+');--badge-bg:var(--status-'+kc+'-bg)">'+i.kind+'</span></td><td>'+i.size+' B</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+preview+'</td></tr>';
+            }).join('');
+        }
+    }
+
+    const cf = document.getElementById('clipboardFullList');
+    if (cf && items.length) {
+        cf.innerHTML = items.map(i => {
+            const time = new Date(i.created_at).toLocaleString('zh-CN');
+            const preview = (i.representations||[]).map(r => r.content?.Text ? r.content.Text.slice(0,50) : '[二进制数据]').join(' ') || '-';
+            const kc = i.kind==='text'?'online':i.kind==='image'?'trusted':'offline';
+            return '<tr><td>'+time+'</td><td class="mono">'+(i.source_device_id||'').slice(0,8)+'…</td><td><span class="status-badge" style="--badge-color:var(--status-'+kc+');--badge-bg:var(--status-'+kc+'-bg)">'+i.kind+'</span></td><td>'+i.size+' B</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+preview+'</td></tr>';
+        }).join('');
+    }
+
+    updateSettingsTheme();
+
+    // Connection page
+    const we = document.getElementById('wsStatus');
+    if (we) we.innerHTML = running ? '<span class="status-badge" style="--badge-color:var(--status-online);--badge-bg:var(--status-online-bg)"><span class="status-dot pulse"></span>可用</span>' : '<span class="status-badge" style="--badge-color:var(--status-offline);--badge-bg:var(--status-offline-bg)">不可达</span>';
+    const ac = document.getElementById('activeConnections');
+    if (ac) ac.textContent = devices.filter(d=>d.last_seen_at).length + ' 台';
+}
+
+// === Init ===
+navigateTo('overview');
+refresh();
+setInterval(refresh, 5000);
+</script>
 </body>
 </html>

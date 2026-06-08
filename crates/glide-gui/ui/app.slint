@@ -6,42 +6,101 @@ export struct DeviceRow {
     status: string,
 }
 
+// === Dual Theme Tokens (Light default) ===
 export global AppColors {
-    out property <color> primary: #1f7a8c;
-    out property <color> background: #f6f8fa;
-    out property <color> surface: #ffffff;
-    out property <color> border: #d0d7de;
-    out property <color> text-primary: #24292f;
-    out property <color> text-secondary: #57606a;
-    out property <color> success: #1a7f37;
-    out property <color> warning: #9a6700;
-    out property <color> danger: #cf222e;
+    out property <color> primary: #2563eb;
+    out property <color> primary-hover: #1d4ed8;
+
+    // Page
+    out property <color> page-bg: #ffffff;
+    out property <color> page-surface: #f8fafc;
+    out property <color> page-surface-alt: #f1f5f9;
+
+    // Text
+    out property <color> text-primary: #1e293b;
+    out property <color> text-secondary: #64748b;
+    out property <color> text-tertiary: #94a3b8;
+
+    // Borders
+    out property <color> border-base: #e2e8f0;
+    out property <color> border-subtle: #f1f5f9;
+
+    // Sidebar
+    out property <color> sidebar-bg: #f8fafc;
+    out property <color> sidebar-text: #475569;
+    out property <color> sidebar-active: #eff6ff;
+    out property <color> sidebar-active-text: #2563eb;
+
+    // Input
+    out property <color> input-bg: #ffffff;
+    out property <color> input-border: #cbd5e1;
+
+    // Status (6 states)
+    out property <color> status-online: #16a34a;
+    out property <color> status-online-bg: #dcfce7;
+    out property <color> status-offline: #dc2626;
+    out property <color> status-offline-bg: #fee2e2;
+    out property <color> status-connecting: #2563eb;
+    out property <color> status-connecting-bg: #dbeafe;
+    out property <color> status-error: #dc2626;
+    out property <color> status-error-bg: #fee2e2;
+    out property <color> status-limited: #d97706;
+    out property <color> status-limited-bg: #fef3c7;
+    out property <color> status-unpaired: #64748b;
+    out property <color> status-unpaired-bg: #f1f5f9;
+
+    // Alert (4 types)
+    out property <color> alert-info-bg: #eff6ff;
+    out property <color> alert-info-border: #2563eb;
+    out property <color> alert-info-text: #1e40af;
+    out property <color> alert-warning-bg: #fffbeb;
+    out property <color> alert-warning-border: #d97706;
+    out property <color> alert-warning-text: #92400e;
+    out property <color> alert-success-bg: #dcfce7;
+    out property <color> alert-success-border: #16a34a;
+    out property <color> alert-success-text: #166534;
+    out property <color> alert-danger-bg: #fee2e2;
+    out property <color> alert-danger-border: #dc2626;
+    out property <color> alert-danger-text: #991b1b;
+
+    // Log
+    out property <color> log-bg: #0f172a;
+    out property <color> log-text: #cbd5e1;
+    out property <color> log-info: #38bdf8;
+    out property <color> log-warn: #fbbf24;
+    out property <color> log-error: #f87171;
 }
 
-component SectionTitle inherits Text {
-    in property <string> label;
-    text: label;
-    font-size: 14px;
-    font-weight: 700;
-    color: AppColors.text-secondary;
-}
+// === Components ===
 
 component StatusBadge inherits Rectangle {
     in property <string> label;
-    in property <color> badge-color: AppColors.success;
-    width: 86px;
-    height: 24px;
+    in property <color> badge-color: AppColors.text-tertiary;
+    in property <color> badge-bg: AppColors.page-surface-alt;
+    in property <bool> pulse: false;
+    width: 88px;
+    height: 22px;
     border-radius: 4px;
-    border-width: 1px;
-    border-color: badge-color;
-    background: badge-color.transparentize(0.9);
+    background: badge-bg;
 
-    Text {
-        text: label;
-        font-size: 12px;
-        color: badge-color;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 5px;
+        alignment: center;
+
+        Rectangle {
+            width: 7px; height: 7px;
+            border-radius: 3.5px;
+            background: badge-color;
+        }
+        Text {
+            text: label;
+            font-size: 11px;
+            font-weight: 500;
+            color: badge-color;
+            vertical-alignment: center;
+        }
     }
 }
 
@@ -49,24 +108,26 @@ component DeviceCard inherits Rectangle {
     in property <string> device-name;
     in property <string> device-platform;
     in property <string> status-text;
-    height: 68px;
-    background: AppColors.surface;
+    in property <bool> is-online;
+    height: 64px;
+    background: AppColors.page-surface;
     border-radius: 6px;
     border-width: 1px;
-    border-color: AppColors.border;
+    border-color: AppColors.border-base;
 
     HorizontalLayout {
         padding-left: 14px;
         padding-right: 14px;
         spacing: 12px;
+        alignment: center;
 
         VerticalLayout {
-            spacing: 4px;
+            spacing: 3px;
             horizontal-stretch: 1;
             Text {
                 text: device-name;
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: 600;
                 color: AppColors.text-primary;
             }
             Text {
@@ -78,7 +139,8 @@ component DeviceCard inherits Rectangle {
 
         StatusBadge {
             label: status-text;
-            badge-color: status-text == "在线" ? AppColors.success : AppColors.text-secondary;
+            badge-color: is-online ? AppColors.status-online : AppColors.status-offline;
+            badge-bg: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg;
         }
     }
 }
@@ -88,16 +150,17 @@ component SettingsRow inherits Rectangle {
     in property <string> detail;
     in property <bool> checked;
     callback toggled();
-    height: 54px;
-    background: AppColors.surface;
+    height: 52px;
+    background: AppColors.page-surface;
     border-radius: 6px;
     border-width: 1px;
-    border-color: AppColors.border;
+    border-color: AppColors.border-base;
 
     HorizontalLayout {
         padding-left: 14px;
         padding-right: 14px;
         spacing: 12px;
+        alignment: center;
 
         VerticalLayout {
             spacing: 3px;
@@ -105,7 +168,7 @@ component SettingsRow inherits Rectangle {
             Text {
                 text: label;
                 font-size: 13px;
-                font-weight: 700;
+                font-weight: 600;
                 color: AppColors.text-primary;
             }
             Text {
@@ -122,50 +185,96 @@ component SettingsRow inherits Rectangle {
     }
 }
 
-component PermissionNotice inherits Rectangle {
+component AlertBox inherits Rectangle {
     in property <string> title;
     in property <string> body;
-    min-height: 72px;
-    background: AppColors.warning.transparentize(0.92);
+    in property <string> type: "info";  // info | warning | success | danger
+
+    min-height: 64px;
     border-radius: 6px;
     border-width: 1px;
-    border-color: AppColors.warning.transparentize(0.25);
 
-    VerticalLayout {
-        padding: 14px;
-        spacing: 6px;
+    background: type == "info" ? AppColors.alert-info-bg :
+                type == "warning" ? AppColors.alert-warning-bg :
+                type == "success" ? AppColors.alert-success-bg :
+                AppColors.alert-danger-bg;
+    border-color: type == "info" ? AppColors.alert-info-border :
+                  type == "warning" ? AppColors.alert-warning-border :
+                  type == "success" ? AppColors.alert-success-border :
+                  AppColors.alert-danger-border;
+
+    Rectangle {
+        width: 3px;
+        border-radius: 6px;
+        background: type == "info" ? AppColors.alert-info-border :
+                    type == "warning" ? AppColors.alert-warning-border :
+                    type == "success" ? AppColors.alert-success-border :
+                    AppColors.alert-danger-border;
+    }
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 10px;
+        alignment: start;
+
         Text {
-            text: title;
-            font-size: 13px;
-            font-weight: 700;
-            color: AppColors.warning;
+            text: type == "info" ? "ℹ" :
+                  type == "warning" ? "⚠" :
+                  type == "success" ? "✓" : "✗";
+            font-size: 16px;
+            color: type == "info" ? AppColors.alert-info-border :
+                   type == "warning" ? AppColors.alert-warning-border :
+                   type == "success" ? AppColors.alert-success-border :
+                   AppColors.alert-danger-border;
+            vertical-alignment: center;
         }
-        Text {
-            text: body;
-            font-size: 12px;
-            color: AppColors.text-secondary;
-            wrap: word-wrap;
+
+        VerticalLayout {
+            spacing: 4px;
+            horizontal-stretch: 1;
+            Text {
+                text: title;
+                font-size: 13px;
+                font-weight: 600;
+                color: type == "info" ? AppColors.alert-info-text :
+                       type == "warning" ? AppColors.alert-warning-text :
+                       type == "success" ? AppColors.alert-success-text :
+                       AppColors.alert-danger-text;
+            }
+            Text {
+                text: body;
+                font-size: 12px;
+                color: AppColors.text-secondary;
+                wrap: word-wrap;
+            }
         }
     }
+}
+
+component SectionTitle inherits Text {
+    in property <string> label;
+    text: label;
+    font-size: 16px;
+    font-weight: 600;
+    color: AppColors.text-primary;
 }
 
 component Sidebar inherits Rectangle {
     in property <int> current-index: 0;
     callback page-selected(int);
-    width: 178px;
-    background: #0f172a;
+    width: 180px;
+    background: AppColors.sidebar-bg;
 
     VerticalLayout {
-        padding-top: 18px;
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 6px;
+        padding-top: 14px;
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 4px;
 
         Text {
             text: "Glide";
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 800;
-            color: #ffffff;
+            color: AppColors.primary;
         }
 
         for item[i] in [
@@ -178,15 +287,16 @@ component Sidebar inherits Rectangle {
             { label: "关于", index: 6 },
         ]: Rectangle {
             height: 38px;
-            border-radius: 5px;
-            background: current-index == item.index ? #1f7a8c : transparent;
+            border-radius: 4px;
+            background: current-index == item.index ? AppColors.sidebar-active : transparent;
 
             Text {
                 text: item.label;
                 font-size: 13px;
-                font-weight: current-index == item.index ? 700 : 500;
-                color: current-index == item.index ? #ffffff : #cbd5e1;
+                font-weight: current-index == item.index ? 600 : 400;
+                color: current-index == item.index ? AppColors.sidebar-active-text : AppColors.sidebar-text;
                 vertical-alignment: center;
+                padding-left: 8px;
             }
 
             TouchArea {
@@ -199,18 +309,19 @@ component Sidebar inherits Rectangle {
 component TopBar inherits Rectangle {
     in property <string> title;
     in property <string> connection-status;
-    height: 58px;
-    background: AppColors.surface;
-    border-width: 0px;
+    height: 52px;
+    background: AppColors.page-surface;
 
     HorizontalLayout {
-        padding-left: 22px;
-        padding-right: 22px;
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 12px;
+        alignment: center;
 
         Text {
             text: title;
-            font-size: 19px;
-            font-weight: 800;
+            font-size: 20px;
+            font-weight: 700;
             color: AppColors.text-primary;
         }
 
@@ -218,10 +329,18 @@ component TopBar inherits Rectangle {
 
         StatusBadge {
             label: connection-status;
-            badge-color: connection-status == "已连接" ? AppColors.success : AppColors.danger;
+            badge-color: connection-status == "已连接" ? AppColors.status-online :
+                         connection-status == "连接中" ? AppColors.status-connecting :
+                         AppColors.status-offline;
+            badge-bg: connection-status == "已连接" ? AppColors.status-online-bg :
+                      connection-status == "连接中" ? AppColors.status-connecting-bg :
+                      AppColors.status-offline-bg;
+            pulse: connection-status == "已连接" || connection-status == "连接中";
         }
     }
 }
+
+// === Pages ===
 
 component StatusPage inherits VerticalLayout {
     in property <bool> service-running;
@@ -234,29 +353,30 @@ component StatusPage inherits VerticalLayout {
     callback disconnect();
     callback toggle-clipboard();
     callback toggle-input();
-    padding: 22px;
-    spacing: 14px;
+    padding: 24px;
+    spacing: 16px;
 
-    SectionTitle { label: "后台服务" ; }
+    SectionTitle { label: "后台服务"; }
 
     Rectangle {
-        height: 112px;
-        background: AppColors.surface;
+        height: 100px;
+        background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
-        border-color: AppColors.border;
+        border-color: AppColors.border-base;
 
         HorizontalLayout {
-            padding: 18px;
-            spacing: 18px;
+            padding: 16px;
+            spacing: 16px;
+            alignment: center;
 
             VerticalLayout {
                 spacing: 6px;
                 horizontal-stretch: 1;
                 Text {
                     text: service-running ? "后台服务运行中" : "后台服务未运行";
-                    font-size: 18px;
-                    font-weight: 800;
+                    font-size: 16px;
+                    font-weight: 700;
                     color: AppColors.text-primary;
                 }
                 Text {
@@ -275,7 +395,6 @@ component StatusPage inherits VerticalLayout {
                 text: "断开";
                 clicked => { root.disconnect(); }
             }
-
             if connection-status != "已连接" : Button {
                 text: "连接";
                 clicked => { root.connect(); }
@@ -286,7 +405,7 @@ component StatusPage inherits VerticalLayout {
     SectionTitle { label: "同步开关"; }
     SettingsRow {
         label: "剪贴板同步";
-        detail: "同步文本、后续扩展图片和文件";
+        detail: "同步文本，后续扩展图片和文件";
         checked: clipboard-enabled;
         toggled => { root.toggle-clipboard(); }
     }
@@ -300,34 +419,36 @@ component StatusPage inherits VerticalLayout {
 
 component DevicesPage inherits VerticalLayout {
     in property <[DeviceRow]> devices;
-    padding: 22px;
+    padding: 24px;
     spacing: 12px;
 
     SectionTitle { label: "受信任设备"; }
 
     if devices.length == 0 : Rectangle {
-        height: 120px;
-        background: AppColors.surface;
+        height: 100px;
+        background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
-        border-color: AppColors.border;
+        border-color: AppColors.border-base;
         Text {
-            text: "暂无已注册设备";
+            text: "暂无已注册设备\n请先完成设备配对";
             font-size: 13px;
             color: AppColors.text-secondary;
             horizontal-alignment: center;
             vertical-alignment: center;
+            wrap: word-wrap;
         }
     }
 
     ScrollView {
-        viewport-height: 340px;
+        viewport-height: 320px;
         VerticalLayout {
             spacing: 10px;
             for device in devices: DeviceCard {
                 device-name: device.name;
                 device-platform: device.platform;
                 status-text: device.status;
+                is-online: device.status == "在线";
             }
         }
     }
@@ -335,25 +456,33 @@ component DevicesPage inherits VerticalLayout {
 
 component PairingPage inherits VerticalLayout {
     callback pair-device();
-    padding: 22px;
-    spacing: 14px;
+    padding: 24px;
+    spacing: 16px;
+
+    AlertBox {
+        title: "设备配对";
+        body: "配对后的设备将加入受信列表，可以同步剪贴板、文件和键鼠输入。真实配对码、设备指纹和授权确认将在后台服务通信接入后提供。";
+        type: "info";
+    }
 
     SectionTitle { label: "配对设备"; }
     Rectangle {
-        height: 150px;
-        background: AppColors.surface;
+        height: 120px;
+        background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
-        border-color: AppColors.border;
+        border-color: AppColors.border-base;
 
         VerticalLayout {
-            padding: 18px;
+            padding: 16px;
             spacing: 12px;
+            alignment: center;
             Text {
                 text: "配对流程将在后台服务通信接入后提供真实配对码、设备指纹和授权确认。";
                 font-size: 13px;
                 color: AppColors.text-secondary;
                 wrap: word-wrap;
+                horizontal-alignment: center;
             }
             Button {
                 text: "生成模拟配对码";
@@ -365,12 +494,12 @@ component PairingPage inherits VerticalLayout {
 
 component LogPage inherits VerticalLayout {
     in property <string> log-content;
-    padding: 22px;
-    spacing: 12px;
+    padding: 24px;
+    spacing: 16px;
 
     SectionTitle { label: "运行日志"; }
     Rectangle {
-        background: #0b1020;
+        background: AppColors.log-bg;
         border-radius: 6px;
         border-width: 1px;
         border-color: #1e293b;
@@ -383,8 +512,8 @@ component LogPage inherits VerticalLayout {
                     text: log-content == "" ? "暂无日志" : log-content;
                     font-size: 12px;
                     font-family: "monospace";
-                    color: #cbd5e1;
-                    wrap: word-wrap;
+                    color: AppColors.log-text;
+                    wrap: no-wrap;
                 }
             }
         }
@@ -396,21 +525,22 @@ component SettingsPage inherits VerticalLayout {
     in property <string> device-name;
     callback save-server(string);
     callback save-name(string);
-    padding: 22px;
-    spacing: 14px;
+    padding: 24px;
+    spacing: 16px;
 
     SectionTitle { label: "服务端"; }
     Rectangle {
-        height: 58px;
-        background: AppColors.surface;
+        height: 52px;
+        background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
-        border-color: AppColors.border;
+        border-color: AppColors.border-base;
 
         HorizontalLayout {
             padding-left: 14px;
             padding-right: 14px;
             spacing: 10px;
+            alignment: center;
             Text {
                 text: "服务端地址";
                 width: 88px;
@@ -431,16 +561,17 @@ component SettingsPage inherits VerticalLayout {
 
     SectionTitle { label: "本机设备"; }
     Rectangle {
-        height: 58px;
-        background: AppColors.surface;
+        height: 52px;
+        background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
-        border-color: AppColors.border;
+        border-color: AppColors.border-base;
 
         HorizontalLayout {
             padding-left: 14px;
             padding-right: 14px;
             spacing: 10px;
+            alignment: center;
             Text {
                 text: "本机设备名";
                 width: 88px;
@@ -461,19 +592,19 @@ component SettingsPage inherits VerticalLayout {
 
 component PlatformPage inherits VerticalLayout {
     in property <string> platform-summary;
-    padding: 22px;
-    spacing: 14px;
+    padding: 24px;
+    spacing: 16px;
 
-    SectionTitle { label: "平台能力"; }
-    PermissionNotice {
+    AlertBox {
         title: "能力提示";
         body: "Linux 第一阶段优先 X11。Wayland 下全局键鼠控制受合成器限制，GUI 不会承诺完整控制能力。";
+        type: "warning";
     }
     Rectangle {
-        background: AppColors.surface;
+        background: AppColors.page-surface;
         border-radius: 6px;
         border-width: 1px;
-        border-color: AppColors.border;
+        border-color: AppColors.border-base;
         vertical-stretch: 1;
 
         VerticalLayout {
@@ -489,7 +620,7 @@ component PlatformPage inherits VerticalLayout {
 }
 
 component AboutPage inherits VerticalLayout {
-    padding: 22px;
+    padding: 24px;
     spacing: 12px;
 
     Text {
@@ -503,7 +634,7 @@ component AboutPage inherits VerticalLayout {
         font-size: 14px;
         color: AppColors.text-secondary;
     }
-    Rectangle { height: 1px; background: AppColors.border; }
+    Rectangle { height: 1px; background: AppColors.border-base; }
     Text {
         text: "界面运行时：Rust + Slint";
         font-size: 13px;
@@ -521,14 +652,17 @@ component AboutPage inherits VerticalLayout {
     }
 }
 
+// === Main Window ===
+
 export component MainWindow inherits Window {
     title: "Glide";
     preferred-width: 860px;
     preferred-height: 590px;
     min-width: 720px;
     min-height: 500px;
-    background: AppColors.background;
+    background: AppColors.page-bg;
 
+    // === Existing properties (required by main.rs) ===
     in-out property <int> current-page: 0;
     in-out property <bool> service-running: true;
     in-out property <string> connection-status: "未连接";
@@ -541,6 +675,7 @@ export component MainWindow inherits Window {
     in-out property <string> platform-summary: "";
     in-out property <[DeviceRow]> devices: [];
 
+    // === Existing callbacks (required by main.rs) ===
     callback page-changed(int);
     callback connect();
     callback disconnect();
