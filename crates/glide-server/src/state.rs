@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use sqlx::{Pool, Sqlite};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 
 use glide_core::sync_event::SyncEvent;
 
@@ -12,6 +13,8 @@ pub struct ServerState {
     pub data_dir: String,
     /// Broadcast channel for sync events (capacity: 256).
     pub event_tx: broadcast::Sender<SyncEvent>,
+    /// Session store: maps session token -> authenticated (bool).
+    pub sessions: Arc<RwLock<HashMap<String, bool>>>,
 }
 
 impl ServerState {
@@ -21,6 +24,7 @@ impl ServerState {
             db,
             data_dir,
             event_tx,
+            sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 

@@ -42,6 +42,8 @@ pub struct AppSettings {
     pub auto_connect: bool,
     pub clipboard_enabled: bool,
     pub input_enabled: bool,
+    pub auth_username: String,
+    pub auth_password: String,
 }
 
 #[allow(dead_code)]
@@ -112,6 +114,7 @@ pub struct MockBackend {
     state: Arc<Mutex<MockState>>,
     pub lan_state: Option<Arc<glide_desktop::lan_sync::LanSyncState>>,
     device_id: String,
+    session_token: Arc<Mutex<Option<String>>>,
     http_client: Option<BlockingHttpClient>,
 }
 
@@ -140,7 +143,8 @@ impl MockBackend {
                 connected: false,
                 settings: AppSettings {
                     server_url: "http://127.0.0.1:8080".to_string(),
-
+                    auth_username: String::new(),
+                    auth_password: String::new(),
                     device_name,
                     auto_connect: false,
                     clipboard_enabled: true,
@@ -166,6 +170,7 @@ impl MockBackend {
             })),
             lan_state: None,
             device_id,
+            session_token: Arc::new(Mutex::new(None)),
             http_client: Some(
                 reqwest::blocking::Client::builder()
                     .timeout(std::time::Duration::from_secs(5))
@@ -221,6 +226,15 @@ impl MockBackend {
             data: None,
             error: Some(message.into()),
         }
+    }
+
+    pub fn save_auth(&self, username: &str, password: &str) -> BackendResult<()> {
+        self.with_state_mut(|state| {
+            state.settings.auth_username = username.to_string();
+            state.settings.auth_password = password.to_string();
+        });
+        self.log("认证信息已保存");
+        Self::success(())
     }
 }
 

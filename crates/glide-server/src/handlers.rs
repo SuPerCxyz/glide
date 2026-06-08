@@ -2,6 +2,7 @@ use anyhow::Result;
 use axum::{
     extract::ws::WebSocketUpgrade,
     extract::{Json, Path, Query, State},
+    http::HeaderMap,
     routing::{get, post},
     Router,
 };
@@ -15,6 +16,7 @@ pub fn router() -> Router<ServerState> {
         .route("/", get(admin_page))
         .route("/api/v1/health", get(health))
         .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/tokens/create", post(create_token))
         .route("/api/v1/devices/register", post(device_register))
         .route("/api/v1/devices", get(list_devices))
@@ -38,6 +40,41 @@ async fn health() -> Json<serde_json::Value> {
 
 async fn admin_page() -> axum::response::Html<&'static str> {
     axum::response::Html(include_str!("../static/index.html"))
+}
+
+/// Validate Bearer token from authorization header.
+/// Returns the username if valid.
+async fn validate_auth(
+    headers: &HeaderMap,
+    state: &ServerState,
+) -> Result<String, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "missing authorization header"})),
+            )
+        })?;
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "invalid authorization format"})),
+            )
+        })?;
+    let sessions = state.sessions.read().await;
+    if sessions.contains_key(token) {
+        let username = std::env::var("GLIDE_USERNAME").unwrap_or_else(|_| "admin".to_string());
+        Ok(username)
+    } else {
+        Err((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid session token"})),
+        ))
+    }
 }
 
 /// Login endpoint: authenticate with username/password.
@@ -72,6 +109,8 @@ async fn login(
     if username == admin_user && password == admin_pass {
         // Generate session token.
         let token = format!("session_{}", uuid::Uuid::new_v4());
+        // Store session.
+        state.sessions.write().await.insert(token.clone(), true);
         Ok(Json(serde_json::json!({
             "status": "ok",
             "token": token,
@@ -88,8 +127,21 @@ async fn login(
 /// Create a temporary token (requires admin auth).
 async fn create_token(
     State(state): State<ServerState>,
+    headers: HeaderMap,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Optional Bearer token validation.
+    if let Some(auth_value) = headers.get("authorization").and_then(|v| v.to_str().ok()) {
+        if let Some(token) = auth_value.strip_prefix("Bearer ") {
+            let sessions = state.sessions.read().await;
+            if !sessions.contains_key(token) {
+                return Err((
+                    axum::http::StatusCode::UNAUTHORIZED,
+                    Json(serde_json::json!({"error": "invalid session token"})),
+                ));
+            }
+        }
+    }
     let ttl_secs = req.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(3600);
     let max_uses = req.get("max_uses").and_then(|v| v.as_i64()).unwrap_or(10);
     let max_item_size = req
@@ -130,6 +182,7 @@ async fn create_token(
 
 async fn device_register(
     State(state): State<ServerState>,
+    headers: HeaderMap,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let device_id = req
@@ -426,6 +479,32 @@ async fn payload_upload(
         "size": total_size,
         "checksum": checksum,
     })))
+}
+
+/// Logout: invalidate the current session.
+async fn logout(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let token = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "missing or invalid authorization header"})),
+            )
+        })?;
+    let mut sessions = state.sessions.write().await;
+    if sessions.remove(token).is_some() {
+        Ok(Json(serde_json::json!({"status": "logged_out"})))
+    } else {
+        Err((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid session"})),
+        ))
+    }
 }
 
 #[cfg(test)]

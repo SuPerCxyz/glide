@@ -491,6 +491,8 @@ fn default_settings() -> AppSettings {
         auto_connect: false,
         clipboard_enabled: true,
         input_enabled: false,
+        auth_username: String::new(),
+        auth_password: String::new(),
     }
 }
 
