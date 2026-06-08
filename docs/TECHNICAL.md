@@ -123,6 +123,9 @@ glide-daemon --print-status
 - 构建 `glide-gui.exe`、`glide-daemon.exe`、`glide-cli.exe`、`glide-server.exe`。
 - GUI 使用 Slint，不依赖 WebView2。
 - Release workflow 产出 Windows portable zip，zip 内同时包含 `glide.exe` 和 `glide-gui.exe` 两个 GUI 启动名。
+- GUI 默认设置 `SLINT_BACKEND=winit-software`，避免 Windows 虚拟机、
+  远程桌面或缺少可用 OpenGL 的环境中因 `glCreateShader` 缺失退出。
+  用户显式设置 `SLINT_BACKEND` 时以用户设置为准。
 
 当前限制：
 
@@ -259,6 +262,10 @@ Get-Content $env:GLIDE_GUI_LOG
 .\glide.exe --diagnostics
 Get-Content "$env:APPDATA\Glide\logs\glide-gui.log"
 ```
+
+注意：Windows release GUI 是 GUI subsystem 程序，PowerShell 直接执行
+`--diagnostics` 或 `--diagnostics-path` 时可能看不到 stdout。排错时优先设置
+`GLIDE_GUI_LOG`，再读取该日志文件。
 
 或运行：
 

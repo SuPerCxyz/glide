@@ -218,6 +218,10 @@ PowerShell 中进入 exe 所在目录执行下面命令查看日志：
 Get-Content "$env:APPDATA\Glide\logs\glide-gui.log"
 ```
 
+注意：release 版 Windows GUI 是 GUI subsystem 程序，在 PowerShell 中直接运行
+`--diagnostics` 或 `--diagnostics-path` 时，标准输出可能不会显示在当前终端。
+最可靠的方式是指定 `GLIDE_GUI_LOG` 后启动，再用 `Get-Content` 读取日志。
+
 也可以指定临时日志文件后启动，便于把日志发给开发者：
 
 ```powershell
@@ -237,6 +241,10 @@ Get-Content $env:GLIDE_GUI_LOG
 
 - 普通启动、启动失败和 panic 都会写入诊断日志。
 - 默认日志路径是 `%APPDATA%\Glide\logs\glide-gui.log`。
+- Windows 默认使用 Slint software renderer，避免 Win11 虚拟机或无 OpenGL
+  环境中出现 `Failed to initialize OpenGL driver: Could not locate
+  glCreateShader symbol` 后退出。需要强制 OpenGL 时可手动设置
+  `$env:SLINT_BACKEND="winit-femtovg"` 后再启动。
 - 如果你下载的是 GitHub Actions 里的 `windows-binaries`，当前是 debug
   artifact，显示终端窗口是正常现象；release 构建会隐藏控制台窗口。
 - 当前 Slint GUI 阶段的 Windows 下载项是 `glide-<version>-windows-portable.zip`。

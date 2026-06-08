@@ -33,9 +33,17 @@ fn run_app() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    configure_default_slint_backend();
     install_panic_logger();
     let _ = tracing_subscriber::fmt::try_init();
     write_diagnostic("process", "glide-gui starting");
+    write_diagnostic(
+        "renderer",
+        &format!(
+            "SLINT_BACKEND={}",
+            env::var("SLINT_BACKEND").unwrap_or_else(|_| "default".to_string())
+        ),
+    );
 
     if args.iter().any(|arg| arg == "--diagnostics-path") {
         println!("{}", diagnostic_log_path().display());
@@ -368,6 +376,15 @@ fn install_panic_logger() {
             .unwrap_or_else(|| "unknown".to_string());
         write_diagnostic("panic", &format!("{panic_info} at {location}"));
     }));
+}
+
+fn configure_default_slint_backend() {
+    #[cfg(target_os = "windows")]
+    {
+        if env::var_os("SLINT_BACKEND").is_none() {
+            env::set_var("SLINT_BACKEND", "winit-software");
+        }
+    }
 }
 
 fn write_diagnostic(stage: &str, message: &str) {
