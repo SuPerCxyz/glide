@@ -36,11 +36,8 @@ pub struct DeviceInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub server_url: String,
-    pub server_username: String,
-    pub server_password: String,
     pub device_name: String,
     pub auto_connect: bool,
-    pub auth_token: Option<String>,
     pub clipboard_enabled: bool,
     pub input_enabled: bool,
 }
@@ -86,13 +83,10 @@ pub trait GuiBackend: Send + Sync {
     fn stop_service(&self) -> BackendResult<()>;
     fn list_devices(&self) -> BackendResult<Vec<DeviceInfo>>;
     fn get_device_detail(&self, device_id: &str) -> BackendResult<DeviceInfo>;
-    fn pair_device(&self) -> BackendResult<String>;
     fn connect_device(&self, device_id: &str) -> BackendResult<String>;
     fn disconnect_device(&self, device_id: &str) -> BackendResult<String>;
     fn connect_server(&self, url: &str) -> BackendResult<String>;
     fn disconnect_server(&self) -> BackendResult<String>;
-    fn login_server(&self, url: &str, username: &str, password: &str) -> BackendResult<String>;
-    fn check_server(&self, url: &str) -> BackendResult<bool>;
     fn get_clipboard_status(&self) -> BackendResult<ClipboardStatus>;
     fn set_clipboard_enabled(&self, enabled: bool) -> BackendResult<()>;
     fn get_input_status(&self) -> BackendResult<InputStatus>;
@@ -133,9 +127,7 @@ impl MockBackend {
                 connected: false,
                 settings: AppSettings {
                     server_url: "http://127.0.0.1:8080".to_string(),
-                    server_username: "admin".to_string(),
-                    server_password: "admin".to_string(),
-                    auth_token: None,
+
                     device_name,
                     auto_connect: false,
                     clipboard_enabled: true,
@@ -263,11 +255,6 @@ impl GuiBackend for MockBackend {
                 .map(Self::success)
                 .unwrap_or_else(|| Self::failure(format!("未找到设备：{device_id}")))
         })
-    }
-
-    fn pair_device(&self) -> BackendResult<String> {
-        self.log("已请求配对；真实配对流程将由后台服务通信提供");
-        Self::success("PAIR-000000".to_string())
     }
 
     fn connect_device(&self, device_id: &str) -> BackendResult<String> {

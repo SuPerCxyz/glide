@@ -83,15 +83,6 @@ pub async fn migrate(pool: &Pool<Sqlite>) -> Result<()> {
             bytes_freed INTEGER NOT NULL DEFAULT 0
         );
 
-        CREATE TABLE IF NOT EXISTS pairing_codes (
-            code TEXT PRIMARY KEY,
-            initiator_device_id TEXT NOT NULL REFERENCES devices(device_id),
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-            expires_at INTEGER NOT NULL,
-            used BOOLEAN NOT NULL DEFAULT FALSE,
-            confirmed_device_id TEXT
-        );
-
         CREATE TABLE IF NOT EXISTS device_clipboard_seen (
             device_id TEXT NOT NULL REFERENCES devices(device_id),
             item_id TEXT NOT NULL REFERENCES clipboard_items(item_id),
@@ -109,10 +100,6 @@ pub async fn migrate(pool: &Pool<Sqlite>) -> Result<()> {
     .execute(pool)
     .await;
 
-    // Add paired_at column to devices table if not present
-    let _ = sqlx::query("ALTER TABLE devices ADD COLUMN paired_at INTEGER")
-        .execute(pool)
-        .await;
 
     Ok(())
 }

@@ -139,10 +139,8 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
     window.invoke_toggle_input();
     window.invoke_connect();
     window.invoke_page_changed(3);
-    window.invoke_pair_device();
     window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
     window.invoke_save_name(SharedString::from("glide-smoke"));
-
     let status = backend
         .get_service_status()
         .data
@@ -301,21 +299,6 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             let result = backend.update_settings(&settings);
             if !result.success {
                 warn!("failed to save device name: {:?}", result.error);
-            }
-            refresh_window(&win, &backend);
-        });
-    }
-
-    {
-        let backend = backend.clone();
-        let win = window.as_weak();
-        window.on_pair_device(move || {
-            let Some(win) = win.upgrade() else {
-                return;
-            };
-            let result = backend.pair_device();
-            if !result.success {
-                warn!("pairing failed: {:?}", result.error);
             }
             refresh_window(&win, &backend);
         });

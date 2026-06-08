@@ -27,11 +27,6 @@ pub fn router() -> Router<ServerState> {
         .route("/ws/sync", get(ws_handler))
         // WebSocket endpoint for input relay.
         .route("/ws/input", get(input_ws_handler))
-        // Pairing endpoints.
-        .route("/api/v1/pairing/initiate", post(pairing_initiate))
-        .route("/api/v1/pairing/confirm", post(pairing_confirm))
-        // Trust management.
-        .route("/api/v1/devices/:device_id/untrust", post(device_untrust))
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -212,186 +207,8 @@ async fn device_register(
     })))
 }
 
-/// Generate a pairing code for device pairing.
-/// Code is 6 chars, expires in 5 minutes.
-async fn pairing_initiate(
-    State(state): State<ServerState>,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let device_id = req.get("device_id").and_then(|v| v.as_str()).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "device_id required"})),
-        )
-    })?;
-
-    // Generate 6-char uppercase code from UUID
-    let code: String = uuid::Uuid::new_v4().to_string()[..6].to_uppercase();
-
-    let now = chrono::Utc::now().timestamp_millis();
-    let expires_at = now + 300_000; // 5 minutes
-
-    sqlx::query(
-        "INSERT INTO pairing_codes (code, initiator_device_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&code)
-    .bind(device_id)
-    .bind(now)
-    .bind(expires_at)
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": e.to_string()})),
-        )
-    })?;
-
-    Ok(Json(serde_json::json!({
-        "status": "ok",
-        "code": code,
-        "expires_at": expires_at,
-    })))
-}
-
-/// Confirm a pairing code. Sets both devices as trusted with paired_at.
-async fn pairing_confirm(
-    State(state): State<ServerState>,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let code = req.get("code").and_then(|v| v.as_str()).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "code required"})),
-        )
-    })?;
-
-    let device_id = req.get("device_id").and_then(|v| v.as_str()).ok_or_else(|| {
-        (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "device_id required"})),
-        )
-    })?;
-
-    // Look up the pairing code
-    let row = sqlx::query("SELECT initiator_device_id, expires_at, used FROM pairing_codes WHERE code = ?")
-        .bind(code)
-        .fetch_optional(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-        })?;
-
-    let (initiator_id, expires_at, used) = match row {
-        Some(r) => (
-            r.get::<String, _>("initiator_device_id"),
-            r.get::<i64, _>("expires_at"),
-            r.get::<bool, _>("used"),
-        ),
-        None => {
-            return Err((
-                axum::http::StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "invalid or expired pairing code"})),
-            ));
-        }
-    };
-    let now = chrono::Utc::now().timestamp_millis();
-
-    if used {
-        return Err((
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "pairing code already used"})),
-        ));
-    }
-
-    if now > expires_at {
-        return Err((
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "pairing code has expired"})),
-        ));
-    }
-
-    // Check that the confirming device is not the initiator
-    if device_id == initiator_id {
-        return Err((
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "cannot pair with yourself"})),
-        ));
-    }
-
-    // Mark pairing code as used
-    sqlx::query("UPDATE pairing_codes SET used = TRUE, confirmed_device_id = ? WHERE code = ?")
-        .bind(device_id)
-        .bind(code)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-        })?;
-
-    // Set trusted = true and paired_at for BOTH devices
-    sqlx::query("UPDATE devices SET trusted = TRUE, paired_at = ? WHERE device_id = ?")
-        .bind(now)
-        .bind(initiator_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-        })?;
-
-    sqlx::query("UPDATE devices SET trusted = TRUE, paired_at = ? WHERE device_id = ?")
-        .bind(now)
-        .bind(device_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-        })?;
-
-    Ok(Json(serde_json::json!({
-        "status": "ok",
-        "paired": true,
-        "paired_at": now,
-    })))
-}
-
-/// Revoke trust for a device.
-async fn device_untrust(
-    State(state): State<ServerState>,
-    Path(device_id): Path<String>,
-) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    sqlx::query("UPDATE devices SET trusted = FALSE WHERE device_id = ?")
-        .bind(&device_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-        })?;
-
-    Ok(Json(serde_json::json!({
-        "status": "ok",
-        "trusted": false,
-        "device_id": device_id,
-    })))
-}
-
 async fn list_devices(State(state): State<ServerState>) -> Json<serde_json::Value> {
-    let rows = sqlx::query("SELECT device_id, name, platform, trusted, lan_address, last_seen_at, created_at, paired_at FROM devices ORDER BY created_at DESC")
+    let rows = sqlx::query("SELECT device_id, name, platform, trusted, lan_address, last_seen_at, created_at FROM devices ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await;
 
@@ -407,7 +224,6 @@ async fn list_devices(State(state): State<ServerState>) -> Json<serde_json::Valu
                     "lan_address": r.get::<Option<String>, _>("lan_address"),
                     "last_seen_at": r.get::<Option<i64>, _>("last_seen_at"),
                     "created_at": r.get::<i64, _>("created_at"),
-                    "paired_at": r.get::<Option<i64>, _>("paired_at"),
                 })
             })
             .collect::<Vec<_>>(),

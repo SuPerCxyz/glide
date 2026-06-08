@@ -444,7 +444,7 @@ function renderDevices() {
     <div class="section">
         <div class="section-header"><h2>已注册设备</h2><span class="badge" id="deviceCountBadge">0 台</span></div>
         <table><thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>最后在线</th><th>操作</th></tr></thead>
-        <tbody id="fullDeviceList"><tr><td colspan="6"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
+        <tbody id="fullDeviceList"><tr><td colspan="5"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
     </div>`;
 }
 
@@ -491,39 +491,10 @@ function renderConnection() {
 }
 
 function renderPairing() {
-    return `<div class="alert info">
-        <span class="alert-icon">i</span>
-        <div class="alert-body">
-            <div class="alert-title">设备配对</div>
-            <div class="alert-desc">配对后的设备将加入受信列表，可以同步剪贴板、文件和键鼠输入。撤销信任将立即阻断该设备的数据同步。</div>
-        </div>
-    </div>
-    <div class="section">
-        <div class="section-header"><h2>创建配对码</h2></div>
-        <div style="padding:20px">
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <button class="btn primary" onclick="pairingInitiate()" id="pairInitBtn">创建配对码</button>
-                <span id="pairCodeDisplay" style="font-size:24px;font-weight:700;color:var(--color-brand);letter-spacing:4px;display:none"></span>
-                <span id="pairCodeExpiry" style="font-size:14px;color:var(--text-tertiary);display:none"></span>
-            </div>
-            <div id="pairError" style="color:var(--status-offline);font-size:14px;margin-top:8px;display:none" role="alert"></div>
-        </div>
-    </div>
-    <div class="section">
-        <div class="section-header"><h2>输入配对码</h2></div>
-        <div style="padding:20px">
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <input type="text" id="pairInput" placeholder="配对码" style="padding:8px 12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--text-primary);font-size:16px;font-family:inherit;width:160px;text-transform:uppercase;letter-spacing:3px">
-                <input type="text" id="pairDeviceInput" placeholder="本机设备 ID" style="padding:8px 12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--text-primary);font-size:14px;font-family:inherit;width:280px">
-                <button class="btn primary" onclick="pairingConfirm()">确认配对</button>
-            </div>
-            <div id="pairConfirmResult" style="font-size:14px;margin-top:8px;display:none" role="alert"></div>
-        </div>
-    </div>
-    <div class="section">
-        <div class="section-header"><h2>已信任设备</h2><span class="badge" id="trustedBadge">0 台</span></div>
-        <table><thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>信任时间</th><th>操作</th></tr></thead>
-        <tbody id="trustedList"><tr><td colspan="6"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
+    return `<div class="section">
+        <div class="section-header"><h2>已注册设备</h2><span class="badge" id="trustedBadge">0 台</span></div>
+        <table><thead><tr><th>设备 ID</th><th>名称</th><th>平台</th><th>状态</th><th>最后在线</th></tr></thead>
+        <tbody id="trustedList"><tr><td colspan="5"><div class="empty-state"><div class="title">加载中...</div></div></td></tr></tbody></table>
     </div>`;
 }
 
@@ -738,89 +709,7 @@ async function doCreateToken() {
 }
 
 
-// === Pairing ===
-async function pairingInitiate() {
-    const btn = document.getElementById('pairInitBtn');
-    const codeEl = document.getElementById('pairCodeDisplay');
-    const expiryEl = document.getElementById('pairCodeExpiry');
-    const errEl = document.getElementById('pairError');
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.textContent = '创建中...';
-    try {
-        const r = await fetch(API + '/api/v1/pairing/initiate', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json','Authorization':'Bearer '+authToken},
-            body: JSON.stringify({device_id: 'web-admin'})
-        });
-        const data = await r.json();
-        if (r.ok && data.code) {
-            codeEl.textContent = data.code;
-            codeEl.style.display = 'inline';
-            const expiry = new Date(data.expires_at).toLocaleTimeString('zh-CN');
-            expiryEl.textContent = '（有效期至 ' + expiry + '）';
-            expiryEl.style.display = 'inline';
-            btn.textContent = '重新创建';
-        } else {
-            errEl.textContent = data.error || '创建失败';
-            errEl.style.display = 'block';
-        }
-    } catch(e) {
-        errEl.textContent = '连接失败: ' + e.message;
-        errEl.style.display = 'block';
-    }
-    btn.disabled = false;
-}
 
-async function pairingConfirm() {
-    const code = document.getElementById('pairInput').value.trim().toUpperCase();
-    const deviceId = document.getElementById('pairDeviceInput').value.trim();
-    const resultEl = document.getElementById('pairConfirmResult');
-    if (!code) { resultEl.textContent = '请输入配对码'; resultEl.style.display = 'block'; resultEl.style.color = 'var(--status-offline)'; return; }
-    if (!deviceId) { resultEl.textContent = '请输入本机设备 ID'; resultEl.style.display = 'block'; resultEl.style.color = 'var(--status-offline)'; return; }
-    resultEl.style.display = 'none';
-    try {
-        const r = await fetch(API + '/api/v1/pairing/confirm', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json','Authorization':'Bearer '+authToken},
-            body: JSON.stringify({code: code, device_id: deviceId})
-        });
-        const data = await r.json();
-        if (r.ok && data.paired) {
-            resultEl.textContent = '配对成功！设备已加入受信列表。';
-            resultEl.style.color = 'var(--status-online)';
-            resultEl.style.display = 'block';
-            refresh();
-        } else {
-            resultEl.textContent = data.error || '配对失败';
-            resultEl.style.color = 'var(--status-offline)';
-            resultEl.style.display = 'block';
-        }
-    } catch(e) {
-        resultEl.textContent = '连接失败: ' + e.message;
-        resultEl.style.color = 'var(--status-offline)';
-        resultEl.style.display = 'block';
-    }
-}
-
-async function revokeTrust(deviceId) {
-    if (!confirm('确定要撤销对设备 ' + deviceId.slice(0,12) + '... 的信任？撤销后将阻止该设备同步数据。')) return;
-    try {
-        const r = await fetch(API + '/api/v1/devices/' + deviceId + '/untrust', {
-            method: 'POST',
-            headers: {'Authorization':'Bearer '+authToken}
-        });
-        const data = await r.json();
-        if (r.ok) {
-            refresh();
-        } else {
-            alert('撤销失败: ' + (data.error || '未知错误'));
-        }
-    } catch(e) {
-        alert('连接失败: ' + e.message);
-    }
-}
-// === Data Fetching ===
 async function fetchJSON(path) {
     try {
         const headers = {};
@@ -880,7 +769,7 @@ async function refresh() {
     const fl = document.getElementById('fullDeviceList');
     if (fl) {
         if (!devices.length) {
-            fl.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="title">暂无注册设备</div></div></td></tr>';
+            fl.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="title">暂无注册设备</div></div></td></tr>';
         } else {
             fl.innerHTML = devices.map(d => {
                 const time = d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('zh-CN') : '从未';
@@ -894,12 +783,11 @@ async function refresh() {
     if (tl) {
         const trusted = devices.filter(d => d.trusted);
         if (!trusted.length) {
-            tl.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="title">暂无已信任设备</div><div class="desc">请先完成设备配对</div></div></td></tr>';
+            tl.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="title">暂无已注册设备</div><div class="desc">设备连接后会自动出现在列表中</div></div></td></tr>';
         } else {
             tl.innerHTML = trusted.map(d => {
-                const paired = d.paired_at ? new Date(d.paired_at).toLocaleString('zh-CN') : '未知';
-                const deviceIdEsc = d.device_id.replace(/'/g, "\\'");
-                return '<tr><td class="mono">'+d.device_id.slice(0,12)+'…</td><td>'+d.name+'</td><td>'+d.platform+'</td><td>'+sb(!!d.last_seen_at, true)+'</td><td>'+paired+'</td><td><button class="btn danger" onclick="revokeTrust(\''+deviceIdEsc+'\')">撤销</button></td></tr>';
+                const time = d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('zh-CN') : '从未';
+                return '<tr><td class="mono">'+d.device_id.slice(0,12)+'…</td><td>'+d.name+'</td><td>'+d.platform+'</td><td>'+sb(!!d.last_seen_at, true)+'</td><td>'+time+'</td></tr>';
             }).join('');
         }
     }
