@@ -28,6 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+use tracing_subscriber::EnvFilter;
+
 fn run_app() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
@@ -36,7 +38,12 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     }
 
     install_panic_logger();
-    let _ = tracing_subscriber::fmt::try_init();
+
+    // Suppress ICU4X segmentation warnings for CJK text rendering
+    // (upstream issue: https://github.com/slint-ui/slint/issues/11638)
+    let filter = EnvFilter::try_from_env("GLIDE_GUI_LOG")
+        .unwrap_or_else(|_| EnvFilter::new("info,icu_provider=error"));
+    let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
     write_diagnostic("process", "glide-gui starting");
     write_diagnostic(
         "renderer",
