@@ -97,7 +97,7 @@ fn default_device_name() -> String {
 }
 
 fn run_gui() -> Result<(), Box<dyn Error>> {
-    let backend = MockBackend::new();
+    let mut backend = MockBackend::new();
 
     // Start LAN engines in background threads with their own tokio runtimes
     let device_id = default_device_id();
@@ -107,10 +107,17 @@ fn run_gui() -> Result<(), Box<dyn Error>> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(9999);
 
-    std::thread::spawn({
-        let device_id = device_id.clone();
-        let device_name = device_name.clone();
-        move || {
+    let engine = glide_desktop::lan_sync::LanSyncEngine::new(
+        device_id.clone(),
+        device_name.clone(),
+        lan_sync_port,
+    );
+
+    // Share LAN state with backend so GUI can see discovered peers
+    let lan_state = engine.state.clone();
+    backend.lan_state = Some(lan_state);
+
+    std::thread::spawn(move || {
         let rt = match tokio::runtime::Runtime::new() {
             Ok(rt) => rt,
             Err(e) => {
@@ -118,18 +125,12 @@ fn run_gui() -> Result<(), Box<dyn Error>> {
                 return;
             }
         };
-        let engine = glide_desktop::lan_sync::LanSyncEngine::new(
-            device_id,
-            device_name,
-            lan_sync_port,
-        );
         rt.block_on(async {
             info!("Starting LAN sync engine on port {}", lan_sync_port);
             if let Err(e) = engine.start().await {
                 warn!("LAN sync engine failed: {}", e);
             }
         });
-    }
     });
 
     std::thread::spawn(move || {
@@ -165,13 +166,24 @@ fn run_gui() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_smoke() -> Result<(), Box<dyn Error>> {
-    let backend = MockBackend::new();
+    let mut backend = MockBackend::new();
     let _window = create_window(&backend)?;
 
     let log_path = diagnostic_log_path();
     let status = backend.get_service_status().data;
     let settings = backend.get_settings().data.unwrap_or_else(default_settings);
-    let devices = backend.list_devices().data.unwrap_or_default();
+    let devices_raw = backend.list_devices().data.unwrap_or_default();
+    // Convert to DeviceRow format for smoke
+    let _device_rows: Vec<_> = devices_raw.iter().map(|d| DeviceRow {
+        name: d.name.clone().into(),
+        platform: d.platform.clone().into(),
+        status: if d.online { SharedString::from("在线") } else { SharedString::from("离线") },
+        device_id: d.device_id.clone().into(),
+        trusted: d.trusted,
+        is_lan: true,
+    }).collect();
+    // Old method kept for backward compat
+    let _ = devices_raw;
 
     write_diagnostic(
         "smoke",
@@ -180,7 +192,7 @@ fn run_smoke() -> Result<(), Box<dyn Error>> {
             env!("CARGO_PKG_VERSION"),
             env::consts::OS,
             env::consts::ARCH,
-            devices.len(),
+            devices_raw.len(),
             settings.server_url
         ),
     );
@@ -206,7 +218,7 @@ fn run_smoke() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
-    let backend = MockBackend::new();
+    let mut backend = MockBackend::new();
     let window = create_window(&backend)?;
 
     window.invoke_toggle_clipboard();
@@ -378,6 +390,23 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
         });
     }
 
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
+        window.on_trust_device(move |device_id| {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            let id = device_id.to_string();
+            if backend.trust_device(&id).success {
+                info!("Trusted LAN device: {}", id);
+            } else {
+                warn!("Failed to trust LAN device: {}", id);
+            }
+            refresh_window(&win, &backend);
+        });
+    }
+
     Ok(window)
 }
 
@@ -398,11 +427,16 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
     if let Some(devices) = backend.list_devices().data {
         let rows: Vec<DeviceRow> = devices
             .into_iter()
-            .map(|device| DeviceRow {
+            .map(|device| {
+                let is_lan = device.platform.starts_with("LAN ");
+                DeviceRow {
                 name: SharedString::from(device.name),
                 platform: SharedString::from(device.platform),
                 status: SharedString::from(if device.online { "在线" } else { "离线" }),
-            })
+                device_id: SharedString::from(device.device_id),
+                trusted: device.trusted,
+                is_lan,
+            }})
             .collect();
         window.set_devices(ModelRc::from(Rc::new(VecModel::from(rows))));
     }

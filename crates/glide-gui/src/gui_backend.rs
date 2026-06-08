@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use glide_core::discovery::DiscoveredPeer;
+use glide_core::discovery::PeerState;
 
 /// Result from a backend operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,6 +97,8 @@ pub trait GuiBackend: Send + Sync {
     fn send_file(&self, device_id: &str, path: &Path) -> BackendResult<()>;
     fn get_settings(&self) -> BackendResult<AppSettings>;
     fn update_settings(&self, settings: &AppSettings) -> BackendResult<()>;
+    fn trust_device(&self, device_id: &str) -> BackendResult<()>;
+    fn untrust_device(&self, device_id: &str) -> BackendResult<()>;
     fn tail_logs(&self, limit: usize) -> BackendResult<Vec<String>>;
     fn export_diagnostics(&self) -> BackendResult<String>;
     fn get_platform_capabilities(&self) -> BackendResult<PlatformCapabilities>;
@@ -104,6 +108,7 @@ pub trait GuiBackend: Send + Sync {
 #[derive(Clone)]
 pub struct MockBackend {
     state: Arc<Mutex<MockState>>,
+    pub lan_state: Option<Arc<glide_desktop::lan_sync::LanSyncState>>,
 }
 
 #[derive(Debug, Clone)]
@@ -151,6 +156,7 @@ impl MockBackend {
                 ],
                 logs: Vec::new(),
             })),
+            lan_state: None,
         };
         backend.push_log("模拟后端已初始化；真实后台服务通信尚未接入");
         backend
@@ -242,7 +248,27 @@ impl GuiBackend for MockBackend {
     }
 
     fn list_devices(&self) -> BackendResult<Vec<DeviceInfo>> {
-        Self::success(self.with_state(|state| state.devices.clone()))
+        let mut devices = self.with_state(|state| state.devices.clone());
+        // Merge LAN-discovered peers
+        if let Some(ref ls) = self.lan_state {
+            let trusted = ls.trusted_peers.blocking_read();
+            let registry = ls.peer_registry.blocking_read();
+            for peer in registry.all_peers() {
+                let device_id = peer.device_id.to_string();
+                // Skip if already in mock devices
+                if devices.iter().any(|d| d.device_id == device_id) {
+                    continue;
+                }
+                devices.push(DeviceInfo {
+                    device_id: device_id.clone(),
+                    name: peer.name.clone(),
+                    platform: format!("LAN {}", peer.address),
+                    online: matches!(peer.state, glide_core::discovery::PeerState::Active),
+                    trusted: trusted.contains(&device_id),
+                });
+            }
+        }
+        Self::success(devices)
     }
 
     fn get_device_detail(&self, device_id: &str) -> BackendResult<DeviceInfo> {
@@ -352,6 +378,32 @@ impl GuiBackend for MockBackend {
 
     fn get_settings(&self) -> BackendResult<AppSettings> {
         Self::success(self.with_state(|state| state.settings.clone()))
+    }
+
+    fn trust_device(&self, device_id: &str) -> BackendResult<()> {
+        if let Some(ref ls) = self.lan_state {
+            let mut trusted = ls.trusted_peers.blocking_write();
+            trusted.insert(device_id.to_string());
+            self.log(&format!("已信任 LAN 设备：{}", device_id));
+            // Send trust request to the peer
+            let id = device_id.to_string();
+            tokio::spawn(async move {
+                // Trust is recorded locally; the peer will send their own request
+            });
+            Self::success(())
+        } else {
+            Self::failure("LAN 引擎未启动")
+        }
+    }
+
+    fn untrust_device(&self, device_id: &str) -> BackendResult<()> {
+        if let Some(ref ls) = self.lan_state {
+            ls.trusted_peers.blocking_write().remove(device_id);
+            self.log(&format!("已取消信任 LAN 设备：{}", device_id));
+            Self::success(())
+        } else {
+            Self::failure("LAN 引擎未启动")
+        }
     }
 
     fn update_settings(&self, settings: &AppSettings) -> BackendResult<()> {

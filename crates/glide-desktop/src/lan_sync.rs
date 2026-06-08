@@ -1,5 +1,5 @@
 use futures::{SinkExt, StreamExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{error, info, warn};
@@ -9,6 +9,16 @@ use glide_core::discovery::PeerRegistry;
 use glide_core::discovery::{UdpMulticastConfig, UdpMulticastDiscovery};
 use glide_core::route::ClipboardRouteSelector;
 use glide_core::sync_event::SyncEvent;
+
+/// Shared state between LAN sync engine and GUI.
+pub struct LanSyncState {
+    pub peer_registry: Arc<RwLock<PeerRegistry>>,
+    pub trusted_peers: Arc<RwLock<HashSet<String>>>,
+    pub peers: Arc<RwLock<HashMap<String, mpsc::UnboundedSender<SyncEvent>>>>,
+    pub clipboard_tx: mpsc::UnboundedSender<ClipboardItem>,
+    pub clipboard_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<ClipboardItem>>>>,
+    pub running: Arc<std::sync::atomic::AtomicBool>,
+}
 
 /// LAN sync engine - enables direct peer-to-peer clipboard sync
 /// on the same Layer 2 network without server dependency.
@@ -25,18 +35,10 @@ pub struct LanSyncEngine {
     pub device_name: String,
     /// Our LAN service port (for incoming connections).
     pub service_port: u16,
-    /// Discovered peers.
-    pub peer_registry: Arc<RwLock<PeerRegistry>>,
     /// Route selector.
     pub route_selector: Arc<RwLock<ClipboardRouteSelector>>,
-    /// Connected peer WebSocket senders (device_id -> sender).
-    pub peers: Arc<RwLock<HashMap<String, mpsc::UnboundedSender<SyncEvent>>>>,
-    /// Channel to receive clipboard events from LAN peers.
-    pub clipboard_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<ClipboardItem>>>>,
-    /// Channel sender for incoming clipboard items.
-    pub clipboard_tx: mpsc::UnboundedSender<ClipboardItem>,
-    /// Whether the engine is running.
-    pub running: Arc<std::sync::atomic::AtomicBool>,
+    /// Shared state accessible from GUI.
+    pub state: Arc<LanSyncState>,
 }
 
 impl LanSyncEngine {
@@ -48,14 +50,17 @@ impl LanSyncEngine {
             device_id: device_id.clone(),
             device_name,
             service_port,
-            peer_registry: Arc::new(RwLock::new(registry)),
             route_selector: Arc::new(RwLock::new(ClipboardRouteSelector::new(
                 device_id, true, false,
             ))),
-            peers: Arc::new(RwLock::new(HashMap::new())),
-            clipboard_rx: Arc::new(Mutex::new(Some(clipboard_rx))),
-            clipboard_tx,
-            running: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            state: Arc::new(LanSyncState {
+                peer_registry: Arc::new(RwLock::new(registry)),
+                trusted_peers: Arc::new(RwLock::new(HashSet::new())),
+                peers: Arc::new(RwLock::new(HashMap::new())),
+                clipboard_tx,
+                clipboard_rx: Arc::new(Mutex::new(Some(clipboard_rx))),
+                running: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            }),
         }
     }
 
@@ -65,7 +70,8 @@ impl LanSyncEngine {
     /// - LAN WebSocket server (accept incoming connections)
     /// - Periodic peer connection attempts
     pub async fn start(&self) -> anyhow::Result<()> {
-        self.running
+        self.state
+            .running
             .store(true, std::sync::atomic::Ordering::SeqCst);
 
         info!(
@@ -81,8 +87,8 @@ impl LanSyncEngine {
             ..Default::default()
         };
 
-        let registry = self.peer_registry.clone();
-        let running = self.running.clone();
+        let registry = self.state.peer_registry.clone();
+        let running = self.state.running.clone();
         let device_id = self.device_id.clone();
 
         tokio::spawn(async move {
@@ -124,10 +130,10 @@ impl LanSyncEngine {
 
         // 2. Start LAN WebSocket server for incoming connections.
         let listen_addr = format!("0.0.0.0:{}", self.service_port);
-        let clipboard_tx = self.clipboard_tx.clone();
-        let peers = self.peers.clone();
+        let clipboard_tx = self.state.clipboard_tx.clone();
+        let peers = self.state.peers.clone();
         let device_id = self.device_id.clone();
-        let running = self.running.clone();
+        let running = self.state.running.clone();
 
         tokio::spawn(async move {
             use futures::{SinkExt, StreamExt};
@@ -221,10 +227,10 @@ impl LanSyncEngine {
         });
 
         // 3. Periodic peer connection task.
-        let registry = self.peer_registry.clone();
-        let peers = self.peers.clone();
+        let registry = self.state.peer_registry.clone();
+        let peers = self.state.peers.clone();
         let device_id = self.device_id.clone();
-        let running = self.running.clone();
+        let running = self.state.running.clone();
 
         tokio::spawn(async move {
             while running.load(std::sync::atomic::Ordering::SeqCst) {
@@ -330,7 +336,7 @@ impl LanSyncEngine {
 
     /// Send a clipboard item to all connected LAN peers.
     pub async fn broadcast_clipboard(&self, item: &ClipboardItem) -> anyhow::Result<()> {
-        let peers = self.peers.read().await;
+        let peers = self.state.peers.read().await;
         if peers.is_empty() {
             return Ok(());
         }
@@ -355,27 +361,81 @@ impl LanSyncEngine {
 
     /// Get a receiver for incoming clipboard items from LAN peers.
     pub async fn take_clipboard_receiver(&self) -> Option<mpsc::UnboundedReceiver<ClipboardItem>> {
-        self.clipboard_rx.lock().await.take()
+        self.state.clipboard_rx.lock().await.take()
+    }
+
+    /// Trust a peer. Once trusted, clipboard and input events will be shared.
+    pub async fn trust_peer(&self, device_id: &str) {
+        self.state.trusted_peers.write().await.insert(device_id.to_string());
+        info!("Trusted LAN peer: {}", device_id);
+    }
+
+    /// Remove trust from a peer.
+    pub async fn untrust_peer(&self, device_id: &str) {
+        self.state.trusted_peers.write().await.remove(device_id);
+        info!("Untrusted LAN peer: {}", device_id);
+    }
+
+    /// Check if a peer is trusted.
+    pub async fn is_trusted(&self, device_id: &str) -> bool {
+        self.state.trusted_peers.read().await.contains(device_id)
+    }
+
+    /// Send a trust request to a specific peer.
+    pub async fn send_trust_request(&self, target_device_id: &str) -> Result<(), String> {
+        let peers = self.state.peers.read().await;
+        if let Some(tx) = peers.get(target_device_id) {
+            let event = SyncEvent::TrustRequest {
+                device_id: self.device_id.clone(),
+                device_name: self.device_name.clone(),
+            };
+            tx.send(event).map_err(|e| format!("send failed: {}", e))?;
+            info!("Sent trust request to: {}", target_device_id);
+            Ok(())
+        } else {
+            Err(format!("peer not connected: {}", target_device_id))
+        }
+    }
+
+    /// Accept a trust request from a peer.
+    pub async fn accept_trust(&self, target_device_id: &str) -> Result<(), String> {
+        self.state.trusted_peers.write().await.insert(target_device_id.to_string());
+        let peers = self.state.peers.read().await;
+        if let Some(tx) = peers.get(target_device_id) {
+            let event = SyncEvent::TrustAccept {
+                device_id: self.device_id.clone(),
+            };
+            tx.send(event).ok();
+            info!("Accepted trust from: {}", target_device_id);
+            Ok(())
+        } else {
+            Err(format!("peer not connected: {}", target_device_id))
+        }
+    }
+
+    /// Get list of trusted peer IDs.
+    pub async fn trusted_peer_ids(&self) -> Vec<String> {
+        self.state.trusted_peers.read().await.iter().cloned().collect()
     }
 
     /// Check if we have any LAN peers connected.
     pub async fn has_lan_peers(&self) -> bool {
-        !self.peers.read().await.is_empty()
+        !self.state.peers.read().await.is_empty()
     }
 
     /// Get count of connected LAN peers.
     pub async fn peer_count(&self) -> usize {
-        self.peers.read().await.len()
+        self.state.peers.read().await.len()
     }
 
     /// Get list of connected peer device IDs.
     pub async fn connected_peers(&self) -> Vec<String> {
-        self.peers.read().await.keys().cloned().collect()
+        self.state.peers.read().await.keys().cloned().collect()
     }
 
     /// Stop the LAN sync engine.
     pub fn stop(&self) {
-        self.running
+        self.state.running
             .store(false, std::sync::atomic::Ordering::SeqCst);
         info!("LAN sync engine stopping");
     }

@@ -4,6 +4,9 @@ export struct DeviceRow {
     name: string,
     platform: string,
     status: string,
+    device-id: string,
+    trusted: bool,
+    is-lan: bool,
 }
 
 // === Dual Theme Tokens (Light default) ===
@@ -108,8 +111,12 @@ component DeviceCard inherits Rectangle {
     in property <string> device-name;
     in property <string> device-platform;
     in property <string> status-text;
+    in property <string> device-id;
     in property <bool> is-online;
-    height: 64px;
+    in property <bool> is-trusted;
+    in property <bool> is-lan;
+    callback trust-request(string);
+    height: 72px;
     background: AppColors.page-surface;
     border-radius: 6px;
     border-width: 1px;
@@ -138,9 +145,20 @@ component DeviceCard inherits Rectangle {
         }
 
         StatusBadge {
+            label: is-trusted ? "已信任" : "未信任";
+            badge-color: is-trusted ? AppColors.status-online : AppColors.status-unpaired;
+            badge-bg: is-trusted ? AppColors.status-online-bg : AppColors.status-unpaired-bg;
+        }
+
+        StatusBadge {
             label: status-text;
             badge-color: is-online ? AppColors.status-online : AppColors.status-offline;
             badge-bg: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg;
+        }
+
+        if is-lan && !is-trusted : Button {
+            text: "信任";
+            clicked => { root.trust-request(device-id); }
         }
     }
 }
@@ -419,10 +437,11 @@ component StatusPage inherits VerticalLayout {
 
 component DevicesPage inherits VerticalLayout {
     in property <[DeviceRow]> devices;
+    callback trust-device(string);
     padding: 24px;
     spacing: 12px;
 
-    SectionTitle { label: "受信任设备"; }
+    SectionTitle { label: "局域网设备"; }
 
     if devices.length == 0 : Rectangle {
         height: 100px;
@@ -431,7 +450,7 @@ component DevicesPage inherits VerticalLayout {
         border-width: 1px;
         border-color: AppColors.border-base;
         Text {
-            text: "暂无已注册设备\n请先完成设备配对";
+            text: "暂未发现局域网设备\nglide-gui 会自动发现同网络设备";
             font-size: 15px;
             color: AppColors.text-secondary;
             horizontal-alignment: center;
@@ -441,14 +460,18 @@ component DevicesPage inherits VerticalLayout {
     }
 
     ScrollView {
-        viewport-height: 320px;
+        viewport-height: 400px;
         VerticalLayout {
             spacing: 10px;
             for device in devices: DeviceCard {
                 device-name: device.name;
                 device-platform: device.platform;
                 status-text: device.status;
+                device-id: device.device-id;
                 is-online: device.status == "在线";
+                is-trusted: device.trusted;
+                is-lan: device.is-lan;
+                trust-request(id) => { root.trust-device(id); }
             }
         }
     }
@@ -499,6 +522,7 @@ component LogPage inherits VerticalLayout {
 component SettingsPage inherits VerticalLayout {
     in property <string> server-url;
     in property <string> device-name;
+    callback trust-device(string);
     callback save-server(string);
     callback save-name(string);
     padding: 24px;
@@ -658,6 +682,7 @@ export component MainWindow inherits Window {
     callback disconnect();
     callback toggle-clipboard();
     callback toggle-input();
+    callback trust-device(string);
     callback save-server(string);
     callback save-name(string);
 
@@ -690,7 +715,10 @@ export component MainWindow inherits Window {
                 toggle-clipboard => { root.toggle-clipboard(); }
                 toggle-input => { root.toggle-input(); }
             }
-            if current-page == 1 : DevicesPage { devices: devices; }
+            if current-page == 1 : DevicesPage {
+                devices: devices;
+                trust-device(id) => { root.trust-device(id); }
+            }
             if current-page == 2 : PairingPage {}
             if current-page == 3 : LogPage { log-content: log-content; }
             if current-page == 4 : SettingsPage {

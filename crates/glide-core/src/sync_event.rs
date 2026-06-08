@@ -29,6 +29,15 @@ pub enum SyncEvent {
         local_device_id: String,
         remote_device_id: String,
     },
+    /// Trust request from a peer (for LAN pairing).
+    TrustRequest {
+        device_id: String,
+        device_name: String,
+    },
+    /// Trust request accepted by a peer.
+    TrustAccept {
+        device_id: String,
+    },
 }
 
 impl SyncEvent {
