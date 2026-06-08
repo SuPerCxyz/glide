@@ -68,7 +68,7 @@ jobs:
       - name: Build Slint GUI, daemon, server and CLI
         run: cargo build --release --package glide-gui --package glide-daemon --package glide-server --package glide-cli
 
-      - name: Build Slint desktop packages (.deb + .rpm + .AppImage)
+      - name: Build Linux packages
         run: |
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
           VERSION="${VERSION#v}"
@@ -76,6 +76,16 @@ jobs:
           test -n "$(find dist -name '*.deb' -print -quit)"
           test -n "$(find dist -name '*.rpm' -print -quit)"
           test -n "$(find dist -name '*.AppImage' -print -quit)"
+          echo "Glide Linux Packages" > dist/README.txt
+          echo "" >> dist/README.txt
+          echo "  glide_${VERSION}_amd64.deb       Debian/Ubuntu:  sudo dpkg -i glide_${VERSION}_amd64.deb" >> dist/README.txt
+          echo "  glide-${VERSION}-1.x86_64.rpm    Fedora/RHEL:    sudo rpm -ivh glide-${VERSION}-1.x86_64.rpm" >> dist/README.txt
+          echo "  glide-${VERSION}-x86_64.AppImage                 chmod +x *.AppImage && ./glide-${VERSION}-x86_64.AppImage" >> dist/README.txt
+          echo "" >> dist/README.txt
+          echo "After install, run:" >> dist/README.txt
+          echo "  glide-gui     Launch GUI" >> dist/README.txt
+          echo "  glide-cli     CLI client" >> dist/README.txt
+          echo "  glide-server  Start relay server" >> dist/README.txt
 
       - name: Collect Linux packages
         run: |
