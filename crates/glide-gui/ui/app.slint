@@ -96,7 +96,7 @@ component StatusBadge inherits Rectangle {
         }
         Text {
             text: label;
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 500;
             color: badge-color;
             vertical-alignment: center;
@@ -126,13 +126,13 @@ component DeviceCard inherits Rectangle {
             horizontal-stretch: 1;
             Text {
                 text: device-name;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: 600;
                 color: AppColors.text-primary;
             }
             Text {
                 text: device-platform;
-                font-size: 12px;
+                font-size: 14px;
                 color: AppColors.text-secondary;
             }
         }
@@ -167,13 +167,13 @@ component SettingsRow inherits Rectangle {
             horizontal-stretch: 1;
             Text {
                 text: label;
-                font-size: 13px;
+                font-size: 15px;
                 font-weight: 600;
                 color: AppColors.text-primary;
             }
             Text {
                 text: detail;
-                font-size: 11px;
+                font-size: 13px;
                 color: AppColors.text-secondary;
             }
         }
@@ -220,7 +220,7 @@ component AlertBox inherits Rectangle {
             text: type == "info" ? "ℹ" :
                   type == "warning" ? "⚠" :
                   type == "success" ? "✓" : "✗";
-            font-size: 16px;
+            font-size: 18px;
             color: type == "info" ? AppColors.alert-info-border :
                    type == "warning" ? AppColors.alert-warning-border :
                    type == "success" ? AppColors.alert-success-border :
@@ -233,7 +233,7 @@ component AlertBox inherits Rectangle {
             horizontal-stretch: 1;
             Text {
                 text: title;
-                font-size: 13px;
+                font-size: 15px;
                 font-weight: 600;
                 color: type == "info" ? AppColors.alert-info-text :
                        type == "warning" ? AppColors.alert-warning-text :
@@ -242,7 +242,7 @@ component AlertBox inherits Rectangle {
             }
             Text {
                 text: body;
-                font-size: 12px;
+                font-size: 14px;
                 color: AppColors.text-secondary;
                 wrap: word-wrap;
             }
@@ -253,7 +253,7 @@ component AlertBox inherits Rectangle {
 component SectionTitle inherits Text {
     in property <string> label;
     text: label;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     color: AppColors.text-primary;
 }
@@ -272,7 +272,7 @@ component Sidebar inherits Rectangle {
 
         Text {
             text: "Glide";
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 800;
             color: AppColors.primary;
         }
@@ -292,7 +292,7 @@ component Sidebar inherits Rectangle {
 
             Text {
                 text: item.label;
-                font-size: 15px;
+                font-size: 17px;
                 font-weight: current-index == item.index ? 700 : 500;
                 color: current-index == item.index ? AppColors.sidebar-active-text : AppColors.sidebar-text;
                 vertical-alignment: center;
@@ -320,7 +320,7 @@ component TopBar inherits Rectangle {
 
         Text {
             text: title;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             color: AppColors.text-primary;
         }
@@ -375,18 +375,18 @@ component StatusPage inherits VerticalLayout {
                 horizontal-stretch: 1;
                 Text {
                     text: service-running ? "后台服务运行中" : "后台服务未运行";
-                    font-size: 16px;
+                    font-size: 18px;
                     font-weight: 700;
                     color: AppColors.text-primary;
                 }
                 Text {
                     text: server-url == "" ? "尚未配置服务端地址" : server-url;
-                    font-size: 12px;
+                    font-size: 14px;
                     color: AppColors.text-secondary;
                 }
                 Text {
                     text: "已连接设备: " + device-count-text;
-                    font-size: 12px;
+                    font-size: 14px;
                     color: AppColors.text-secondary;
                 }
             }
@@ -432,7 +432,7 @@ component DevicesPage inherits VerticalLayout {
         border-color: AppColors.border-base;
         Text {
             text: "暂无已注册设备\n请先完成设备配对";
-            font-size: 13px;
+            font-size: 15px;
             color: AppColors.text-secondary;
             horizontal-alignment: center;
             vertical-alignment: center;
@@ -479,7 +479,7 @@ component PairingPage inherits VerticalLayout {
             alignment: center;
             Text {
                 text: "配对流程将在后台服务通信接入后提供真实配对码、设备指纹和授权确认。";
-                font-size: 13px;
+                font-size: 15px;
                 color: AppColors.text-secondary;
                 wrap: word-wrap;
                 horizontal-alignment: center;
@@ -510,7 +510,7 @@ component LogPage inherits VerticalLayout {
                 padding: 12px;
                 Text {
                     text: log-content == "" ? "暂无日志" : log-content;
-                    font-size: 12px;
+                    font-size: 14px;
                     font-family: "monospace";
                     color: AppColors.log-text;
                     wrap: no-wrap;
@@ -544,7 +544,7 @@ component SettingsPage inherits VerticalLayout {
             Text {
                 text: "服务端地址";
                 width: 88px;
-                font-size: 13px;
+                font-size: 15px;
                 color: AppColors.text-primary;
             }
             server-input := LineEdit {
@@ -575,7 +575,7 @@ component SettingsPage inherits VerticalLayout {
             Text {
                 text: "本机设备名";
                 width: 88px;
-                font-size: 13px;
+                font-size: 15px;
                 color: AppColors.text-primary;
             }
             name-input := LineEdit {
@@ -611,7 +611,7 @@ component PlatformPage inherits VerticalLayout {
             padding: 16px;
             Text {
                 text: platform-summary;
-                font-size: 13px;
+                font-size: 15px;
                 color: AppColors.text-secondary;
                 wrap: word-wrap;
             }
@@ -625,29 +625,29 @@ component AboutPage inherits VerticalLayout {
 
     Text {
         text: "Glide";
-        font-size: 30px;
+        font-size: 34px;
         font-weight: 800;
         color: AppColors.primary;
     }
     Text {
         text: "局域网优先的剪贴板同步与键鼠共享";
-        font-size: 14px;
+        font-size: 16px;
         color: AppColors.text-secondary;
     }
     Rectangle { height: 1px; background: AppColors.border-base; }
     Text {
         text: "界面运行时：Rust + Slint";
-        font-size: 13px;
+        font-size: 15px;
         color: AppColors.text-primary;
     }
     Text {
         text: "不依赖 Tauri、WebView2 或内嵌浏览器运行时。";
-        font-size: 13px;
+        font-size: 15px;
         color: AppColors.text-primary;
     }
     Text {
         text: "仓库地址：https://github.com/SuPerCxyz/glide";
-        font-size: 13px;
+        font-size: 15px;
         color: AppColors.primary;
     }
 }

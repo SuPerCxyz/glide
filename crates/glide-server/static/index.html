@@ -119,26 +119,26 @@
             --status-unpaired-bg: #1e293b;
         }
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:"IBM Plex Mono","Fira Code","Source Code Pro","Cascadia Code","Consolas","Monaco",monospace;font-size:14px;line-height:1.5;background:var(--page-bg);color:var(--text-primary);min-height:100vh;transition:background 200ms ease-out,color 200ms ease-out}
+        body{font-family:"IBM Plex Mono","Fira Code","Source Code Pro","Cascadia Code","Consolas","Monaco",monospace;font-size:16px;line-height:1.5;background:var(--page-bg);color:var(--text-primary);min-height:100vh;transition:background 200ms ease-out,color 200ms ease-out}
         button{cursor:pointer;font-family:inherit}
         a{color:var(--color-brand);text-decoration:none}
         a:hover{text-decoration:underline}
         .app{display:flex;min-height:100vh}
         .sidebar{width:180px;background:var(--sidebar-bg);border-right:1px solid var(--border-base);display:flex;flex-direction:column;padding:16px 0;transition:background 200ms ease-out;flex-shrink:0}
-        .sidebar .logo{font-size:22px;font-weight:800;padding:0 16px 16px;color:var(--color-brand);letter-spacing:-0.5px}
-        .sidebar .logo .version{font-size:11px;font-weight:400;color:var(--text-tertiary);margin-left:4px}
-        .nav-item{display:block;width:100%;padding:10px 16px;font-size:15px;font-weight:500;color:var(--sidebar-text);background:none;border:none;text-align:left;transition:background 150ms ease-out,color 150ms ease-out}
+        .sidebar .logo{font-size:26px;font-weight:800;padding:0 16px 16px;color:var(--color-brand);letter-spacing:-0.5px}
+        .sidebar .logo .version{font-size:13px;font-weight:400;color:var(--text-tertiary);margin-left:4px}
+        .nav-item{display:block;width:100%;padding:10px 16px;font-size:17px;font-weight:500;color:var(--sidebar-text);background:none;border:none;text-align:left;transition:background 150ms ease-out,color 150ms ease-out}
         .nav-item:hover{background:var(--page-surface-alt)}
         .nav-item.active{background:var(--sidebar-active);color:var(--sidebar-active-text);font-weight:700}
         .main{flex:1;display:flex;flex-direction:column;min-width:0}
         .topbar{height:52px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;padding:0 24px;background:var(--page-surface);gap:12px;transition:background 200ms ease-out}
-        .topbar-title{font-size:20px;font-weight:700;flex:1}
+        .topbar-title{font-size:22px;font-weight:700;flex:1}
         .topbar-actions{display:flex;align-items:center;gap:8px}
-        .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:500;color:var(--badge-color,var(--text-tertiary));background:var(--badge-bg,var(--page-surface-alt))}
+        .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;font-size:13px;font-weight:500;color:var(--badge-color,var(--text-tertiary));background:var(--badge-bg,var(--page-surface-alt))}
         .status-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
         .status-dot.pulse{animation:pulse 2s infinite}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-        .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:500;border:1px solid var(--border-base);background:var(--btn-secondary);color:var(--btn-secondary-text);transition:background 150ms ease-out}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:4px;font-size:14px;font-weight:500;border:1px solid var(--border-base);background:var(--btn-secondary);color:var(--btn-secondary-text);transition:background 150ms ease-out}
         .btn:hover{filter:brightness(0.95)}
         .btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
         .btn.primary{background:var(--btn-primary);color:var(--btn-primary-text);border-color:var(--btn-primary)}
@@ -147,59 +147,59 @@
         .page{display:none}.page.active{display:block}
         .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
         .stat-card{background:var(--page-surface);border:1px solid var(--border-base);border-radius:6px;padding:20px;transition:background 200ms ease-out,border-color 200ms ease-out}
-        .stat-card .label{font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
-        .stat-card .value{font-size:28px;font-weight:700;margin-top:4px}
+        .stat-card .label{font-size:14px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+        .stat-card .value{font-size:32px;font-weight:700;margin-top:4px}
         .stat-card .value.green{color:var(--status-online)}
         .stat-card .value.blue{color:var(--color-brand)}
         .stat-card .value.yellow{color:var(--status-limited)}
         .stat-card .value.red{color:var(--status-offline)}
         .section{background:var(--page-surface);border:1px solid var(--border-base);border-radius:6px;margin-bottom:24px;overflow:hidden;transition:background 200ms ease-out,border-color 200ms ease-out}
         .section-header{padding:14px 20px;border-bottom:1px solid var(--border-base);display:flex;align-items:center;justify-content:space-between}
-        .section-header h2{font-size:15px;font-weight:600}
-        .section-header .badge{font-size:11px;background:var(--page-surface-alt);padding:2px 8px;border-radius:10px;color:var(--text-secondary)}
+        .section-header h2{font-size:17px;font-weight:600}
+        .section-header .badge{font-size:13px;background:var(--page-surface-alt);padding:2px 8px;border-radius:10px;color:var(--text-secondary)}
         table{width:100%;border-collapse:collapse}
-        th,td{padding:10px 16px;text-align:left;border-bottom:1px solid var(--border-base);font-size:13px}
+        th,td{padding:10px 16px;text-align:left;border-bottom:1px solid var(--border-base);font-size:15px}
         th{color:var(--text-secondary);font-weight:500;background:var(--page-bg)}
         td{color:var(--text-primary)}
         tr:last-child td{border-bottom:none}
-        .mono{font-family:inherit;font-size:12px}
+        .mono{font-family:inherit;font-size:14px}
         .alert{display:flex;gap:12px;padding:14px 16px;border-radius:6px;margin-bottom:16px;border-left:3px solid var(--alert-border);background:var(--alert-bg)}
-        .alert .alert-icon{font-size:16px;line-height:1.4;flex-shrink:0}
+        .alert .alert-icon{font-size:17px;line-height:1.4;flex-shrink:0}
         .alert .alert-body{flex:1}
-        .alert .alert-title{font-size:13px;font-weight:600;color:var(--alert-text);margin-bottom:2px}
-        .alert .alert-desc{font-size:12px;color:var(--text-secondary)}
-        .alert .alert-action{font-size:12px;color:var(--color-brand);margin-top:6px;display:inline-block}
+        .alert .alert-title{font-size:15px;font-weight:600;color:var(--alert-text);margin-bottom:2px}
+        .alert .alert-desc{font-size:14px;color:var(--text-secondary)}
+        .alert .alert-action{font-size:14px;color:var(--color-brand);margin-top:6px;display:inline-block}
         .alert.info{--alert-bg:var(--info-bg);--alert-border:var(--info-border);--alert-text:var(--info-text)}
         .alert.warning{--alert-bg:var(--warning-bg);--alert-border:var(--warning-border);--alert-text:var(--warning-text)}
         .alert.success{--alert-bg:var(--success-bg);--alert-border:var(--success-border);--alert-text:var(--success-text)}
         .alert.danger{--alert-bg:var(--danger-bg);--alert-border:var(--danger-border);--alert-text:var(--danger-text)}
         .empty-state{text-align:center;padding:40px 20px;color:var(--text-secondary)}
-        .empty-state .title{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
-        .empty-state .desc{font-size:12px}
+        .empty-state .title{font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
+        .empty-state .desc{font-size:14px}
         .modal-overlay{display:none;position:fixed;inset:0;background:var(--modal-scrim);z-index:1000;align-items:center;justify-content:center}
         .modal-overlay.active{display:flex}
         .modal{background:var(--page-surface);border:1px solid var(--border-base);border-radius:8px;padding:24px;min-width:360px;max-width:480px;box-shadow:var(--shadow-md)}
-        .modal h3{margin-bottom:16px;font-size:16px;font-weight:600}
+        .modal h3{margin-bottom:16px;font-size:17px;font-weight:600}
         .form-group{margin-bottom:12px}
-        .form-group label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
-        .form-group input{width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--text-primary);font-size:13px;font-family:inherit}
+        .form-group label{display:block;font-size:14px;color:var(--text-secondary);margin-bottom:4px}
+        .form-group input{width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--text-primary);font-size:15px;font-family:inherit}
         .form-group input:focus{outline:none;border-color:var(--input-focus);box-shadow:0 0 0 2px var(--focus-ring)}
         .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-        .token-result{background:var(--input-bg);border:1px solid var(--success-border);border-radius:4px;padding:12px;font-family:inherit;font-size:13px;color:var(--status-online);margin-top:12px;word-break:break-all;white-space:pre-wrap}
+        .token-result{background:var(--input-bg);border:1px solid var(--success-border);border-radius:4px;padding:12px;font-family:inherit;font-size:15px;color:var(--status-online);margin-top:12px;word-break:break-all;white-space:pre-wrap}
         .log-view{background:var(--log-bg);border-radius:6px;overflow:hidden}
         .log-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #1e293b}
-        .log-toolbar input{flex:1;padding:4px 8px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:var(--log-text);font-size:12px;font-family:inherit}
+        .log-toolbar input{flex:1;padding:4px 8px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:var(--log-text);font-size:14px;font-family:inherit}
         .log-toolbar input:focus{outline:none;border-color:#3b82f6}
         .log-toolbar .btn{background:#1e293b;color:#cbd5e1;border-color:#334155;padding:4px 10px}
         .log-toolbar .btn:hover{background:#334155}
         .log-content{padding:12px;max-height:500px;overflow:auto}
-        .log-content pre{font-family:inherit;font-size:12px;line-height:1.6;color:var(--log-text);white-space:pre;margin:0}
+        .log-content pre{font-family:inherit;font-size:14px;line-height:1.6;color:var(--log-text);white-space:pre;margin:0}
         .log-content pre .log-info{color:var(--log-info)}
         .log-content pre .log-warn{color:var(--log-warn)}
         .log-content pre .log-error{color:var(--log-error)}
-        .theme-toggle{background:none;border:1px solid var(--border-base);border-radius:4px;padding:6px 10px;color:var(--text-secondary);font-size:16px;line-height:1;transition:background 150ms ease-out,color 150ms ease-out}
+        .theme-toggle{background:none;border:1px solid var(--border-base);border-radius:4px;padding:6px 10px;color:var(--text-secondary);font-size:17px;line-height:1;transition:background 150ms ease-out,color 150ms ease-out}
         .theme-toggle:hover{background:var(--page-surface-alt)}
-        .footer{text-align:center;padding:16px;color:var(--text-tertiary);font-size:12px;border-top:1px solid var(--border-subtle)}
+        .footer{text-align:center;padding:16px;color:var(--text-tertiary);font-size:14px;border-top:1px solid var(--border-subtle)}
         @media(max-width:768px){.sidebar{width:160px}.content{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}}
     </style>
 </head>
@@ -225,7 +225,7 @@
                         <span id="topbarStatusText">运行中</span>
                     </div>
                     <button class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换浅色/深色主题">◑</button>
-                    <span id="loginLabel" style="font-size:12px;color:var(--text-secondary)">未登录</span>
+                    <span id="loginLabel" style="font-size:14px;color:var(--text-secondary)">未登录</span>
                     <button class="btn" id="loginBtn" onclick="showLogin()">登录</button>
                     <button class="btn" id="logoutBtn" onclick="doLogout()" style="display:none">退出</button>
                 </div>
@@ -247,7 +247,7 @@
                 <label for="loginPass">密码</label>
                 <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
             </div>
-            <div id="loginError" style="color:var(--status-offline);font-size:12px;margin-top:8px;display:none" role="alert"></div>
+            <div id="loginError" style="color:var(--status-offline);font-size:14px;margin-top:8px;display:none" role="alert"></div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeModal('loginModal')">取消</button>
                 <button class="btn primary" onclick="doLogin()">登录</button>
@@ -272,7 +272,7 @@
                 <input type="number" id="tokenMaxSize" value="10485760" min="0">
             </div>
             <div id="tokenResult" class="token-result" style="display:none"></div>
-            <div id="tokenError" style="color:var(--status-offline);font-size:12px;margin-top:8px;display:none" role="alert"></div>
+            <div id="tokenError" style="color:var(--status-offline);font-size:14px;margin-top:8px;display:none" role="alert"></div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeModal('tokenModal')">关闭</button>
                 <button class="btn primary" onclick="doCreateToken()">创建</button>
@@ -498,8 +498,8 @@ function renderSettings() {
     return `<div class="section">
         <div class="section-header"><h2>主题</h2></div>
         <div style="padding:16px 20px;display:flex;gap:12px;align-items:center">
-            <span style="font-size:13px;color:var(--text-secondary)">当前主题：</span>
-            <span id="settingsTheme" style="font-size:13px;font-weight:600"></span>
+            <span style="font-size:15px;color:var(--text-secondary)">当前主题：</span>
+            <span id="settingsTheme" style="font-size:15px;font-weight:600"></span>
             <button class="btn" onclick="document.getElementById('themeToggle').click()">切换主题</button>
         </div>
     </div>
@@ -508,7 +508,7 @@ function renderSettings() {
         <div style="padding:16px 20px">
             <div class="form-group">
                 <label>当前用户</label>
-                <div style="font-size:13px;font-weight:600" id="settingsUser">admin</div>
+                <div style="font-size:15px;font-weight:600" id="settingsUser">admin</div>
             </div>
         </div>
     </div>
