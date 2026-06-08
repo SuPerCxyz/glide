@@ -1,0 +1,379 @@
+import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { StatusBadge, DeviceCard, SettingsRow, AlertBox, SectionTitle, DeviceRow } from "components.slint";
+import { AppColors } from "colors.slint";
+
+// === Pages with unified spacing and dark mode toggle ===
+
+export component StatusPage inherits VerticalLayout {
+    in property <bool> service-running;
+    in property <string> connection-status;
+    in property <string> device-count-text;
+    in property <string> server-url;
+    in property <bool> clipboard-enabled;
+    in property <bool> input-enabled;
+    callback connect();
+    callback disconnect();
+    callback toggle-clipboard();
+    callback toggle-input();
+    padding: 24px;
+    spacing: 20px;
+
+    SectionTitle { label: "后台服务"; }
+
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        animate border-color { duration: 200ms; }
+        HorizontalLayout {
+            padding: 20px;
+            spacing: 16px;
+            alignment: center;
+            VerticalLayout {
+                spacing: 6px;
+                horizontal-stretch: 1;
+                Text {
+                    text: service-running ? "后台服务运行中" : "后台服务未运行";
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: AppColors.text-primary;
+                    animate color { duration: 200ms; }
+                }
+                Text {
+                    text: server-url == "" ? "尚未配置服务端地址" : server-url;
+                    font-size: 14px;
+                    color: AppColors.text-secondary;
+                    animate color { duration: 200ms; }
+                }
+                Text {
+                    text: "已连接设备: " + device-count-text;
+                    font-size: 14px;
+                    color: AppColors.text-secondary;
+                    animate color { duration: 200ms; }
+                }
+            }
+            if connection-status == "已连接" : Button {
+                text: "断开";
+                clicked => { root.disconnect(); }
+            }
+            if connection-status != "已连接" : Button {
+                text: "连接";
+                clicked => { root.connect(); }
+            }
+        }
+    }
+
+    SectionTitle { label: "同步开关"; }
+    SettingsRow {
+        label: "剪贴板同步";
+        detail: "同步文本，后续扩展图片和文件";
+        checked: clipboard-enabled;
+        toggled => { root.toggle-clipboard(); }
+    }
+    SettingsRow {
+        label: "键鼠共享";
+        detail: "默认关闭，由后台服务和平台层执行";
+        checked: input-enabled;
+        toggled => { root.toggle-input(); }
+    }
+}
+
+export component DevicesPage inherits VerticalLayout {
+    in property <[DeviceRow]> devices;
+    callback trust-device(string);
+    padding: 24px;
+    spacing: 16px;
+
+    SectionTitle { label: "局域网设备"; }
+
+    if devices.length == 0 : Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding-top: 40px;
+            padding-bottom: 40px;
+            padding-left: 20px;
+            padding-right: 20px;
+            spacing: 8px;
+            alignment: center;
+            Text {
+                text: "暂未发现局域网设备";
+                font-size: 15px;
+                font-weight: 600;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                animate color { duration: 200ms; }
+            }
+            Text {
+                text: "glide-gui 会自动发现同网络设备";
+                font-size: 14px;
+                color: AppColors.text-tertiary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+                animate color { duration: 200ms; }
+            }
+        }
+    }
+
+    ScrollView {
+        VerticalLayout {
+            spacing: 10px;
+            for device in devices: DeviceCard {
+                device-name: device.name;
+                device-platform: device.platform;
+                status-text: device.status;
+                device-id: device.device-id;
+                is-online: device.status == "在线";
+                is-trusted: device.trusted;
+                is-lan: device.is-lan;
+                trust-request(id) => { root.trust-device(id); }
+            }
+        }
+    }
+}
+
+export component PairingPage inherits VerticalLayout {
+    padding: 24px;
+    spacing: 20px;
+
+    SectionTitle { label: "已注册设备"; }
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding-top: 32px;
+            padding-bottom: 32px;
+            padding-left: 20px;
+            padding-right: 20px;
+            alignment: center;
+            Text {
+                text: "所有登录服务端的设备自动受信，无需额外配对。";
+                font-size: 15px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+                animate color { duration: 200ms; }
+            }
+        }
+    }
+}
+
+export component LogPage inherits VerticalLayout {
+    in property <string> log-content;
+    padding: 24px;
+    spacing: 20px;
+
+    SectionTitle { label: "运行日志"; }
+    Rectangle {
+        background: AppColors.log-bg;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        vertical-stretch: 1;
+        ScrollView {
+            VerticalLayout {
+                padding: 14px;
+                Text {
+                    text: log-content == "" ? "暂无日志" : log-content;
+                    font-size: 13px;
+                    font-family: "JetBrains Mono";
+                    color: AppColors.log-text;
+                    wrap: no-wrap;
+                }
+            }
+        }
+    }
+}
+
+export component SettingsPage inherits VerticalLayout {
+    in property <string> server-url;
+    in property <string> device-name;
+    in property <bool> dark-mode;
+    callback save-server(string);
+    callback save-name(string);
+    callback toggle-theme();
+    padding: 24px;
+    spacing: 20px;
+
+    SectionTitle { label: "主题"; }
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 10px;
+            alignment: center;
+            Text {
+                text: "深色模式";
+                font-size: 15px;
+                font-weight: 600;
+                color: AppColors.text-primary;
+                horizontal-stretch: 1;
+                animate color { duration: 200ms; }
+            }
+            Button {
+                text: dark-mode ? "☀ 浅色" : "🌙 深色";
+                clicked => { root.toggle-theme(); }
+            }
+        }
+    }
+
+    SectionTitle { label: "服务端"; }
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            Text {
+                text: "服务端地址";
+                font-size: 14px;
+                font-weight: 600;
+                color: AppColors.text-primary;
+                animate color { duration: 200ms; }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: center;
+                server-input := LineEdit {
+                    text: server-url;
+                    placeholder-text: "http://server:8080";
+                    horizontal-stretch: 1;
+                }
+                Button {
+                    text: "保存";
+                    clicked => { root.save-server(server-input.text); }
+                }
+            }
+        }
+    }
+
+    SectionTitle { label: "本机设备"; }
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            Text {
+                text: "本机设备名";
+                font-size: 14px;
+                font-weight: 600;
+                color: AppColors.text-primary;
+                animate color { duration: 200ms; }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: center;
+                name-input := LineEdit {
+                    text: device-name;
+                    horizontal-stretch: 1;
+                }
+                Button {
+                    text: "保存";
+                    clicked => { root.save-name(name-input.text); }
+                }
+            }
+        }
+    }
+}
+
+export component PlatformPage inherits VerticalLayout {
+    in property <string> platform-summary;
+    padding: 24px;
+    spacing: 20px;
+
+    AlertBox {
+        alert-title: "能力提示";
+        body: "Linux 第一阶段优先 X11。Wayland 下全局键鼠控制受合成器限制，GUI 不会承诺完整控制能力。";
+        alert-type: "warning";
+    }
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        vertical-stretch: 1;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding: 16px;
+            Text {
+                text: platform-summary;
+                font-size: 15px;
+                color: AppColors.text-secondary;
+                wrap: word-wrap;
+                animate color { duration: 200ms; }
+            }
+        }
+    }
+}
+
+export component AboutPage inherits VerticalLayout {
+    padding: 24px;
+    spacing: 16px;
+
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding: 40px;
+            spacing: 12px;
+            alignment: center;
+            Text {
+                text: "Glide";
+                font-size: 34px;
+                font-weight: 800;
+                color: AppColors.primary;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "局域网优先的剪贴板同步与键鼠共享";
+                font-size: 16px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                animate color { duration: 200ms; }
+            }
+            Rectangle { height: 1px; background: AppColors.border-base; }
+            Text {
+                text: "界面运行时：Rust + Slint";
+                font-size: 15px;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+                animate color { duration: 200ms; }
+            }
+            Text {
+                text: "不依赖 Tauri、WebView2 或内嵌浏览器运行时。";
+                font-size: 15px;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+                animate color { duration: 200ms; }
+            }
+            Text {
+                text: "仓库地址：https://github.com/SuPerCxyz/glide";
+                font-size: 15px;
+                color: AppColors.primary;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

@@ -75,7 +75,13 @@ glide devices
 
 ### 3.3 GUI
 
-`glide-gui` 启动 Slint `MainWindow`，通过 `GuiBackend` trait 获取状态、设备、设置、日志和平台能力。第一阶段使用 `MockBackend`，因此 GUI 中的连接/配对/设备列表是模拟状态，不代表真实 daemon 已连接服务端。GUI 可见文案以简体中文为主，保留 Glide、Rust、Slint、Tauri、WebView2、URL、平台名等必要技术名词。
+`glide-gui` 启动 Slint `MainWindow`，通过 `GuiBackend` trait 获取状态、设备、设置、日志和平台能力。第一阶段使用 `MockBackend`，但已支持：
+
+- **真实 HTTP 服务端连接**：点击连接按钮时，GUI 会通过 HTTP POST 到 `/api/v1/devices/register` 注册本机设备；状态页会调用 `/api/v1/health` 检查连接状态；设备列表会从 `/api/v1/devices` 拉取服务端设备列表（与 LAN 发现设备合并展示）。服务端不可达时回退到模拟连接模式。
+- **终端实时日志**：增加 `--verbose` /`-v` 命令行参数，启用后 tracing 输出到 stderr；同时日志页每 3 秒自动刷新。
+- **mock 列表中的示例设备**（Linux CLI / Windows VM）在网络设备列表中仍保留，但在真实服务端连接后会替换为服务端设备数据。
+
+GUI 可见文案以简体中文为主，保留 Glide、Rust、Slint、Tauri、WebView2、URL、平台名等必要技术名词。
 
 当前 GUI 页面：
 
@@ -292,7 +298,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-windows-gui-smoke.ps1 -G
 
 ## 10. 已知限制
 
-- GUI 当前使用模拟后端，没有真实连接服务端。
+- GUI 第一阶段使用模拟后端，已支持真实 HTTP 服务端连接（注册/健康检查/设备列表），服务端不可达时回退到离线模式。未集成真实 WebSocket 同步和完整 daemon IPC。
 - daemon 当前是 skeleton，没有真实 IPC、服务安装、网络、剪贴板、键鼠或文件传输执行。
 - Windows `glide-gui.exe --smoke` 在 QEMU Win11 25H2 已通过；Windows GNU `glide-cli.exe` 在 Wine 中已通过文本和单文件 payload smoke。用户报告的 GUI 双击弹窗后消失仍需在普通桌面会话/portable zip 模式复测。
 - Windows installer 仍是规划中。

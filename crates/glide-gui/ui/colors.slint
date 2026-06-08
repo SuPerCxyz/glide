@@ -1,0 +1,71 @@
+export global AppColors {
+    in-out property <bool> dark-mode: false;
+
+    out property <color> primary: dark-mode ? #60a5fa : #2563eb;
+    out property <color> primary-hover: dark-mode ? #93c5fd : #1d4ed8;
+    out property <color> primary-active: dark-mode ? #bfdbfe : #1e40af;
+    out property <color> primary-subtle: dark-mode ? #1e3a5f : #eff6ff;
+
+    out property <color> page-bg: dark-mode ? #0f172a : #ffffff;
+    out property <color> page-surface: dark-mode ? #1e293b : #f8fafc;
+    out property <color> page-surface-alt: dark-mode ? #334155 : #f1f5f9;
+    out property <color> page-elevated: dark-mode ? #0f172a : #ffffff;
+
+    out property <color> text-primary: dark-mode ? #f1f5f9 : #1e293b;
+    out property <color> text-secondary: dark-mode ? #94a3b8 : #64748b;
+    out property <color> text-tertiary: dark-mode ? #64748b : #94a3b8;
+    out property <color> text-inverse: dark-mode ? #0f172a : #ffffff;
+
+    out property <color> border-base: dark-mode ? #334155 : #e2e8f0;
+    out property <color> border-subtle: dark-mode ? #1e293b : #f1f5f9;
+    out property <color> border-focus: dark-mode ? #60a5fa : #2563eb;
+
+    out property <color> sidebar-bg: dark-mode ? #0f172a : #f8fafc;
+    out property <color> sidebar-text: dark-mode ? #94a3b8 : #475569;
+    out property <color> sidebar-active: dark-mode ? #1e3a5f : #eff6ff;
+    out property <color> sidebar-active-text: dark-mode ? #93c5fd : #2563eb;
+
+    out property <color> input-bg: dark-mode ? #1e293b : #ffffff;
+    out property <color> input-border: dark-mode ? #475569 : #cbd5e1;
+    out property <color> input-placeholder: dark-mode ? #64748b : #94a3b8;
+
+    out property <color> button-primary-bg: dark-mode ? #2563eb : #2563eb;
+    out property <color> button-primary-hover: dark-mode ? #1d4ed8 : #1d4ed8;
+    out property <color> button-primary-text: dark-mode ? #ffffff : #ffffff;
+    out property <color> button-secondary-bg: dark-mode ? #334155 : #e2e8f0;
+    out property <color> button-secondary-hover: dark-mode ? #475569 : #cbd5e1;
+    out property <color> button-secondary-text: dark-mode ? #e2e8f0 : #334155;
+    out property <color> button-ghost-hover: dark-mode ? #1e293b : #f1f5f9;
+
+    out property <color> status-online: #16a34a;
+    out property <color> status-online-bg: dark-mode ? #052e16 : #dcfce7;
+    out property <color> status-offline: #dc2626;
+    out property <color> status-offline-bg: dark-mode ? #450a0a : #fee2e2;
+    out property <color> status-connecting: #2563eb;
+    out property <color> status-connecting-bg: dark-mode ? #1e3a5f : #dbeafe;
+    out property <color> status-error: #dc2626;
+    out property <color> status-error-bg: dark-mode ? #450a0a : #fee2e2;
+    out property <color> status-limited: #d97706;
+    out property <color> status-limited-bg: dark-mode ? #451a03 : #fef3c7;
+    out property <color> status-unpaired: #64748b;
+    out property <color> status-unpaired-bg: dark-mode ? #1e293b : #f1f5f9;
+
+    out property <color> alert-info-bg: dark-mode ? #1e3a5f : #eff6ff;
+    out property <color> alert-info-border: #2563eb;
+    out property <color> alert-info-text: dark-mode ? #93c5fd : #1e40af;
+    out property <color> alert-warning-bg: dark-mode ? #451a03 : #fffbeb;
+    out property <color> alert-warning-border: #d97706;
+    out property <color> alert-warning-text: dark-mode ? #fcd34d : #92400e;
+    out property <color> alert-success-bg: dark-mode ? #052e16 : #dcfce7;
+    out property <color> alert-success-border: #16a34a;
+    out property <color> alert-success-text: dark-mode ? #86efac : #166534;
+    out property <color> alert-danger-bg: dark-mode ? #450a0a : #fee2e2;
+    out property <color> alert-danger-border: #dc2626;
+    out property <color> alert-danger-text: dark-mode ? #fca5a5 : #991b1b;
+
+    out property <color> log-bg: #0f172a;
+    out property <color> log-text: #cbd5e1;
+    out property <color> log-info: #38bdf8;
+    out property <color> log-warn: #fbbf24;
+    out property <color> log-error: #f87171;
+}

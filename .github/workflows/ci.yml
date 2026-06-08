@@ -76,6 +76,7 @@ jobs:
           echo "Desktop GUI:" >> linux-artifacts/README.txt
           echo "  ./glide-gui           Launch GUI" >> linux-artifacts/README.txt
           echo "  ./glide-gui --smoke   Smoke test" >> linux-artifacts/README.txt
+          echo "  ./glide-gui --verbose Launch with verbose terminal logging" >> linux-artifacts/README.txt
           echo "" >> linux-artifacts/README.txt
           echo "CLI:" >> linux-artifacts/README.txt
           echo "  ./glide-cli copy <text>   Copy clipboard" >> linux-artifacts/README.txt
@@ -298,7 +299,8 @@ jobs:
           echo "" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
           echo "Usage:" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
           echo "  glide-gui.exe            Launch the GUI (no install needed)" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
-          echo "  glide-gui.exe --smoke    Run smoke test" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
+          echo "  glide-gui.exe --smoke    Run smoke test"
+          echo "  glide-gui.exe --verbose   Launch with verbose terminal logging" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
           echo "" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
           echo "CLI tools:" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append
           echo "  glide-cli.exe --help" | Out-File -FilePath windows-artifacts\gui\README.txt -Encoding UTF8 -Append

@@ -1,0 +1,196 @@
+import { Button, Switch, LineEdit } from "std-widgets.slint";
+import { AppColors } from "colors.slint";
+
+export struct DeviceRow {
+    name: string,
+    platform: string,
+    status: string,
+    device-id: string,
+    trusted: bool,
+    is-lan: bool,
+}
+
+component SidebarItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <int> index;
+    in property <int> current-index;
+    callback page-selected(int);
+    height: 40px;
+    border-radius: 8px;
+    background: index == current-index ? AppColors.sidebar-active : ta.has-hover ? AppColors.button-ghost-hover : transparent;
+    animate background { duration: 150ms; }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.page-selected(index); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        spacing: 10px;
+        alignment: center;
+        Text { text: icon; font-size: 16px; min-width: 20px; }
+        Text {
+            text: label;
+            font-size: 14px;
+            font-weight: index == current-index ? 600 : 400;
+            color: index == current-index ? AppColors.sidebar-active-text : AppColors.sidebar-text;
+            animate color { duration: 150ms; }
+        }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in property <int> current-index;
+    callback page-selected(int);
+    width: 200px;
+    background: AppColors.sidebar-bg;
+    animate background { duration: 200ms; }
+    VerticalLayout {
+        padding-top: 16px; padding-bottom: 16px;
+        padding-left: 12px; padding-right: 12px;
+        spacing: 0;
+        Rectangle {
+            height: 48px;
+            VerticalLayout {
+                padding-left: 10px;
+                alignment: center;
+                Text { text: "Glide"; font-size: 24px; font-weight: 800; color: AppColors.primary; }
+            }
+        }
+        Rectangle { height: 1px; background: AppColors.border-base; }
+        SidebarItem { icon: "◉";  label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "🖥";  label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "🔗";  label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "📋";  label: "日志";     index: 3; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "⚙";   label: "设置";     index: 4; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "💻";  label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "ℹ";   label: "关于";     index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+    }
+}
+
+export component StatusBadge inherits Rectangle {
+    in property <string> label;
+    in property <color> badge-color: AppColors.text-tertiary;
+    in property <color> badge-bg: AppColors.page-surface-alt;
+    in property <bool> pulse: false;
+    min-width: 72px;
+    height: 24px;
+    border-radius: 6px;
+    background: badge-bg;
+    animate background { duration: 200ms; }
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px;
+        spacing: 6px;
+        alignment: center;
+        Rectangle { width: 8px; height: 8px; border-radius: 4px; background: badge-color; animate background { duration: 200ms; } }
+        Text { text: label; font-size: 13px; font-weight: 500; color: badge-color; vertical-alignment: center; animate color { duration: 200ms; } }
+    }
+}
+
+export component TopBar inherits Rectangle {
+    in property <string> title;
+    in property <string> connection-status;
+    height: 56px;
+    background: AppColors.page-bg;
+    animate background { duration: 200ms; }
+    Rectangle { height: 1px; background: AppColors.border-base; y: 55px; width: 100%; }
+    HorizontalLayout {
+        padding-left: 24px; padding-right: 24px;
+        alignment: center;
+        Text { text: title; font-size: 22px; font-weight: 700; color: AppColors.text-primary; horizontal-stretch: 1; animate color { duration: 200ms; } }
+        StatusBadge {
+            label: connection-status;
+            badge-color: connection-status == "已连接" ? AppColors.status-online : connection-status == "未连接" ? AppColors.status-offline : connection-status == "连接中" ? AppColors.status-connecting : AppColors.status-unpaired;
+            badge-bg: connection-status == "已连接" ? AppColors.status-online-bg : connection-status == "未连接" ? AppColors.status-offline-bg : connection-status == "连接中" ? AppColors.status-connecting-bg : AppColors.status-unpaired-bg;
+        }
+    }
+}
+
+export component SectionTitle inherits HorizontalLayout {
+    in property <string> label;
+    spacing: 10px;
+    alignment: center;
+    Rectangle { width: 4px; height: 18px; border-radius: 2px; background: AppColors.primary; }
+    Text { text: label; font-size: 16px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; animate color { duration: 200ms; } }
+}
+
+export component AlertBox inherits Rectangle {
+    in property <string> alert-title;
+    in property <string> body;
+    in property <string> alert-type: "info";
+    border-radius: 8px;
+    background: alert-type == "info" ? AppColors.alert-info-bg : alert-type == "warning" ? AppColors.alert-warning-bg : alert-type == "success" ? AppColors.alert-success-bg : AppColors.alert-danger-bg;
+    animate background { duration: 200ms; }
+    HorizontalLayout {
+        Rectangle { width: 4px; border-radius: 2px; background: alert-type == "info" ? AppColors.alert-info-border : alert-type == "warning" ? AppColors.alert-warning-border : alert-type == "success" ? AppColors.alert-success-border : AppColors.alert-danger-border; }
+        HorizontalLayout {
+            padding: 14px;
+            VerticalLayout {
+                spacing: 4px;
+                Text { text: alert-title; font-size: 15px; font-weight: 600; color: alert-type == "info" ? AppColors.alert-info-text : alert-type == "warning" ? AppColors.alert-warning-text : alert-type == "success" ? AppColors.alert-success-text : AppColors.alert-danger-text; animate color { duration: 200ms; } }
+                Text { text: body; font-size: 14px; color: alert-type == "info" ? AppColors.alert-info-text : alert-type == "warning" ? AppColors.alert-warning-text : alert-type == "success" ? AppColors.alert-success-text : AppColors.alert-danger-text; wrap: word-wrap; animate color { duration: 200ms; } }
+            }
+        }
+    }
+}
+
+export component DeviceCard inherits Rectangle {
+    in property <string> device-name;
+    in property <string> device-platform;
+    in property <string> status-text;
+    in property <string> device-id;
+    in property <bool> is-online;
+    in property <bool> is-trusted;
+    in property <bool> is-lan;
+    callback trust-request(string);
+    height: 72px;
+    background: AppColors.page-surface;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: AppColors.border-base;
+    animate background { duration: 200ms; }
+    animate border-color { duration: 200ms; }
+    property <bool> hovered: touch-area.has-hover;
+    touch-area := TouchArea { mouse-cursor: pointer; }
+    HorizontalLayout {
+        padding-left: 16px; padding-right: 16px;
+        spacing: 14px;
+        alignment: center;
+        Rectangle { width: 36px; height: 36px; border-radius: 8px; background: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg; animate background { duration: 200ms; }
+            VerticalLayout { alignment: center; Text { text: "🖥"; font-size: 18px; } }
+        }
+        VerticalLayout {
+            spacing: 3px; horizontal-stretch: 1;
+            Text { text: device-name; font-size: 15px; font-weight: 600; color: AppColors.text-primary; animate color { duration: 200ms; } }
+            Text { text: device-platform; font-size: 13px; color: AppColors.text-secondary; animate color { duration: 200ms; } }
+        }
+        StatusBadge { label: is-trusted ? "已信任" : "未信任"; badge-color: is-trusted ? AppColors.status-online : AppColors.status-unpaired; badge-bg: is-trusted ? AppColors.status-online-bg : AppColors.status-unpaired-bg; }
+        StatusBadge { label: status-text; badge-color: is-online ? AppColors.status-online : AppColors.status-offline; badge-bg: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg; }
+        if is-lan && !is-trusted : Button { text: "信任"; clicked => { root.trust-request(device-id); } }
+    }
+}
+
+export component SettingsRow inherits Rectangle {
+    in property <string> label;
+    in property <string> detail;
+    in property <bool> checked;
+    callback toggled();
+    height: 56px;
+    background: AppColors.page-surface;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: AppColors.border-base;
+    animate background { duration: 200ms; }
+    animate border-color { duration: 200ms; }
+    HorizontalLayout {
+        padding-left: 16px; padding-right: 16px;
+        spacing: 14px;
+        alignment: center;
+        VerticalLayout {
+            spacing: 3px; horizontal-stretch: 1;
+            Text { text: label; font-size: 15px; font-weight: 600; color: AppColors.text-primary; animate color { duration: 200ms; } }
+            Text { text: detail; font-size: 13px; color: AppColors.text-secondary; animate color { duration: 200ms; } }
+        }
+        Switch { checked: root.checked; toggled => { root.toggled(); } }
+    }
+}

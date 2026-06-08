@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use glide_core::discovery::DiscoveredPeer;
-use glide_core::discovery::PeerState;
+use reqwest::blocking::Client as BlockingHttpClient;
 
 /// Result from a backend operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +29,7 @@ pub struct DeviceInfo {
     pub device_id: String,
     pub name: String,
     pub platform: String,
+    #[serde(default)]
     pub online: bool,
     pub trusted: bool,
 }
@@ -105,10 +105,14 @@ pub trait GuiBackend: Send + Sync {
 }
 
 /// Mock backend for first phase.
+/// Supports optional real HTTP connection to server for
+/// connect/disconnect/register/list operations.
 #[derive(Clone)]
 pub struct MockBackend {
     state: Arc<Mutex<MockState>>,
     pub lan_state: Option<Arc<glide_desktop::lan_sync::LanSyncState>>,
+    device_id: String,
+    http_client: Option<BlockingHttpClient>,
 }
 
 #[derive(Debug, Clone)]
@@ -122,6 +126,10 @@ struct MockState {
 
 impl MockBackend {
     pub fn new() -> Self {
+        Self::with_id("mock-device".to_string())
+    }
+
+    pub fn with_id(device_id: String) -> Self {
         let device_name = hostname::get()
             .map(|h| h.to_string_lossy().to_string())
             .unwrap_or_else(|_| "glide-device".to_string());
@@ -157,8 +165,15 @@ impl MockBackend {
                 logs: Vec::new(),
             })),
             lan_state: None,
+            device_id,
+            http_client: Some(
+                reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_secs(5))
+                    .build()
+                    .expect("创建 HTTP 客户端失败"),
+            ),
         };
-        backend.push_log("模拟后端已初始化；真实后台服务通信尚未接入");
+        backend.push_log("模拟后端已初始化（支持 HTTP 服务端连接）");
         backend
     }
 
@@ -217,19 +232,38 @@ impl Default for MockBackend {
 
 impl GuiBackend for MockBackend {
     fn get_service_status(&self) -> BackendResult<ServiceStatus> {
-        Self::success(self.with_state(|state| ServiceStatus {
-            running: state.running,
-            server_url: state.settings.server_url.clone(),
-            connection_status: if state.connected {
-                "已连接".to_string()
+        let online_count = self.with_state(|state| {
+            state.devices.iter().filter(|device| device.online).count()
+        });
+        let server_url = self.with_state(|state| state.settings.server_url.clone());
+        let clipboard_enabled = self.with_state(|state| state.settings.clipboard_enabled);
+        let input_enabled = self.with_state(|state| state.settings.input_enabled);
+        let running = self.with_state(|state| state.running);
+
+        // Check real server health when connected
+        let conn_status = {
+            let connected_flag = self.with_state(|s| s.connected);
+            if connected_flag {
+                // Health check when explicitly connected
+                let health_url = format!("{}/api/v1/health", server_url.trim_end_matches('/'));
+                match self.http_client.as_ref().unwrap().get(&health_url).timeout(std::time::Duration::from_secs(3)).send() {
+                    Ok(resp) if resp.status().is_success() => "已连接".to_string(),
+                    _ => "连接断开".to_string(),
+                }
             } else {
                 "未连接".to_string()
-            },
-            device_count: state.devices.iter().filter(|device| device.online).count(),
-            clipboard_enabled: state.settings.clipboard_enabled,
-            input_enabled: state.settings.input_enabled,
+            }
+        };
+
+        Self::success(ServiceStatus {
+            running,
+            server_url,
+            connection_status: conn_status,
+            device_count: online_count,
+            clipboard_enabled,
+            input_enabled,
             file_transfer_enabled: false,
-        }))
+        })
     }
 
     fn start_service(&self) -> BackendResult<()> {
@@ -249,6 +283,18 @@ impl GuiBackend for MockBackend {
 
     fn list_devices(&self) -> BackendResult<Vec<DeviceInfo>> {
         let mut devices = self.with_state(|state| state.devices.clone());
+        // Fetch devices from server when connected
+        let is_connected = self.with_state(|s| s.connected);
+        let server_url = self.with_state(|s| s.settings.server_url.clone());
+        if is_connected && !server_url.is_empty() {
+            let list_url = format!("{}/api/v1/devices", server_url.trim_end_matches('/'));
+            if let Ok(resp) = self.http_client.as_ref().unwrap().get(&list_url).send() {
+                if let Ok(server_devices) = resp.json::<Vec<DeviceInfo>>() {
+                    // Replace mock devices with server devices
+                    devices = server_devices;
+                }
+            }
+        }
         // Merge LAN-discovered peers
         if let Some(ref ls) = self.lan_state {
             let trusted = ls.trusted_peers.blocking_read();
@@ -306,12 +352,55 @@ impl GuiBackend for MockBackend {
         if url.trim().is_empty() {
             return Self::failure("服务端地址不能为空");
         }
-        self.with_state_mut(|state| {
-            state.connected = true;
-            state.settings.server_url = url.trim().to_string();
+        let server_url = url.trim().trim_end_matches('/').to_string();
+        let reg_url = format!("{}/api/v1/devices/register", server_url);
+
+        let device_name = self.with_state(|s| s.settings.device_name.clone());
+        let platform = std::env::consts::OS.to_string();
+
+        let body = serde_json::json!({
+            "device_id": self.device_id,
+            "name": device_name,
+            "platform": platform,
+            "trusted": true,
         });
-        self.log(&format!("已请求连接服务端：{}", mask_url(url)));
-        Self::success("已连接".to_string())
+
+        self.log(&format!("正在连接服务端：{}", mask_url(&server_url)));
+
+        match self.http_client.as_ref().unwrap().post(&reg_url).json(&body).send() {
+            Ok(resp) if resp.status().is_success() => {
+                self.with_state_mut(|state| {
+                    state.connected = true;
+                    state.settings.server_url = server_url.clone();
+                });
+                self.log("成功注册到服务端");
+                Self::success("已连接".to_string())
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let text = resp.text().unwrap_or_default();
+                let err = format!("服务端注册失败 (HTTP {}): {}", status, text);
+                self.log(&err);
+                // Fall back to mock connection for offline testing
+                self.with_state_mut(|state| {
+                    state.connected = true;
+                    state.settings.server_url = server_url;
+                });
+                self.log("已回退到模拟连接模式");
+                Self::success("已连接（离线模式）".to_string())
+            }
+            Err(e) => {
+                let err = format!("无法连接服务端: {}", e);
+                self.log(&err);
+                // Fall back to mock connection
+                self.with_state_mut(|state| {
+                    state.connected = true;
+                    state.settings.server_url = server_url;
+                });
+                self.log("已回退到模拟连接模式（服务端不可达）");
+                Self::success("已连接（离线模式）".to_string())
+            }
+        }
     }
 
     fn disconnect_server(&self) -> BackendResult<String> {
@@ -386,7 +475,7 @@ impl GuiBackend for MockBackend {
             trusted.insert(device_id.to_string());
             self.log(&format!("已信任 LAN 设备：{}", device_id));
             // Send trust request to the peer
-            let id = device_id.to_string();
+            let _id = device_id.to_string();
             tokio::spawn(async move {
                 // Trust is recorded locally; the peer will send their own request
             });
@@ -426,7 +515,7 @@ impl GuiBackend for MockBackend {
     fn get_platform_capabilities(&self) -> BackendResult<PlatformCapabilities> {
         let session_type =
             std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".to_string());
-        let mut notes = vec!["当前界面使用模拟后端；真实后台服务通信仍在接入中".to_string()];
+        let mut notes = Vec::new();
         if session_type == "wayland" {
             notes.push("Wayland 可能阻止全局键鼠控制".to_string());
         }
@@ -462,16 +551,21 @@ mod tests {
 
     #[test]
     fn mock_backend_updates_connection_status() {
+        // Use a port that is very unlikely to have a real server on it
+        // so the health check always fails in tests
         let backend = MockBackend::new();
 
         let initial = backend.get_service_status().data.unwrap();
         assert_eq!("未连接", initial.connection_status);
 
-        let result = backend.connect_server("http://127.0.0.1:8080");
+        let result = backend.connect_server("http://127.0.0.1:18099");
         assert!(result.success);
 
-        let connected = backend.get_service_status().data.unwrap();
-        assert_eq!("已连接", connected.connection_status);
+        // connect_server sets connected=true but falls back to offline mode
+        // when the server is unreachable; status shows "连接断开"
+        let status = backend.get_service_status().data.unwrap();
+        assert_eq!("连接断开", status.connection_status);
+        assert!(status.running);
     }
 
     #[test]

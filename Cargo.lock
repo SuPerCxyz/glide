@@ -2055,6 +2055,7 @@ dependencies = [
  "glide-core",
  "glide-desktop",
  "hostname",
+ "reqwest",
  "serde",
  "serde_json",
  "slint",
