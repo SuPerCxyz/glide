@@ -18,9 +18,7 @@ license = "MIT"
 # Internal crates
 glide-core = { path = "crates/glide-core" }
 glide-server = { path = "crates/glide-server" }
-glide-cli = { path = "crates/glide-cli" }
 glide-desktop = { path = "crates/glide-desktop" }
-glide-daemon = { path = "crates/glide-daemon" }
 
 # Common external dependencies
 anyhow = "1.0"
