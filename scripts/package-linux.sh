@@ -18,11 +18,19 @@ cli_bin="$target_dir/glide-cli"
 server_bin="$target_dir/glide-server"
 daemon_bin="$target_dir/glide-daemon"
 icon_src="$root_dir/crates/glide-gui/assets/128x128.png"
+font_dir="$root_dir/crates/glide-gui/fonts"
 
 for path in "$gui_bin" "$cli_bin" "$server_bin" "$daemon_bin" "$icon_src"; do
     if [[ ! -f "$path" ]]; then
         echo "Missing required file: $path" >&2
         exit 1
+    fi
+done
+
+for font in "$font_dir"/*.ttf; do
+    if [[ ! -f "$font" ]]; then
+        echo "Warning: No font files found in $font_dir" >&2
+        break
     fi
 done
 
@@ -44,7 +52,8 @@ mkdir -p \
     "$deb_root/DEBIAN" \
     "$deb_root/usr/bin" \
     "$deb_root/usr/share/applications" \
-    "$deb_root/usr/share/icons/hicolor/128x128/apps"
+    "$deb_root/usr/share/icons/hicolor/128x128/apps" \
+    "$deb_root/usr/share/fonts/truetype/glide"
 
 install -m 0755 "$gui_bin" "$deb_root/usr/bin/glide-gui"
 install -m 0755 "$cli_bin" "$deb_root/usr/bin/glide-cli"
@@ -52,6 +61,9 @@ install -m 0755 "$server_bin" "$deb_root/usr/bin/glide-server"
 install -m 0755 "$daemon_bin" "$deb_root/usr/bin/glide-daemon"
 install -m 0644 "$icon_src" "$deb_root/usr/share/icons/hicolor/128x128/apps/glide.png"
 printf "%s" "$desktop_file_content" > "$deb_root/usr/share/applications/glide.desktop"
+for font in "$font_dir"/*.ttf; do
+    [[ -f "$font" ]] && install -m 0644 "$font" "$deb_root/usr/share/fonts/truetype/glide/"
+done
 
 installed_size="$(du -sk "$deb_root/usr" | awk '{print $1}')"
 cat > "$deb_root/DEBIAN/control" <<EOF
@@ -85,7 +97,8 @@ mkdir -p \
     "$rpm_top/SRPMS" \
     "$rpm_stage/usr/bin" \
     "$rpm_stage/usr/share/applications" \
-    "$rpm_stage/usr/share/icons/hicolor/128x128/apps"
+    "$rpm_stage/usr/share/icons/hicolor/128x128/apps" \
+    "$rpm_stage/usr/share/fonts/truetype/glide"
 
 install -m 0755 "$gui_bin" "$rpm_stage/usr/bin/glide-gui"
 install -m 0755 "$cli_bin" "$rpm_stage/usr/bin/glide-cli"
@@ -93,6 +106,9 @@ install -m 0755 "$server_bin" "$rpm_stage/usr/bin/glide-server"
 install -m 0755 "$daemon_bin" "$rpm_stage/usr/bin/glide-daemon"
 install -m 0644 "$icon_src" "$rpm_stage/usr/share/icons/hicolor/128x128/apps/glide.png"
 printf "%s" "$desktop_file_content" > "$rpm_stage/usr/share/applications/glide.desktop"
+for font in "$font_dir"/*.ttf; do
+    [[ -f "$font" ]] && install -m 0644 "$font" "$rpm_stage/usr/share/fonts/truetype/glide/"
+done
 
 cat > "$rpm_top/SPECS/glide.spec" <<EOF
 Name: glide
@@ -122,6 +138,7 @@ cp -a $rpm_stage/* %{buildroot}/
 /usr/bin/glide-server
 /usr/share/applications/glide.desktop
 /usr/share/icons/hicolor/128x128/apps/glide.png
+/usr/share/fonts/truetype/glide/*.ttf
 
 %changelog
 * Sat Jun 06 2026 Glide Maintainers <noreply@example.com> - $VERSION-1
@@ -140,13 +157,17 @@ appdir="$work_dir/Glide.AppDir"
 mkdir -p \
     "$appdir/usr/bin" \
     "$appdir/usr/share/applications" \
-    "$appdir/usr/share/icons/hicolor/128x128/apps"
+    "$appdir/usr/share/icons/hicolor/128x128/apps" \
+    "$appdir/usr/share/fonts/truetype/glide"
 
 install -m 0755 "$gui_bin" "$appdir/usr/bin/glide-gui"
 install -m 0755 "$cli_bin" "$appdir/usr/bin/glide-cli"
 install -m 0755 "$server_bin" "$appdir/usr/bin/glide-server"
 install -m 0755 "$daemon_bin" "$appdir/usr/bin/glide-daemon"
 install -m 0644 "$icon_src" "$appdir/usr/share/icons/hicolor/128x128/apps/glide.png"
+for font in "$font_dir"/*.ttf; do
+    [[ -f "$font" ]] && install -m 0644 "$font" "$appdir/usr/share/fonts/truetype/glide/"
+done
 printf "%s" "$desktop_file_content" > "$appdir/usr/share/applications/glide.desktop"
 cp "$appdir/usr/share/applications/glide.desktop" "$appdir/glide.desktop"
 cp "$icon_src" "$appdir/glide.png"
@@ -155,6 +176,7 @@ cat > "$appdir/AppRun" <<'EOF'
 #!/usr/bin/env sh
 set -eu
 HERE="$(dirname "$(readlink -f "$0")")"
+export FONTCONFIG_PATH="$HERE/usr/share/fonts"
 exec "$HERE/usr/bin/glide-gui" "$@"
 EOF
 chmod +x "$appdir/AppRun"
