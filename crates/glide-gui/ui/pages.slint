@@ -220,10 +220,12 @@ export component SettingsPage inherits VerticalLayout {
     in property <bool> dark-mode;
     in property <string> auth-username;
     in property <string> auth-password;
+    in property <bool> enable-tls;
     callback save-server(string);
     callback save-name(string);
     callback toggle-theme();
     callback save-auth(string, string);
+    callback toggle-tls();
     padding: 24px;
     spacing: 20px;
 
@@ -370,6 +372,42 @@ export component SettingsPage inherits VerticalLayout {
                     text: "保存";
                     clicked => { root.save-name(name-input.text); }
                 }
+            }
+        }
+    }
+
+    SectionTitle { label: "安全"; }
+    Rectangle {
+        background: AppColors.page-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppColors.border-base;
+        animate background { duration: 200ms; }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: center;
+                Text {
+                    text: "加密传输";
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: AppColors.text-primary;
+                    animate color { duration: 200ms; }
+                }
+                Button {
+                    text: enable-tls ? "已启用" : "未加密";
+                    clicked => { root.toggle-tls(); }
+                }
+            }
+            Text {
+                text: "启用后所有数据传输将使用 TLS 加密，防止中间人攻击。";
+                font-size: 13px;
+                color: AppColors.text-tertiary;
+                wrap: word-wrap;
+                animate color { duration: 200ms; }
             }
         }
     }

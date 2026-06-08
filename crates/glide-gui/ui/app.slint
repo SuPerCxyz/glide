@@ -34,6 +34,7 @@ export component MainWindow inherits Window {
     in-out property <string> monitor-status: "未检测";
     in-out property <int> total-devices: 0;
     in-out property <int> online-devices: 0;
+    in-out property <bool> enable-tls: false;
 
     // === Existing callbacks (required by main.rs) ===
     callback page-changed(int);
@@ -44,6 +45,7 @@ export component MainWindow inherits Window {
     callback trust-device(string);
     callback untrust-device(string);
     callback remove-device(string);
+    callback toggle-tls();
     callback save-server(string);
     callback save-name(string);
     callback toggle-theme();
@@ -98,6 +100,7 @@ export component MainWindow inherits Window {
                 dark-mode: dark-mode;
                 auth-username: auth-username;
                 auth-password: auth-password;
+                enable-tls: enable-tls;
                 save-server(url) => { root.save-server(url); }
                 save-name(name) => { root.save-name(name); }
                 toggle-theme => {
@@ -105,6 +108,7 @@ export component MainWindow inherits Window {
                     AppColors.dark-mode = root.dark-mode;
                 }
                 save-auth(user, pass) => { root.save-auth(user, pass); }
+                toggle-tls => { root.toggle-tls(); }
             }
             if current-page == 5 : PlatformPage { platform-summary: platform-summary; }
             if current-page == 6 : MonitorManagerPage {

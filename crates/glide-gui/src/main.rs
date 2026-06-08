@@ -469,7 +469,18 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
         });
     }
 
-
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
+        window.on_toggle_tls(move || {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            let next = !win.get_enable_tls();
+            win.set_enable_tls(next);
+            info!("TLS encryption set to: {}", next);
+        });
+    }
 
     Ok(window)
 }
