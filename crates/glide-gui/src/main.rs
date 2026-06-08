@@ -254,9 +254,8 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
     if settings.device_name != "glide-smoke" {
         return Err("interaction smoke failed: save-name callback did not update settings".into());
     }
-    if !logs.iter().any(|line| line.contains("已请求配对")) {
-        return Err("interaction smoke failed: pair callback did not write log".into());
-    }
+    // pair_device removed - trust/device management is now LAN-based
+    // and handled via the GUI trust buttons
 
     write_diagnostic(
         "interaction-smoke",
