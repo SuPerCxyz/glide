@@ -367,8 +367,49 @@ impl GuiBackend for MockBackend {
             return Self::failure("服务端地址不能为空");
         }
         let server_url = url.trim().trim_end_matches('/').to_string();
-        let reg_url = format!("{}/api/v1/devices/register", server_url);
 
+        // 先尝试登录（如果设置了用户名和密码）
+        let (username, password) = self.with_state(|s| {
+            (s.settings.auth_username.clone(), s.settings.auth_password.clone())
+        });
+
+        let mut auth_token: Option<String> = None;
+
+        if !username.is_empty() && !password.is_empty() {
+            let login_url = format!("{}/api/v1/auth/login", server_url);
+            let login_body = serde_json::json!({
+                "username": username,
+                "password": password,
+            });
+
+            self.log(&format!("正在登录服务端：{} (用户: {})", mask_url(&server_url), username));
+
+            match self.http_client.as_ref().unwrap().post(&login_url).json(&login_body).send() {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<serde_json::Value>() {
+                        if let Some(token) = data["token"].as_str() {
+                            auth_token = Some(token.to_string());
+                            self.log("服务端登录成功");
+                        }
+                    }
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    let text = resp.text().unwrap_or_default();
+                    let err = format!("登录失败 (HTTP {}): {}", status, text);
+                    self.log(&err);
+                    return Self::failure(format!("登录失败: {}", text));
+                }
+                Err(e) => {
+                    let err = format!("登录请求失败: {}", e);
+                    self.log(&err);
+                    return Self::failure(format!("无法连接服务端: {}", e));
+                }
+            }
+        }
+
+        // 注册设备
+        let reg_url = format!("{}/api/v1/devices/register", server_url);
         let device_name = self.with_state(|s| s.settings.device_name.clone());
         let platform = std::env::consts::OS.to_string();
 
@@ -379,9 +420,15 @@ impl GuiBackend for MockBackend {
             "trusted": true,
         });
 
-        self.log(&format!("正在连接服务端：{}", mask_url(&server_url)));
+        self.log(&format!("正在注册到服务端：{}", mask_url(&server_url)));
 
-        match self.http_client.as_ref().unwrap().post(&reg_url).json(&body).send() {
+        // 构建请求，如果有 token 则添加 Authorization header
+        let mut request = self.http_client.as_ref().unwrap().post(&reg_url).json(&body);
+        if let Some(ref token) = auth_token {
+            request = request.header("Authorization", format!("Bearer {}", token));
+        }
+
+        match request.send() {
             Ok(resp) if resp.status().is_success() => {
                 self.with_state_mut(|state| {
                     state.connected = true;

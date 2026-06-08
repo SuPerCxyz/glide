@@ -425,6 +425,21 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
         });
     }
 
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
+        window.on_save_auth(move |username, password| {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            let result = backend.save_auth(&username, &password);
+            if !result.success {
+                warn!("failed to save auth: {:?}", result.error);
+            }
+            refresh_window(&win, &backend);
+        });
+    }
+
 
 
     Ok(window)
@@ -442,6 +457,8 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
 
     if let Some(settings) = backend.get_settings().data {
         window.set_device_name(SharedString::from(settings.device_name));
+        window.set_auth_username(SharedString::from(settings.auth_username));
+        window.set_auth_password(SharedString::from(settings.auth_password));
     }
 
     if let Some(devices) = backend.list_devices().data {

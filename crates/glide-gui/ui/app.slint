@@ -27,6 +27,8 @@ export component MainWindow inherits Window {
     in-out property <string> platform-summary: "";
     in-out property <[DeviceRow]> devices: [];
     in-out property <bool> dark-mode: false;
+    in-out property <string> auth-username: "";
+    in-out property <string> auth-password: "";
 
     // === Existing callbacks (required by main.rs) ===
     callback page-changed(int);
@@ -38,6 +40,7 @@ export component MainWindow inherits Window {
     callback save-server(string);
     callback save-name(string);
     callback toggle-theme();
+    callback save-auth(string, string);
 
     HorizontalLayout {
         Sidebar {
@@ -78,12 +81,15 @@ export component MainWindow inherits Window {
                 server-url: server-url;
                 device-name: device-name;
                 dark-mode: dark-mode;
+                auth-username: auth-username;
+                auth-password: auth-password;
                 save-server(url) => { root.save-server(url); }
                 save-name(name) => { root.save-name(name); }
                 toggle-theme => {
                     root.dark-mode = !root.dark-mode;
                     AppColors.dark-mode = root.dark-mode;
                 }
+                save-auth(user, pass) => { root.save-auth(user, pass); }
             }
             if current-page == 5 : PlatformPage { platform-summary: platform-summary; }
             if current-page == 6 : AboutPage {}
