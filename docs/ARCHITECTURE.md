@@ -31,7 +31,7 @@
 当前真实状态：
 
 - `glide-server`、`glide-cli`、`glide-core` 有实际可运行链路。
-- `glide-gui` 是 Slint GUI 第一阶段，使用 mock backend。
+- `glide-gui` 是 Slint GUI 第一阶段，使用模拟后端。
 - `glide-daemon` 是 skeleton。
 - `glide-desktop` 是库级平台能力集合，尚未由 daemon 统一驱动。
 
@@ -143,7 +143,7 @@ GUI 请求配对
 
 - CLI 可以指定 server URL/token。
 - server 默认监听 `0.0.0.0:8080`。
-- GUI connect 只改变 mock backend 状态。
+- GUI connect 只改变模拟后端状态。
 
 规划流：
 
@@ -185,7 +185,16 @@ platform clipboard watcher
 
 - `glide-core::input_event` 定义键盘/鼠标事件。
 - `glide-desktop::input_adapter` 实现输入 backend trait、边缘检测、速率限制、紧急释放。
-- `glide-desktop::lan_input` 有 LAN input skeleton。
+- `glide-desktop::linux_backends::linux_input` 提供 X11/xdotool 输入注入后端。
+- `glide-desktop::windows_input` 提供 Windows SendInput 输入注入后端。
+- `glide-desktop::platform_input` 根据目标平台选择 Linux/Windows 输入后端。
+- `glide-desktop::lan_input` 有 LAN input skeleton，目标端 consumer 已使用平台选择器，不再写死 Linux 后端。
+
+当前缺口：
+
+- GUI 的键鼠开关仍是模拟状态。
+- daemon 尚未建立真实 input session，也没有捕获本机输入事件、处理设备布局或执行断线释放。
+- Windows SendInput 后端已通过交叉构建，但真实 Win11 注入还需要 VM/物理机安全测试。
 
 规划流：
 
@@ -219,7 +228,7 @@ platform clipboard watcher
 
 - server 使用 tracing 输出启动、监听、清理、WebSocket、解析失败等日志。
 - daemon skeleton 有内存日志。
-- GUI 显示 mock backend 日志，并提供 `--smoke` 诊断入口。
+- GUI 显示模拟后端日志，并提供 `--smoke` 诊断入口。
 - GUI 启动和 panic hook 会写入本地诊断日志，Windows 默认路径为 `%APPDATA%\Glide\logs\glide-gui.log`。
 
 规划中：
@@ -267,7 +276,7 @@ platform clipboard watcher
 
 1. 将 `glide-daemon` 从 skeleton 扩展为真实后台服务。
 2. 把 `glide-desktop` 能力接入 daemon。
-3. 实现本地 IPC，并让 `glide-gui` 替换 mock backend。
+3. 实现本地 IPC，并让 `glide-gui` 替换模拟后端。
 4. 补齐 CLI 文件 payload 上传和下载完整链路。
 5. 加入真实配对流程和设备信任模型。
 6. 完善 Windows portable/installer 验证。

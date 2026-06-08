@@ -169,13 +169,13 @@ component Sidebar inherits Rectangle {
         }
 
         for item[i] in [
-            { label: "Status", index: 0 },
-            { label: "Devices", index: 1 },
-            { label: "Pairing", index: 2 },
-            { label: "Logs", index: 3 },
-            { label: "Settings", index: 4 },
-            { label: "Platform", index: 5 },
-            { label: "About", index: 6 },
+            { label: "状态", index: 0 },
+            { label: "设备", index: 1 },
+            { label: "配对", index: 2 },
+            { label: "日志", index: 3 },
+            { label: "设置", index: 4 },
+            { label: "平台能力", index: 5 },
+            { label: "关于", index: 6 },
         ]: Rectangle {
             height: 38px;
             border-radius: 5px;
@@ -237,7 +237,7 @@ component StatusPage inherits VerticalLayout {
     padding: 22px;
     spacing: 14px;
 
-    SectionTitle { label: "Service" ; }
+    SectionTitle { label: "后台服务" ; }
 
     Rectangle {
         height: 112px;
@@ -283,7 +283,7 @@ component StatusPage inherits VerticalLayout {
         }
     }
 
-    SectionTitle { label: "Switches"; }
+    SectionTitle { label: "同步开关"; }
     SettingsRow {
         label: "剪贴板同步";
         detail: "同步文本、后续扩展图片和文件";
@@ -292,7 +292,7 @@ component StatusPage inherits VerticalLayout {
     }
     SettingsRow {
         label: "键鼠共享";
-        detail: "默认关闭，后续由 daemon 和平台层执行";
+        detail: "默认关闭，由后台服务和平台层执行";
         checked: input-enabled;
         toggled => { root.toggle-input(); }
     }
@@ -303,7 +303,7 @@ component DevicesPage inherits VerticalLayout {
     padding: 22px;
     spacing: 12px;
 
-    SectionTitle { label: "Trusted devices"; }
+    SectionTitle { label: "受信任设备"; }
 
     if devices.length == 0 : Rectangle {
         height: 120px;
@@ -338,7 +338,7 @@ component PairingPage inherits VerticalLayout {
     padding: 22px;
     spacing: 14px;
 
-    SectionTitle { label: "Pair a device"; }
+    SectionTitle { label: "配对设备"; }
     Rectangle {
         height: 150px;
         background: AppColors.surface;
@@ -350,13 +350,13 @@ component PairingPage inherits VerticalLayout {
             padding: 18px;
             spacing: 12px;
             Text {
-                text: "配对流程将在 daemon IPC 接入后提供真实配对码、设备指纹和授权确认。";
+                text: "配对流程将在后台服务通信接入后提供真实配对码、设备指纹和授权确认。";
                 font-size: 13px;
                 color: AppColors.text-secondary;
                 wrap: word-wrap;
             }
             Button {
-                text: "生成 mock 配对码";
+                text: "生成模拟配对码";
                 clicked => { root.pair-device(); }
             }
         }
@@ -368,7 +368,7 @@ component LogPage inherits VerticalLayout {
     padding: 22px;
     spacing: 12px;
 
-    SectionTitle { label: "Logs"; }
+    SectionTitle { label: "运行日志"; }
     Rectangle {
         background: #0b1020;
         border-radius: 6px;
@@ -399,7 +399,7 @@ component SettingsPage inherits VerticalLayout {
     padding: 22px;
     spacing: 14px;
 
-    SectionTitle { label: "Server"; }
+    SectionTitle { label: "服务端"; }
     Rectangle {
         height: 58px;
         background: AppColors.surface;
@@ -429,7 +429,7 @@ component SettingsPage inherits VerticalLayout {
         }
     }
 
-    SectionTitle { label: "Device"; }
+    SectionTitle { label: "本机设备"; }
     Rectangle {
         height: 58px;
         background: AppColors.surface;
@@ -464,7 +464,7 @@ component PlatformPage inherits VerticalLayout {
     padding: 22px;
     spacing: 14px;
 
-    SectionTitle { label: "Platform capabilities"; }
+    SectionTitle { label: "平台能力"; }
     PermissionNotice {
         title: "能力提示";
         body: "Linux 第一阶段优先 X11。Wayland 下全局键鼠控制受合成器限制，GUI 不会承诺完整控制能力。";
@@ -499,23 +499,23 @@ component AboutPage inherits VerticalLayout {
         color: AppColors.primary;
     }
     Text {
-        text: "LAN-first clipboard and input sharing";
+        text: "局域网优先的剪贴板同步与键鼠共享";
         font-size: 14px;
         color: AppColors.text-secondary;
     }
     Rectangle { height: 1px; background: AppColors.border; }
     Text {
-        text: "GUI runtime: Rust + Slint";
+        text: "界面运行时：Rust + Slint";
         font-size: 13px;
         color: AppColors.text-primary;
     }
     Text {
-        text: "No Tauri, no WebView2, no embedded browser runtime.";
+        text: "不依赖 Tauri、WebView2 或内嵌浏览器运行时。";
         font-size: 13px;
         color: AppColors.text-primary;
     }
     Text {
-        text: "Repository: https://github.com/SuPerCxyz/glide";
+        text: "仓库地址：https://github.com/SuPerCxyz/glide";
         font-size: 13px;
         color: AppColors.primary;
     }

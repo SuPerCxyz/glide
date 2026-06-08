@@ -1,4 +1,4 @@
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info, warn};
@@ -6,8 +6,8 @@ use tracing::{error, info, warn};
 use glide_core::input_event::InputEvent;
 use glide_core::policy::Policy;
 
-use crate::input_adapter::{EdgeCrossingDetector, InputBackend, InputSharing};
-use crate::linux_backends::linux_input::LinuxInputBackend;
+use crate::input_adapter::{EdgeCrossingDetector, InputSharing};
+use crate::platform_input::create_platform_input_backend;
 
 /// LAN input sharing engine - handles cross-node keyboard/mouse sharing.
 ///
@@ -64,7 +64,6 @@ impl LanInputEngine {
         let incoming_tx = self.incoming_tx.clone();
         let running = self.running.clone();
         let device_id = self.device_id.clone();
-
         tokio::spawn(async move {
             use tokio::net::TcpListener;
 
@@ -120,7 +119,6 @@ impl LanInputEngine {
 
         // Start input event consumer.
         let incoming_rx = self.incoming_rx.clone();
-        let device_id = self.device_id.clone();
 
         tokio::spawn(async move {
             let mut rx = {
@@ -129,12 +127,15 @@ impl LanInputEngine {
             };
 
             if let Some(ref mut rx) = rx {
-                // Create Linux input backend.
-                let backend = Arc::new(LinuxInputBackend::new());
-                let input_sharing = Arc::new(InputSharing::new(
-                    Arc::new(Policy::default()),
-                    backend as Arc<dyn InputBackend>,
-                ));
+                let backend = match create_platform_input_backend() {
+                    Ok(backend) => backend,
+                    Err(e) => {
+                        warn!("Input backend unavailable: {}", e);
+                        return;
+                    }
+                };
+                let input_sharing =
+                    Arc::new(InputSharing::new(Arc::new(Policy::default()), backend));
 
                 while let Some(event) = rx.recv().await {
                     if let Err(e) = input_sharing.process_event(event).await {

@@ -10,5 +10,8 @@ pub mod input_adapter;
 pub mod lan_input;
 pub mod lan_sync;
 pub mod linux_backends;
+pub mod platform_input;
 pub mod policy_ui;
 pub mod windows_clipboard;
+#[cfg(target_os = "windows")]
+pub mod windows_input;

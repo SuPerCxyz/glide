@@ -136,14 +136,14 @@ impl MockBackend {
                 devices: vec![
                     DeviceInfo {
                         device_id: "linux-cli".to_string(),
-                        name: "Linux CLI".to_string(),
+                        name: "Linux 命令行设备".to_string(),
                         platform: "Linux X11".to_string(),
                         online: true,
                         trusted: true,
                     },
                     DeviceInfo {
                         device_id: "windows-vm".to_string(),
-                        name: "Windows VM".to_string(),
+                        name: "Windows 虚拟机".to_string(),
                         platform: "Windows 11".to_string(),
                         online: false,
                         trusted: true,
@@ -152,17 +152,17 @@ impl MockBackend {
                 logs: Vec::new(),
             })),
         };
-        backend.push_log("Mock backend initialized; daemon IPC is not attached yet");
+        backend.push_log("模拟后端已初始化；真实后台服务通信尚未接入");
         backend
     }
 
     fn with_state<T>(&self, f: impl FnOnce(&MockState) -> T) -> T {
-        let state = self.state.lock().expect("mock backend state poisoned");
+        let state = self.state.lock().expect("模拟后端状态锁已损坏");
         f(&state)
     }
 
     fn with_state_mut<T>(&self, f: impl FnOnce(&mut MockState) -> T) -> T {
-        let mut state = self.state.lock().expect("mock backend state poisoned");
+        let mut state = self.state.lock().expect("模拟后端状态锁已损坏");
         f(&mut state)
     }
 
@@ -228,7 +228,7 @@ impl GuiBackend for MockBackend {
 
     fn start_service(&self) -> BackendResult<()> {
         self.with_state_mut(|state| state.running = true);
-        self.log("Service start requested from GUI");
+        self.log("已从界面请求启动后台服务");
         Self::success(())
     }
 
@@ -237,7 +237,7 @@ impl GuiBackend for MockBackend {
             state.running = false;
             state.connected = false;
         });
-        self.log("Service stop requested from GUI");
+        self.log("已从界面请求停止后台服务");
         Self::success(())
     }
 
@@ -253,12 +253,12 @@ impl GuiBackend for MockBackend {
                 .find(|device| device.device_id == device_id)
                 .cloned()
                 .map(Self::success)
-                .unwrap_or_else(|| Self::failure(format!("Device not found: {device_id}")))
+                .unwrap_or_else(|| Self::failure(format!("未找到设备：{device_id}")))
         })
     }
 
     fn pair_device(&self) -> BackendResult<String> {
-        self.log("Pairing requested; daemon IPC will provide the real pairing flow");
+        self.log("已请求配对；真实配对流程将由后台服务通信提供");
         Self::success("PAIR-000000".to_string())
     }
 
@@ -270,14 +270,14 @@ impl GuiBackend for MockBackend {
                 .any(|device| device.device_id == device_id && device.trusted)
         });
         if !exists {
-            return Self::failure(format!("Device is not paired or trusted: {device_id}"));
+            return Self::failure(format!("设备尚未配对或不受信任：{device_id}"));
         }
-        self.log(&format!("Device connect requested: {device_id}"));
+        self.log(&format!("已请求连接设备：{device_id}"));
         Self::success("设备连接请求已发送".to_string())
     }
 
     fn disconnect_device(&self, device_id: &str) -> BackendResult<String> {
-        self.log(&format!("Device disconnect requested: {device_id}"));
+        self.log(&format!("已请求断开设备：{device_id}"));
         Self::success("设备断开请求已发送".to_string())
     }
 
@@ -289,29 +289,29 @@ impl GuiBackend for MockBackend {
             state.connected = true;
             state.settings.server_url = url.trim().to_string();
         });
-        self.log(&format!("Server connect requested: {}", mask_url(url)));
+        self.log(&format!("已请求连接服务端：{}", mask_url(url)));
         Self::success("已连接".to_string())
     }
 
     fn disconnect_server(&self) -> BackendResult<String> {
         self.with_state_mut(|state| state.connected = false);
-        self.log("Server disconnected from GUI");
+        self.log("已从界面断开服务端连接");
         Self::success("未连接".to_string())
     }
 
     fn get_clipboard_status(&self) -> BackendResult<ClipboardStatus> {
         Self::success(self.with_state(|state| ClipboardStatus {
             enabled: state.settings.clipboard_enabled,
-            last_sync: "mock: waiting for daemon IPC".to_string(),
+            last_sync: "模拟状态：等待后台服务通信接入".to_string(),
         }))
     }
 
     fn set_clipboard_enabled(&self, enabled: bool) -> BackendResult<()> {
         self.with_state_mut(|state| state.settings.clipboard_enabled = enabled);
         self.log(if enabled {
-            "Clipboard sync enabled"
+            "剪贴板同步已开启"
         } else {
-            "Clipboard sync disabled"
+            "剪贴板同步已关闭"
         });
         Self::success(())
     }
@@ -333,9 +333,9 @@ impl GuiBackend for MockBackend {
     fn set_input_enabled(&self, enabled: bool) -> BackendResult<()> {
         self.with_state_mut(|state| state.settings.input_enabled = enabled);
         self.log(if enabled {
-            "Input sharing enabled"
+            "键鼠共享已开启"
         } else {
-            "Input sharing disabled"
+            "键鼠共享已关闭"
         });
         Self::success(())
     }
@@ -349,10 +349,10 @@ impl GuiBackend for MockBackend {
 
     fn send_file(&self, device_id: &str, path: &Path) -> BackendResult<()> {
         self.log(&format!(
-            "File transfer requested for {device_id}: {}",
+            "已请求向 {device_id} 发送文件：{}",
             path.display()
         ));
-        Self::failure("文件传输仍等待 daemon IPC 接入")
+        Self::failure("文件传输仍等待后台服务通信接入")
     }
 
     fn get_settings(&self) -> BackendResult<AppSettings> {
@@ -361,7 +361,7 @@ impl GuiBackend for MockBackend {
 
     fn update_settings(&self, settings: &AppSettings) -> BackendResult<()> {
         self.with_state_mut(|state| state.settings = settings.clone());
-        self.log("Settings updated from GUI");
+        self.log("设置已从界面更新");
         Self::success(())
     }
 
@@ -373,27 +373,29 @@ impl GuiBackend for MockBackend {
     }
 
     fn export_diagnostics(&self) -> BackendResult<String> {
-        Self::success("mock-diagnostics.json".to_string())
+        Self::success("模拟诊断.json".to_string())
     }
 
     fn get_platform_capabilities(&self) -> BackendResult<PlatformCapabilities> {
         let session_type =
             std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".to_string());
-        let mut notes =
-            vec!["GUI is currently backed by MockBackend; daemon IPC is pending".to_string()];
+        let mut notes = vec!["当前界面使用模拟后端；真实后台服务通信仍在接入中".to_string()];
         if session_type == "wayland" {
-            notes.push("Wayland may block global keyboard and mouse control".to_string());
+            notes.push("Wayland 可能阻止全局键鼠控制".to_string());
         }
+
+        let input = match (std::env::consts::OS, session_type.as_str()) {
+            ("windows", _) => "Windows SendInput 后端已具备，等待后台服务通信接入",
+            ("linux", "wayland") => "Wayland 下能力受限",
+            ("linux", _) => "Linux X11 xdotool 后端已具备，等待后台服务通信接入",
+            _ => "该平台键鼠后端仍在规划中",
+        };
 
         Self::success(PlatformCapabilities {
             platform: std::env::consts::OS.to_string(),
-            clipboard: "planned via glide-platform".to_string(),
-            input: if session_type == "wayland" {
-                "limited on Wayland".to_string()
-            } else {
-                "planned via glide-platform".to_string()
-            },
-            file_transfer: "planned via daemon IPC".to_string(),
+            clipboard: "剪贴板平台后端待后台服务通信接入".to_string(),
+            input: input.to_string(),
+            file_transfer: "规划通过后台服务通信接入".to_string(),
             notes,
         })
     }

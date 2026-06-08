@@ -136,13 +136,14 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
     window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
     window.invoke_save_name(SharedString::from("glide-smoke"));
 
-    let status = backend.get_service_status().data.unwrap_or_else(|| {
-        panic!("mock backend did not return service status during interaction smoke")
-    });
+    let status = backend
+        .get_service_status()
+        .data
+        .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到服务状态"));
     let settings = backend
         .get_settings()
         .data
-        .unwrap_or_else(|| panic!("mock backend did not return settings during interaction smoke"));
+        .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到设置"));
     let logs = backend.tail_logs(20).data.unwrap_or_default();
 
     if status.connection_status != "已连接" {
@@ -162,7 +163,7 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
     if settings.device_name != "glide-smoke" {
         return Err("interaction smoke failed: save-name callback did not update settings".into());
     }
-    if !logs.iter().any(|line| line.contains("Pairing requested")) {
+    if !logs.iter().any(|line| line.contains("已请求配对")) {
         return Err("interaction smoke failed: pair callback did not write log".into());
     }
 
