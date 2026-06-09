@@ -26,6 +26,18 @@ slint::include_modules!();
 // 将 tracing 事件同步写入 GUI 日志缓冲区，供日志页展示和复制
 static GUI_LOG_BUFFER: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+// 需要过滤掉的第三方库模块前缀
+const FILTERED_TARGETS: &[&str] = &[
+    "hyper::",
+    "reqwest::",
+    "rustls::",
+    "tungstenite::",
+    "mio::",
+    "tokio::",
+    "want::",
+    "h2::",
+];
+
 struct GuiLogLayer;
 
 impl<S> Layer<S> for GuiLogLayer
@@ -33,10 +45,19 @@ where
     S: tracing::Subscriber,
 {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        // 过滤掉第三方库的 debug/trace 级别日志
+        let target = event.metadata().target();
+        let level = event.metadata().level();
+        if (*level == tracing::Level::DEBUG || *level == tracing::Level::TRACE)
+            && FILTERED_TARGETS.iter().any(|t| target.starts_with(t))
+        {
+            return;
+        }
+
         let mut visitor = MessageVisitor::default();
         event.record(&mut visitor);
         // 不带时间戳——backend.log() 会自动添加
-        let entry = format!("{} {}", event.metadata().target(), visitor.message);
+        let entry = format!("{} {}", target, visitor.message);
         if let Ok(mut logs) = GUI_LOG_BUFFER.lock() {
             logs.push(entry);
             let excess = logs.len().saturating_sub(500);
