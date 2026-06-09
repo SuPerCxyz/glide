@@ -12,7 +12,6 @@ export component MainWindow inherits Window {
     min-width: 720px;
     min-height: 500px;
     background: AppColors.page-bg;
-    animate background { duration: 200ms; }
 
     // === Existing properties (required by main.rs) ===
     in-out property <int> current-page: 0;
@@ -72,19 +71,22 @@ export component MainWindow inherits Window {
                     current-page == 4 ? "设置" :
                     current-page == 5 ? "平台能力" :
                     current-page == 6 ? "显示器管理" : "关于";
+                page-icon: current-page == 0 ? "◉" :
+                    current-page == 1 ? "🖥" :
+                    current-page == 2 ? "🔗" :
+                    current-page == 3 ? "📋" :
+                    current-page == 4 ? "⚙" :
+                    current-page == 5 ? "💻" :
+                    current-page == 6 ? "🖥️" : "ℹ";
                 connection-status: connection-status;
             }
 
-            // Content column with max-width constraint
-            // Uses horizontal layout with spacers to center content
+            // Content column: 小窗口用满宽度，大窗口限制最大宽度
             HorizontalLayout {
                 vertical-stretch: 1;
-                // Left spacer
-                Rectangle {
-                    horizontal-stretch: 1;
-                    max-width: 48px;
-                }
-                // Content column - max 1120px wide
+                // Left padding
+                Rectangle { width: 24px; }
+                // Content column - max 1120px wide, fills available on small windows
                 Rectangle {
                     horizontal-stretch: 1;
                     max-width: 1120px;
@@ -139,11 +141,8 @@ export component MainWindow inherits Window {
                     }
                     if current-page == 7 : AboutPage {}
                 }
-                // Right spacer
-                Rectangle {
-                    horizontal-stretch: 1;
-                    max-width: 48px;
-                }
+                // Right padding
+                Rectangle { width: 24px; }
             }
         }
     }

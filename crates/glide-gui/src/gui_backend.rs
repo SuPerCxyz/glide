@@ -181,6 +181,11 @@ struct MockState {
     settings: AppSettings,
     devices: Vec<DeviceInfo>,
     logs: Vec<String>,
+    // 缓存字段：减少网络请求频率
+    cached_connection_status: String,
+    cached_devices: Vec<DeviceInfo>,
+    last_health_check: std::time::Instant,
+    last_device_fetch: std::time::Instant,
 }
 
 impl MockBackend {
@@ -244,13 +249,17 @@ impl MockBackend {
                     },
                 ],
                 logs: Vec::new(),
+                cached_connection_status: "未连接".to_string(),
+                cached_devices: Vec::new(),
+                last_health_check: std::time::Instant::now(),
+                last_device_fetch: std::time::Instant::now(),
             })),
             lan_state: None,
             device_id,
             session_token: Arc::new(Mutex::new(None)),
             http_client: Some(
                 reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_secs(5))
+                    .timeout(std::time::Duration::from_secs(3))
                     .build()
                     .expect("创建 HTTP 客户端失败"),
             ),
@@ -377,15 +386,31 @@ impl GuiBackend for MockBackend {
         let input_enabled = self.with_state(|state| state.settings.input_enabled);
         let running = self.with_state(|state| state.running);
 
-        // Check real server health when connected
+        // Check real server health when connected (使用缓存减少阻塞)
         let conn_status = {
             let connected_flag = self.with_state(|s| s.connected);
             if connected_flag {
-                // Health check when explicitly connected
-                let health_url = format!("{}/api/v1/health", server_url.trim_end_matches('/'));
-                match self.http_client.as_ref().unwrap().get(&health_url).timeout(std::time::Duration::from_secs(3)).send() {
-                    Ok(resp) if resp.status().is_success() => "已连接".to_string(),
-                    _ => "连接断开".to_string(),
+                // 优先使用缓存（10 秒内有效）
+                let cached = self.with_state(|s| {
+                    if s.last_health_check.elapsed() < std::time::Duration::from_secs(10) {
+                        Some(s.cached_connection_status.clone())
+                    } else {
+                        None
+                    }
+                });
+                if let Some(status) = cached {
+                    status
+                } else {
+                    let health_url = format!("{}/api/v1/health", server_url.trim_end_matches('/'));
+                    let new_status = match self.http_client.as_ref().unwrap().get(&health_url).timeout(std::time::Duration::from_secs(2)).send() {
+                        Ok(resp) if resp.status().is_success() => "已连接".to_string(),
+                        _ => "连接断开".to_string(),
+                    };
+                    self.with_state_mut(|s| {
+                        s.cached_connection_status = new_status.clone();
+                        s.last_health_check = std::time::Instant::now();
+                    });
+                    new_status
                 }
             } else {
                 "未连接".to_string()
@@ -420,15 +445,32 @@ impl GuiBackend for MockBackend {
 
     fn list_devices(&self) -> BackendResult<Vec<DeviceInfo>> {
         let mut devices = self.with_state(|state| state.devices.clone());
-        // Fetch devices from server when connected
+        // Fetch devices from server when connected (使用缓存减少阻塞)
         let is_connected = self.with_state(|s| s.connected);
         let server_url = self.with_state(|s| s.settings.server_url.clone());
         if is_connected && !server_url.is_empty() {
-            let list_url = format!("{}/api/v1/devices", server_url.trim_end_matches('/'));
-            if let Ok(resp) = self.http_client.as_ref().unwrap().get(&list_url).send() {
-                if let Ok(server_devices) = resp.json::<Vec<DeviceInfo>>() {
-                    // Replace mock devices with server devices
-                    devices = server_devices;
+            // 优先使用缓存（10 秒内有效）
+            let cached = self.with_state(|s| {
+                if s.last_device_fetch.elapsed() < std::time::Duration::from_secs(10)
+                    && !s.cached_devices.is_empty()
+                {
+                    Some(s.cached_devices.clone())
+                } else {
+                    None
+                }
+            });
+            if let Some(server_devices) = cached {
+                devices = server_devices;
+            } else {
+                let list_url = format!("{}/api/v1/devices", server_url.trim_end_matches('/'));
+                if let Ok(resp) = self.http_client.as_ref().unwrap().get(&list_url).timeout(std::time::Duration::from_secs(5)).send() {
+                    if let Ok(server_devices) = resp.json::<Vec<DeviceInfo>>() {
+                        self.with_state_mut(|s| {
+                            s.cached_devices = server_devices.clone();
+                            s.last_device_fetch = std::time::Instant::now();
+                        });
+                        devices = server_devices;
+                    }
                 }
             }
         }
@@ -562,6 +604,9 @@ impl GuiBackend for MockBackend {
                 self.with_state_mut(|state| {
                     state.connected = true;
                     state.settings.server_url = server_url.clone();
+                    // 清除缓存，下次定时器刷新会获取真实状态
+                    state.last_health_check = std::time::Instant::now() - std::time::Duration::from_secs(10);
+                    state.last_device_fetch = std::time::Instant::now() - std::time::Duration::from_secs(10);
                 });
                 self.log("成功注册到服务端");
                 Self::success("已连接".to_string())
@@ -575,6 +620,8 @@ impl GuiBackend for MockBackend {
                 self.with_state_mut(|state| {
                     state.connected = true;
                     state.settings.server_url = server_url;
+                    state.last_health_check = std::time::Instant::now() - std::time::Duration::from_secs(10);
+                    state.last_device_fetch = std::time::Instant::now() - std::time::Duration::from_secs(10);
                 });
                 self.log("已回退到模拟连接模式");
                 Self::success("已连接（离线模式）".to_string())
@@ -586,6 +633,8 @@ impl GuiBackend for MockBackend {
                 self.with_state_mut(|state| {
                     state.connected = true;
                     state.settings.server_url = server_url;
+                    state.last_health_check = std::time::Instant::now() - std::time::Duration::from_secs(10);
+                    state.last_device_fetch = std::time::Instant::now() - std::time::Duration::from_secs(10);
                 });
                 self.log("已回退到模拟连接模式（服务端不可达）");
                 Self::success("已连接（离线模式）".to_string())
@@ -594,7 +643,14 @@ impl GuiBackend for MockBackend {
     }
 
     fn disconnect_server(&self) -> BackendResult<String> {
-        self.with_state_mut(|state| state.connected = false);
+        self.with_state_mut(|state| {
+            state.connected = false;
+            // 清除缓存，下次刷新会重新请求
+            state.cached_connection_status = "未连接".to_string();
+            state.cached_devices = Vec::new();
+            state.last_health_check = std::time::Instant::now();
+            state.last_device_fetch = std::time::Instant::now();
+        });
         self.log("已从界面断开服务端连接");
         Self::success("未连接".to_string())
     }
@@ -804,6 +860,22 @@ impl MockBackend {
         }
 
         std::env::temp_dir().join("glide")
+    }
+
+    /// 异步连接服务端：在后台线程执行阻塞 HTTP，通过 channel 回传结果。
+    /// UI 线程调用此方法后立即返回，不会冻结。
+    pub fn connect_server_async(
+        &self,
+        url: &str,
+    ) -> std::sync::mpsc::Receiver<BackendResult<String>> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let backend = self.clone();
+        let url = url.to_string();
+        std::thread::spawn(move || {
+            let result = backend.connect_server(&url);
+            let _ = tx.send(result);
+        });
+        rx
     }
 }
 

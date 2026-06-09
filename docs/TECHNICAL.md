@@ -77,8 +77,8 @@ glide devices
 
 `glide-gui` 启动 Slint `MainWindow`，通过 `GuiBackend` trait 获取状态、设备、设置、日志和平台能力。第一阶段使用 `MockBackend`，但已支持：
 
-- **真实 HTTP 服务端连接**：点击连接按钮时，GUI 会通过 HTTP POST 到 `/api/v1/devices/register` 注册本机设备；状态页会调用 `/api/v1/health` 检查连接状态；设备列表会从 `/api/v1/devices` 拉取服务端设备列表（与 LAN 发现设备合并展示）。服务端不可达时回退到模拟连接模式。
-- **终端实时日志**：增加 `--verbose` /`-v` 命令行参数，启用后 tracing 输出到 stderr；同时日志页每 3 秒自动刷新。默认日志级别为 `debug`（可通过 `GLIDE_GUI_LOG` 覆盖）。GUI 通过自定义 `GuiLogLayer` 将 tracing 事件桥接到日志页缓冲区，用户可在日志页选中并右键复制。
+- **真实 HTTP 服务端连接**：点击连接按钮时，GUI 会通过 HTTP POST 到 `/api/v1/devices/register` 注册本机设备；状态页会调用 `/api/v1/health` 检查连接状态；设备列表会从 `/api/v1/devices` 拉取服务端设备列表（与 LAN 发现设备合并展示）。服务端不可达时回退到模拟连接模式。健康检查和设备列表均有 10 秒内存缓存，避免定时器频繁阻塞 UI 线程；连接操作在后台线程异步执行，UI 立即响应。
+- **终端实时日志**：增加 `--verbose` /`-v` 命令行参数，启用后 tracing 输出到 stderr；同时日志页每 5 秒自动刷新。默认日志级别为 `debug`（可通过 `GLIDE_GUI_LOG` 覆盖）。GUI 通过自定义 `GuiLogLayer` 将 tracing 事件桥接到日志缓冲区，用户可在日志页选中并右键复制。
 - **mock 列表中的示例设备**（Linux CLI / Windows VM）在网络设备列表中仍保留，但在真实服务端连接后会替换为服务端设备数据。
 
 GUI 可见文案以简体中文为主，保留 Glide、Rust、Slint、Tauri、WebView2、URL、平台名等必要技术名词。

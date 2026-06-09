@@ -25,6 +25,7 @@ slint::include_modules!();
 // === GUI 日志桥接层 ===
 // 将 tracing 事件同步写入 GUI 日志缓冲区，供日志页展示和复制
 static GUI_LOG_BUFFER: Mutex<Vec<String>> = Mutex::new(Vec::new());
+const MAX_GUI_LOG_ENTRIES: usize = 200; // GUI 日志最大保留条数
 
 // 需要过滤掉的第三方库模块前缀
 const FILTERED_TARGETS: &[&str] = &[
@@ -255,16 +256,20 @@ fn run_gui() -> Result<(), Box<dyn Error>> {
     info!("Glide GUI started");
     write_diagnostic("process", "glide-gui window running");
 
-    // Auto-refresh logs and status every 3 seconds
+    // 每 5 秒刷新状态（HTTP 调用在后端有 10 秒缓存，大多数时候直接返回缓存）
     let timer_weak = window.as_weak();
     let timer_backend = backend.clone();
     let timer = Timer::default();
+    let mut refresh_count = 0u32;
     timer.start(
         slint::TimerMode::Repeated,
-        std::time::Duration::from_secs(3),
+        std::time::Duration::from_secs(5),
         move || {
             if let Some(win) = timer_weak.upgrade() {
-                refresh_window(&win, &timer_backend);
+                refresh_count = refresh_count.wrapping_add(1);
+                // 日志每 15 秒刷新一次
+                let refresh_logs = refresh_count % 3 == 0;
+                refresh_window(&win, &timer_backend, refresh_logs);
             }
         },
     );
@@ -392,7 +397,7 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
 fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformError> {
     let window = MainWindow::new()?;
 
-    refresh_window(&window, &backend);
+    refresh_window(&window, &backend, true);
 
     {
         let win = window.as_weak();
@@ -414,7 +419,7 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             if !backend.set_clipboard_enabled(next).success {
                 warn!("failed to toggle clipboard");
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -429,7 +434,7 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             if !backend.set_input_enabled(next).success {
                 warn!("failed to toggle input sharing");
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -441,11 +446,31 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
                 return;
             };
             let url = win.get_server_url().to_string();
-            let result = backend.connect_server(&url);
-            if !result.success {
-                warn!("connect failed: {:?}", result.error);
-            }
-            refresh_window(&win, &backend);
+            // 立即更新 UI 显示"连接中..."
+            win.set_connection_status(SharedString::from("连接中..."));
+            // 异步执行 HTTP 连接，不阻塞 UI 线程
+            let rx = backend.connect_server_async(&url);
+            let weak = win.as_weak();
+            let thread_backend = backend.clone();
+            std::thread::spawn(move || {
+                // 等待连接结果（最长 8 秒超时）
+                match rx.recv_timeout(std::time::Duration::from_secs(8)) {
+                    Ok(result) => {
+                        if !result.success {
+                            warn!("connect failed: {:?}", result.error);
+                        }
+                        if let Some(win) = weak.upgrade() {
+                            refresh_window(&win, &thread_backend, true);
+                        }
+                    }
+                    Err(_) => {
+                        warn!("connect timed out");
+                        if let Some(win) = weak.upgrade() {
+                            win.set_connection_status(SharedString::from("连接超时"));
+                        }
+                    }
+                }
+            });
         });
     }
 
@@ -460,7 +485,7 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             if !result.success {
                 warn!("disconnect failed: {:?}", result.error);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -471,12 +496,11 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             let Some(win) = win.upgrade() else {
                 return;
             };
-            // 直接调用后端的 save_server_url 方法（会自动持久化）
             let result = backend.save_server_url(&url);
             if !result.success {
                 warn!("failed to save server url: {:?}", result.error);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -487,12 +511,11 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             let Some(win) = win.upgrade() else {
                 return;
             };
-            // 直接调用后端的 save_device_name 方法（会自动持久化）
             let result = backend.save_device_name(&name);
             if !result.success {
                 warn!("failed to save device name: {:?}", result.error);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -509,7 +532,7 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             } else {
                 warn!("Failed to trust LAN device: {}", id);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -526,12 +549,11 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             } else {
                 warn!("Failed to untrust LAN device: {}", id);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
     {
-        let backend = backend.clone();
         let win = window.as_weak();
         window.on_remove_device(move |device_id| {
             let Some(_win) = win.upgrade() else {
@@ -553,7 +575,7 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             if !result.success {
                 warn!("failed to save auth: {:?}", result.error);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
@@ -568,12 +590,11 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             if !result.success {
                 warn!("failed to save registration token: {:?}", result.error);
             }
-            refresh_window(&win, &backend);
+            refresh_window_local(&win, &backend, false);
         });
     }
 
     {
-        let backend = backend.clone();
         let win = window.as_weak();
         window.on_toggle_tls(move || {
             let Some(win) = win.upgrade() else {
@@ -588,7 +609,41 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
     Ok(window)
 }
 
-fn refresh_window(window: &MainWindow, backend: &MockBackend) {
+/// 仅刷新本地状态（设置、日志、平台能力），不触发任何 HTTP 调用。
+/// 用于 UI 回调（开关、保存等），确保操作即时响应。
+fn refresh_window_local(window: &MainWindow, backend: &MockBackend, refresh_logs: bool) {
+    if let Some(settings) = backend.get_settings().data {
+        window.set_device_name(SharedString::from(settings.device_name));
+        window.set_auth_username(SharedString::from(settings.auth_username));
+        window.set_auth_password(SharedString::from(settings.auth_password));
+        window.set_registration_token(SharedString::from(settings.registration_token));
+    }
+
+    if refresh_logs {
+        if let Ok(buf) = GUI_LOG_BUFFER.lock() {
+            let content = buf.join("\n");
+            window.set_log_content(SharedString::from(content));
+        }
+    }
+
+    if let Some(capabilities) = backend.get_platform_capabilities().data {
+        let notes = if capabilities.notes.is_empty() {
+            "暂无额外限制".to_string()
+        } else {
+            capabilities.notes.join("\n")
+        };
+        window.set_platform_summary(SharedString::from(format!(
+            "平台: {}\n剪贴板: {}\n键鼠: {}\n文件传输: {}\n{}",
+            capabilities.platform,
+            capabilities.clipboard,
+            capabilities.input,
+            capabilities.file_transfer,
+            notes
+        )));
+    }
+}
+
+fn refresh_window(window: &MainWindow, backend: &MockBackend, refresh_logs: bool) {
     if let Some(status) = backend.get_service_status().data {
         window.set_service_running(status.running);
         window.set_connection_status(SharedString::from(status.connection_status));
@@ -626,15 +681,13 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
         window.set_online_devices(online as i32);
     }
 
-    // 将 tracing 事件从全局缓冲区转发到后端日志存储，供 GUI 日志页显示
-    if let Ok(mut buf) = GUI_LOG_BUFFER.lock() {
-        for entry in buf.drain(..) {
-            // backend.log() 会自动添加时间戳，这里只传内容
-            backend.log(&entry);
+    // 日志每 10 秒刷新一次（减少卡顿）
+    if refresh_logs {
+        // 直接从全局缓冲区读取，不通过 backend.log() 中转
+        if let Ok(buf) = GUI_LOG_BUFFER.lock() {
+            let content = buf.join("\n");
+            window.set_log_content(SharedString::from(content));
         }
-    }
-    if let Some(logs) = backend.tail_logs(1000).data {
-        window.set_log_content(SharedString::from(logs.join("\n")));
     }
 
     if let Some(capabilities) = backend.get_platform_capabilities().data {
@@ -652,8 +705,6 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
             notes
         )));
     }
-
-
 }
 
 fn default_settings() -> AppSettings {

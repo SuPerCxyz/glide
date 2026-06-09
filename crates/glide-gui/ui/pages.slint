@@ -31,37 +31,32 @@ export component StatusPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
-                animate border-color { duration: 200ms; }
                 HorizontalLayout {
-                    padding: 20px;
+                    padding: 16px;
                     spacing: 16px;
                     alignment: start;
                     VerticalLayout {
-                        spacing: 6px;
+                        spacing: 4px;
                         horizontal-stretch: 1;
                         alignment: start;
                         Text {
                             text: service-running ? "后台服务运行中" : "后台服务未运行";
-                            font-size: 18px;
+                            font-size: 16px;
                             font-weight: 700;
                             color: AppColors.text-primary;
-                            animate color { duration: 200ms; }
                         }
                         Text {
                             text: server-url == "" ? "尚未配置服务端地址" : server-url;
-                            font-size: 14px;
+                            font-size: 13px;
                             color: AppColors.text-secondary;
-                            animate color { duration: 200ms; }
                         }
                         Text {
                             text: "已连接设备: " + device-count-text;
-                            font-size: 14px;
+                            font-size: 13px;
                             color: AppColors.text-secondary;
-                            animate color { duration: 200ms; }
                         }
                     }
-                    // Button container with fixed dimensions
+                    // Button container
                     VerticalLayout {
                         alignment: center;
                         if connection-status == "已连接" : Button {
@@ -135,7 +130,6 @@ export component DevicesPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding-top: 40px;
                     padding-bottom: 40px;
@@ -149,7 +143,6 @@ export component DevicesPage inherits VerticalLayout {
                         font-weight: 600;
                         color: AppColors.text-secondary;
                         horizontal-alignment: center;
-                        animate color { duration: 200ms; }
                     }
                     Text {
                         text: "glide-gui 会自动发现同网络设备";
@@ -157,7 +150,6 @@ export component DevicesPage inherits VerticalLayout {
                         color: AppColors.text-tertiary;
                         horizontal-alignment: center;
                         wrap: word-wrap;
-                        animate color { duration: 200ms; }
                     }
                 }
             }
@@ -198,7 +190,6 @@ export component PairingPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding-top: 32px;
                     padding-bottom: 32px;
@@ -211,7 +202,6 @@ export component PairingPage inherits VerticalLayout {
                         color: AppColors.text-secondary;
                         horizontal-alignment: center;
                         wrap: word-wrap;
-                        animate color { duration: 200ms; }
                     }
                 }
             }
@@ -271,7 +261,6 @@ export component SettingsPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 HorizontalLayout {
                     padding: 16px;
                     spacing: 10px;
@@ -282,7 +271,6 @@ export component SettingsPage inherits VerticalLayout {
                         font-weight: 600;
                         color: AppColors.text-primary;
                         horizontal-stretch: 1;
-                        animate color { duration: 200ms; }
                     }
                     Button {
                         text: dark-mode ? "☀ 浅色" : "🌙 深色";
@@ -297,7 +285,6 @@ export component SettingsPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 16px;
                     spacing: 10px;
@@ -306,7 +293,6 @@ export component SettingsPage inherits VerticalLayout {
                         font-size: 14px;
                         font-weight: 600;
                         color: AppColors.text-primary;
-                        animate color { duration: 200ms; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
@@ -330,7 +316,6 @@ export component SettingsPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 16px;
                     spacing: 10px;
@@ -339,7 +324,6 @@ export component SettingsPage inherits VerticalLayout {
                         font-size: 14px;
                         font-weight: 600;
                         color: AppColors.text-primary;
-                        animate color { duration: 200ms; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
@@ -349,7 +333,6 @@ export component SettingsPage inherits VerticalLayout {
                             font-size: 14px;
                             min-width: 60px;
                             color: AppColors.text-secondary;
-                            animate color { duration: 200ms; }
                         }
                         username-input := LineEdit {
                             text: auth-username;
@@ -365,7 +348,6 @@ export component SettingsPage inherits VerticalLayout {
                             font-size: 14px;
                             min-width: 60px;
                             color: AppColors.text-secondary;
-                            animate color { duration: 200ms; }
                         }
                         password-input := LineEdit {
                             text: auth-password;
@@ -386,7 +368,6 @@ export component SettingsPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 16px;
                     spacing: 10px;
@@ -395,7 +376,6 @@ export component SettingsPage inherits VerticalLayout {
                         font-size: 14px;
                         font-weight: 600;
                         color: AppColors.text-primary;
-                        animate color { duration: 200ms; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
@@ -405,7 +385,6 @@ export component SettingsPage inherits VerticalLayout {
                             font-size: 14px;
                             min-width: 60px;
                             color: AppColors.text-secondary;
-                            animate color { duration: 200ms; }
                         }
                         token-input := LineEdit {
                             text: registration-token;
@@ -426,7 +405,6 @@ export component SettingsPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 16px;
                     spacing: 10px;
@@ -435,7 +413,6 @@ export component SettingsPage inherits VerticalLayout {
                         font-size: 14px;
                         font-weight: 600;
                         color: AppColors.text-primary;
-                        animate color { duration: 200ms; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
@@ -458,7 +435,6 @@ export component SettingsPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 16px;
                     spacing: 10px;
@@ -471,7 +447,6 @@ export component SettingsPage inherits VerticalLayout {
                             font-size: 14px;
                             font-weight: 600;
                             color: AppColors.text-primary;
-                            animate color { duration: 200ms; }
                         }
                         Button {
                             text: enable-tls ? "已启用" : "未加密";
@@ -483,7 +458,6 @@ export component SettingsPage inherits VerticalLayout {
                         font-size: 13px;
                         color: AppColors.text-tertiary;
                         wrap: word-wrap;
-                        animate color { duration: 200ms; }
                     }
                 }
             }
@@ -513,7 +487,6 @@ export component PlatformPage inherits VerticalLayout {
                 border-width: 1px;
                 border-color: AppColors.border-base;
                 vertical-stretch: 1;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 16px;
                     Text {
@@ -521,7 +494,6 @@ export component PlatformPage inherits VerticalLayout {
                         font-size: 15px;
                         color: AppColors.text-secondary;
                         wrap: word-wrap;
-                        animate color { duration: 200ms; }
                     }
                 }
             }
@@ -544,7 +516,6 @@ export component AboutPage inherits VerticalLayout {
                 border-radius: 8px;
                 border-width: 1px;
                 border-color: AppColors.border-base;
-                animate background { duration: 200ms; }
                 VerticalLayout {
                     padding: 40px;
                     spacing: 12px;
@@ -561,7 +532,6 @@ export component AboutPage inherits VerticalLayout {
                         font-size: 16px;
                         color: AppColors.text-secondary;
                         horizontal-alignment: center;
-                        animate color { duration: 200ms; }
                     }
                     Rectangle { height: 1px; background: AppColors.border-base; }
                     Text {
@@ -569,14 +539,12 @@ export component AboutPage inherits VerticalLayout {
                         font-size: 15px;
                         color: AppColors.text-primary;
                         horizontal-alignment: center;
-                        animate color { duration: 200ms; }
                     }
                     Text {
                         text: "不依赖 Tauri、WebView2 或内嵌浏览器运行时。";
                         font-size: 15px;
                         color: AppColors.text-primary;
                         horizontal-alignment: center;
-                        animate color { duration: 200ms; }
                     }
                     Text {
                         text: "仓库地址：https://github.com/SuPerCxyz/glide";
