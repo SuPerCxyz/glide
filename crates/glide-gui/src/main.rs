@@ -339,13 +339,6 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
     // 先保存服务端地址和设备名，再发起连接
     window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
     window.invoke_save_name(SharedString::from("glide-smoke"));
-
-    // 调试：在 connect 之前验证 save 是否生效
-    let pre_connect_url = window.get_server_url().to_string();
-    let pre_connect_settings = backend.get_settings().data.unwrap();
-    eprintln!("smoke-debug: pre-connect window.server_url={pre_connect_url}");
-    eprintln!("smoke-debug: pre-connect backend.server_url={}", pre_connect_settings.server_url);
-
     window.invoke_connect();
     window.invoke_page_changed(3);
 
@@ -372,10 +365,6 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
         }
     };
     let _logs = backend.tail_logs(20).data.unwrap_or_default();
-
-    eprintln!("smoke-debug: post-wait status.connection_status={}", status.connection_status);
-    eprintln!("smoke-debug: post-wait settings.server_url={}", settings.server_url);
-    eprintln!("smoke-debug: post-wait settings.device_name={}", settings.device_name);
 
     // Accept both "已连接" (server present) and "连接断开" (offline/CI fallback)
     if status.connection_status == "未连接" {
@@ -644,6 +633,7 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
 /// 用于 UI 回调（开关、保存等），确保操作即时响应。
 fn refresh_window_local(window: &MainWindow, backend: &MockBackend, refresh_logs: bool) {
     if let Some(settings) = backend.get_settings().data {
+        window.set_server_url(SharedString::from(settings.server_url));
         window.set_device_name(SharedString::from(settings.device_name));
         window.set_auth_username(SharedString::from(settings.auth_username));
         window.set_auth_password(SharedString::from(settings.auth_password));
