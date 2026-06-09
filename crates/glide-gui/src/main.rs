@@ -336,12 +336,13 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
 
     window.invoke_toggle_clipboard();
     window.invoke_toggle_input();
-    window.invoke_connect();
-    window.invoke_page_changed(3);
+    // 先保存服务端地址，再发起连接（异步连接会覆盖 server_url）
     window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
     window.invoke_save_name(SharedString::from("glide-smoke"));
+    window.invoke_connect();
+    window.invoke_page_changed(3);
 
-    // 异步连接需要等待后台线程完成（最长 ~8 秒）
+    // 异步连接需要等待后台线程完成（最长 ~10 秒）
     let status = {
         let mut attempts = 0;
         loop {
