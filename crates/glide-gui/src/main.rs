@@ -336,32 +336,34 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
 
     window.invoke_toggle_clipboard();
     window.invoke_toggle_input();
-    // 先保存服务端地址，再发起连接（异步连接会覆盖 server_url）
+    // 先保存服务端地址和设备名，再发起连接
     window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
     window.invoke_save_name(SharedString::from("glide-smoke"));
     window.invoke_connect();
     window.invoke_page_changed(3);
 
-    // 异步连接需要等待后台线程完成（最长 ~10 秒）
-    let status = {
+    // 异步连接 + 设置持久化需要等待后台线程完成（最长 ~10 秒）
+    let (status, settings) = {
         let mut attempts = 0;
         loop {
             let s = backend
                 .get_service_status()
                 .data
                 .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到服务状态"));
-            // 等待异步连接完成（状态不再是"未连接"或"连接中..."）
-            if (s.connection_status != "未连接" && s.connection_status != "连接中...") || attempts >= 20 {
-                break s;
+            let st = backend
+                .get_settings()
+                .data
+                .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到设置"));
+            // 等待异步连接完成，且 settings 已稳定（server_url 不再被覆盖）
+            let connect_done = s.connection_status != "未连接" && s.connection_status != "连接中...";
+            let settings_stable = st.server_url == "http://192.0.2.10:8080" && st.device_name == "glide-smoke";
+            if (connect_done && settings_stable) || attempts >= 20 {
+                break (s, st);
             }
             attempts += 1;
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
     };
-    let settings = backend
-        .get_settings()
-        .data
-        .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到设置"));
     let _logs = backend.tail_logs(20).data.unwrap_or_default();
 
     // Accept both "已连接" (server present) and "连接断开" (offline/CI fallback)
@@ -375,12 +377,16 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
         return Err("interaction smoke failed: input toggle did not update status".into());
     }
     if settings.server_url != "http://192.0.2.10:8080" {
-        return Err(
-            "interaction smoke failed: save-server callback did not update settings".into(),
-        );
+        return Err(format!(
+            "interaction smoke failed: save-server callback did not update settings (got: {:?})",
+            settings.server_url
+        ).into());
     }
     if settings.device_name != "glide-smoke" {
-        return Err("interaction smoke failed: save-name callback did not update settings".into());
+        return Err(format!(
+            "interaction smoke failed: save-name callback did not update settings (got: {:?})",
+            settings.device_name
+        ).into());
     }
     // pair_device removed - trust/device management is now LAN-based
     // and handled via the GUI trust buttons
