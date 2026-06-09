@@ -60,12 +60,12 @@ export component Sidebar inherits Rectangle {
         }
         Rectangle { height: 1px; background: AppColors.border-base; }
         Rectangle { height: 8px; }
-        SidebarItem { icon: "◉";  label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "";   label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: ""; label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "⊡"; label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "";   label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "≡"; label: "日志";     index: 3; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "⚙"; label: "设置";     index: 4; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "◫"; label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "";   label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: ""; label: "显示器";   index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: ""; label: "关于";     index: 7; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
     }
@@ -91,7 +91,6 @@ export component StatusBadge inherits Rectangle {
 
 export component TopBar inherits Rectangle {
     in property <string> title;
-    in property <string> page-icon;
     in property <string> connection-status;
     height: 56px;
     background: AppColors.page-bg;
@@ -102,12 +101,6 @@ export component TopBar inherits Rectangle {
         HorizontalLayout {
             horizontal-stretch: 1;
             alignment: start;
-            Text {
-                text: page-icon;
-                font-size: 20px;
-                width: 28px;
-                vertical-alignment: center;
-            }
             Text { text: title; font-size: 22px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; }
         }
         // 右侧 spacer 推 Badge 到最右
