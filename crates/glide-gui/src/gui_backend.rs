@@ -208,7 +208,7 @@ impl MockBackend {
         });
     }
 
-    fn log(&self, message: &str) {
+    pub fn log(&self, message: &str) {
         let message = format!("[{}] {}", chrono::Local::now().format("%H:%M:%S"), message);
         self.with_state_mut(|state| {
             state.logs.push(message);

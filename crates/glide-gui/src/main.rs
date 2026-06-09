@@ -13,9 +13,70 @@ use std::path::PathBuf;
 #[cfg(target_os = "windows")]
 use std::process::{self, Command};
 use std::rc::Rc;
+use std::sync::Mutex;
 use tracing::{info, warn};
+use tracing::Event;
+use tracing_subscriber::layer::Context;
+use tracing_subscriber::Layer;
+use tracing_subscriber::prelude::*;
 
 slint::include_modules!();
+
+// === GUI 日志桥接层 ===
+// 将 tracing 事件同步写入 GUI 日志缓冲区，供日志页展示和复制
+static GUI_LOG_BUFFER: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+struct GuiLogLayer;
+
+impl<S> Layer<S> for GuiLogLayer
+where
+    S: tracing::Subscriber,
+{
+    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        let mut visitor = MessageVisitor::default();
+        event.record(&mut visitor);
+        // 不带时间戳——backend.log() 会自动添加
+        let entry = format!("{} {}", event.metadata().target(), visitor.message);
+        if let Ok(mut logs) = GUI_LOG_BUFFER.lock() {
+            logs.push(entry);
+            let excess = logs.len().saturating_sub(500);
+            if excess > 0 {
+                logs.drain(0..excess);
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+struct MessageVisitor {
+    message: String,
+}
+
+impl tracing::field::Visit for MessageVisitor {
+    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+        if !self.message.is_empty() {
+            self.message.push(' ');
+        }
+        if field.name() == "message" {
+            self.message.push_str(value);
+        } else {
+            self.message.push_str(field.name());
+            self.message.push('=');
+            self.message.push_str(value);
+        }
+    }
+
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        if !self.message.is_empty() {
+            self.message.push(' ');
+        }
+        if field.name() == "message" {
+            self.message.push_str(&format!("{value:?}"));
+        } else {
+            self.message.push_str(&format!("{}={value:?}", field.name()));
+        }
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     if let Err(error) = run_app() {
@@ -44,9 +105,17 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     // (upstream issue: https://github.com/slint-ui/slint/issues/11638)
     // Bridge log crate -> tracing so ICU4X messages are caught by our filter
     let _ = tracing_log::LogTracer::init();
-    let filter = EnvFilter::try_from_env("GLIDE_GUI_LOG")
-        .unwrap_or_else(|_| EnvFilter::new("info,icu_provider=error,icu_segmenter=error,icu_locid=error,icu_list=error,icu_locale=error"));
-    let _ = tracing_subscriber::fmt().with_env_filter(filter).with_writer(std::io::stderr).try_init();
+    let filter = EnvFilter::try_from_env("GLIDE_GUI_LOG").unwrap_or_else(|_| {
+        EnvFilter::new(
+            "debug,icu_provider=error,icu_segmenter=error,icu_locid=error,icu_list=error,icu_locale=error",
+        )
+    });
+    // 组合日志层：GuiLogLayer 桥接事件到 GUI 日志页，fmt 层输出到 stderr
+    let _ = tracing::subscriber::set_global_default(
+        tracing_subscriber::registry()
+            .with(GuiLogLayer)
+            .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr).with_filter(filter)),
+    );
     write_diagnostic("process", "glide-gui starting");
     write_diagnostic(
         "renderer",
@@ -522,6 +591,13 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
         window.set_online_devices(online as i32);
     }
 
+    // 将 tracing 事件从全局缓冲区转发到后端日志存储，供 GUI 日志页显示
+    if let Ok(mut buf) = GUI_LOG_BUFFER.lock() {
+        for entry in buf.drain(..) {
+            // backend.log() 会自动添加时间戳，这里只传内容
+            backend.log(&entry);
+        }
+    }
     if let Some(logs) = backend.tail_logs(200).data {
         window.set_log_content(SharedString::from(logs.join("\n")));
     }

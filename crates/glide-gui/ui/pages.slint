@@ -1,4 +1,4 @@
-import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
 import { StatusBadge, DeviceCard, SettingsRow, AlertBox, SectionTitle, DeviceRow } from "components.slint";
 import { AppColors } from "colors.slint";
 
@@ -209,24 +209,15 @@ export component LogPage inherits VerticalLayout {
         spacing: 20px;
 
         SectionTitle { label: "运行日志"; }
-        Rectangle {
-            background: AppColors.log-bg;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: AppColors.border-base;
+        // TextEdit read-only: 支持鼠标选中、右键复制 (Copy / Select All)
+        // 内置 ScrollView 自动处理纵向和横向滚动
+        TextEdit {
+            text: log-content == "" ? "暂无日志" : log-content;
+            read-only: true;
+            font-family: "JetBrains Mono";
+            font-size: 13px;
+            wrap: no-wrap;
             vertical-stretch: 1;
-            ScrollView {
-                VerticalLayout {
-                    padding: 14px;
-                    Text {
-                        text: log-content == "" ? "暂无日志" : log-content;
-                        font-size: 13px;
-                        font-family: "JetBrains Mono";
-                        color: AppColors.log-text;
-                        wrap: no-wrap;
-                    }
-                }
-            }
         }
     }
 }
