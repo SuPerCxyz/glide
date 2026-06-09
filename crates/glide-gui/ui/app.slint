@@ -59,7 +59,7 @@ export component MainWindow inherits Window {
             current-index: current-page;
             page-selected(index) => { root.page-changed(index); }
         }
-        // Main content area - fills remaining width
+        // Main content area
         VerticalLayout {
             horizontal-stretch: 1;
             TopBar {
@@ -73,54 +73,74 @@ export component MainWindow inherits Window {
                 connection-status: connection-status;
             }
 
-            // Content area - directly fills available width
-            if current-page == 0 : StatusPage {
-                service-running: service-running;
-                connection-status: connection-status;
-                device-count-text: device-count-text;
-                server-url: server-url;
-                clipboard-enabled: clipboard-enabled;
-                input-enabled: input-enabled;
-                connect => { root.connect(); }
-                disconnect => { root.disconnect(); }
-                toggle-clipboard => { root.toggle-clipboard(); }
-                toggle-input => { root.toggle-input(); }
-            }
-            if current-page == 1 : DevicesPage {
-                devices: devices;
-                total-devices: total-devices;
-                online-devices: online-devices;
-                trust-device(id) => { root.trust-device(id); }
-                untrust-device(id) => { root.untrust-device(id); }
-                remove-device(id) => { root.remove-device(id); }
-            }
-            if current-page == 2 : PairingPage {}
-            if current-page == 3 : LogPage { log-content: log-content; }
-            if current-page == 4 : SettingsPage {
-                server-url: server-url;
-                device-name: device-name;
-                dark-mode: dark-mode;
-                auth-username: auth-username;
-                auth-password: auth-password;
-                enable-tls: enable-tls;
-                save-server(url) => { root.save-server(url); }
-                save-name(name) => { root.save-name(name); }
-                toggle-theme => {
-                    root.dark-mode = !root.dark-mode;
-                    AppColors.dark-mode = root.dark-mode;
+            // Content column with max-width constraint
+            // Uses horizontal layout with spacers to center content
+            HorizontalLayout {
+                vertical-stretch: 1;
+                // Left spacer
+                Rectangle {
+                    horizontal-stretch: 1;
+                    max-width: 48px;
                 }
-                save-auth(user, pass) => { root.save-auth(user, pass); }
-                toggle-tls => { root.toggle-tls(); }
+                // Content column - max 1120px wide
+                Rectangle {
+                    horizontal-stretch: 1;
+                    max-width: 1120px;
+
+                    if current-page == 0 : StatusPage {
+                        service-running: service-running;
+                        connection-status: connection-status;
+                        device-count-text: device-count-text;
+                        server-url: server-url;
+                        clipboard-enabled: clipboard-enabled;
+                        input-enabled: input-enabled;
+                        connect => { root.connect(); }
+                        disconnect => { root.disconnect(); }
+                        toggle-clipboard => { root.toggle-clipboard(); }
+                        toggle-input => { root.toggle-input(); }
+                    }
+                    if current-page == 1 : DevicesPage {
+                        devices: devices;
+                        total-devices: total-devices;
+                        online-devices: online-devices;
+                        trust-device(id) => { root.trust-device(id); }
+                        untrust-device(id) => { root.untrust-device(id); }
+                        remove-device(id) => { root.remove-device(id); }
+                    }
+                    if current-page == 2 : PairingPage {}
+                    if current-page == 3 : LogPage { log-content: log-content; }
+                    if current-page == 4 : SettingsPage {
+                        server-url: server-url;
+                        device-name: device-name;
+                        dark-mode: dark-mode;
+                        auth-username: auth-username;
+                        auth-password: auth-password;
+                        enable-tls: enable-tls;
+                        save-server(url) => { root.save-server(url); }
+                        save-name(name) => { root.save-name(name); }
+                        toggle-theme => {
+                            root.dark-mode = !root.dark-mode;
+                            AppColors.dark-mode = root.dark-mode;
+                        }
+                        save-auth(user, pass) => { root.save-auth(user, pass); }
+                        toggle-tls => { root.toggle-tls(); }
+                    }
+                    if current-page == 5 : PlatformPage { platform-summary: platform-summary; }
+                    if current-page == 6 : MonitorManagerPage {
+                        monitors: monitors;
+                        status-text: monitor-status;
+                        detect-monitors => { root.detect-monitors(); }
+                        save-layout => { root.save-monitor-layout(); }
+                        monitor-selected(id) => { root.monitor-selected(id); }
+                    }
+                    if current-page == 7 : AboutPage {}
+                }
+                // Right spacer
+                Rectangle {
+                    horizontal-stretch: 1;
+                    max-width: 48px;
+                }
             }
-            if current-page == 5 : PlatformPage { platform-summary: platform-summary; }
-            if current-page == 6 : MonitorManagerPage {
-                monitors: monitors;
-                status-text: monitor-status;
-                detect-monitors => { root.detect-monitors(); }
-                save-layout => { root.save-monitor-layout(); }
-                monitor-selected(id) => { root.monitor-selected(id); }
-            }
-            if current-page == 7 : AboutPage {}
         }
     }
 }
