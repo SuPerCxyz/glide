@@ -17,9 +17,12 @@ export component StatusPage inherits VerticalLayout {
     callback toggle-input();
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 20px;
+            width: 100%;
 
             SectionTitle { label: "后台服务"; }
 
@@ -95,9 +98,12 @@ export component DevicesPage inherits VerticalLayout {
     callback remove-device(string);
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 16px;
+            width: 100%;
 
             // Header with stats
             HorizontalLayout {
@@ -151,6 +157,7 @@ export component DevicesPage inherits VerticalLayout {
             VerticalLayout {
                 spacing: 10px;
                 for device in devices: DeviceCard {
+                    width: 100%;
                     device-name: device.name;
                     device-platform: device.platform;
                     status-text: device.status;
@@ -170,9 +177,12 @@ export component DevicesPage inherits VerticalLayout {
 export component PairingPage inherits VerticalLayout {
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 20px;
+            width: 100%;
 
             SectionTitle { label: "已注册设备"; }
             Rectangle {
@@ -207,6 +217,7 @@ export component LogPage inherits VerticalLayout {
     VerticalLayout {
         padding: 24px;
         spacing: 20px;
+        width: 100%;
 
         SectionTitle { label: "运行日志"; }
         // TextEdit read-only: 支持鼠标选中、右键复制 (Copy / Select All)
@@ -218,6 +229,7 @@ export component LogPage inherits VerticalLayout {
             font-size: 13px;
             wrap: no-wrap;
             vertical-stretch: 1;
+            width: 100%;
         }
     }
 }
@@ -236,9 +248,12 @@ export component SettingsPage inherits VerticalLayout {
     callback toggle-tls();
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 20px;
+            width: 100%;
 
             SectionTitle { label: "主题"; }
             Rectangle {
@@ -430,9 +445,12 @@ export component PlatformPage inherits VerticalLayout {
     in property <string> platform-summary;
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 20px;
+            width: 100%;
 
             AlertBox {
                 alert-title: "能力提示";
@@ -464,9 +482,12 @@ export component PlatformPage inherits VerticalLayout {
 export component AboutPage inherits VerticalLayout {
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 16px;
+            width: 100%;
 
             Rectangle {
                 background: AppColors.page-surface;

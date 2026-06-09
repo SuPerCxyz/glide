@@ -125,9 +125,12 @@ export component MonitorManagerPage inherits VerticalLayout {
     callback monitor-selected(string);
 
     ScrollView {
+        vertical-stretch: 1;
+        width: 100%;
         VerticalLayout {
             padding: 24px;
             spacing: 20px;
+            width: 100%;
 
             // Header
             HorizontalLayout {
