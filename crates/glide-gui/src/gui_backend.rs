@@ -1,8 +1,57 @@
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use reqwest::blocking::Client as BlockingHttpClient;
 use glide_core::display_layout::DisplayLayout;
+
+/// 获取配置文件路径
+fn config_path() -> PathBuf {
+    if let Ok(path) = std::env::var("GLIDE_CONFIG_PATH") {
+        return PathBuf::from(path);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            return PathBuf::from(appdata).join("Glide").join("config.json");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+            return PathBuf::from(config_home).join("glide").join("config.json");
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            return PathBuf::from(home).join(".config").join("glide").join("config.json");
+        }
+    }
+
+    std::env::temp_dir().join("glide-config.json")
+}
+
+/// 从磁盘加载配置
+fn load_config() -> Option<AppSettings> {
+    let path = config_path();
+    if !path.exists() {
+        return None;
+    }
+    let content = fs::read_to_string(&path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+/// 保存配置到磁盘
+fn save_config(settings: &AppSettings) -> Result<(), String> {
+    let path = config_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
+    }
+    let content = serde_json::to_string_pretty(settings)
+        .map_err(|e| format!("序列化配置失败: {}", e))?;
+    fs::write(&path, content).map_err(|e| format!("写入配置文件失败: {}", e))?;
+    Ok(())
+}
 
 /// Result from a backend operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,20 +193,40 @@ impl MockBackend {
             .map(|h| h.to_string_lossy().to_string())
             .unwrap_or_else(|_| "glide-device".to_string());
 
+        // 默认设置
+        let default_settings = AppSettings {
+            server_url: "http://127.0.0.1:8080".to_string(),
+            auth_username: String::new(),
+            auth_password: String::new(),
+            registration_token: String::new(),
+            device_name,
+            auto_connect: false,
+            clipboard_enabled: true,
+            input_enabled: false,
+        };
+
+        // 尝试从磁盘加载配置，失败则使用默认设置
+        let settings = match load_config() {
+            Some(saved) => {
+                // 保留 hostname 作为设备名（如果保存的为空）
+                let device_name = if saved.device_name.is_empty() {
+                    default_settings.device_name.clone()
+                } else {
+                    saved.device_name
+                };
+                AppSettings {
+                    device_name,
+                    ..saved
+                }
+            }
+            None => default_settings,
+        };
+
         let mut backend = Self {
             state: Arc::new(Mutex::new(MockState {
                 running: true,
                 connected: false,
-                settings: AppSettings {
-                    server_url: "http://127.0.0.1:8080".to_string(),
-                    auth_username: String::new(),
-                    auth_password: String::new(),
-                    registration_token: String::new(),
-                    device_name,
-                    auto_connect: false,
-                    clipboard_enabled: true,
-                    input_enabled: false,
-                },
+                settings,
                 devices: vec![
                     DeviceInfo {
                         device_id: "linux-cli".to_string(),
@@ -241,6 +310,11 @@ impl MockBackend {
             state.settings.auth_username = username.to_string();
             state.settings.auth_password = password.to_string();
         });
+        // 持久化到磁盘
+        let settings = self.with_state(|s| s.settings.clone());
+        if let Err(e) = save_config(&settings) {
+            self.log(&format!("保存配置失败: {}", e));
+        }
         self.log("认证信息已保存");
         Self::success(())
     }
@@ -249,7 +323,40 @@ impl MockBackend {
         self.with_state_mut(|state| {
             state.settings.registration_token = token.to_string();
         });
+        // 持久化到磁盘
+        let settings = self.with_state(|s| s.settings.clone());
+        if let Err(e) = save_config(&settings) {
+            self.log(&format!("保存配置失败: {}", e));
+        }
         self.log("注册 token 已保存");
+        Self::success(())
+    }
+
+    /// 保存服务端地址到磁盘
+    pub fn save_server_url(&self, url: &str) -> BackendResult<()> {
+        self.with_state_mut(|state| {
+            state.settings.server_url = url.to_string();
+        });
+        // 持久化到磁盘
+        let settings = self.with_state(|s| s.settings.clone());
+        if let Err(e) = save_config(&settings) {
+            self.log(&format!("保存配置失败: {}", e));
+        }
+        self.log("服务端地址已保存");
+        Self::success(())
+    }
+
+    /// 保存设备名到磁盘
+    pub fn save_device_name(&self, name: &str) -> BackendResult<()> {
+        self.with_state_mut(|state| {
+            state.settings.device_name = name.to_string();
+        });
+        // 持久化到磁盘
+        let settings = self.with_state(|s| s.settings.clone());
+        if let Err(e) = save_config(&settings) {
+            self.log(&format!("保存配置失败: {}", e));
+        }
+        self.log("设备名已保存");
         Self::success(())
     }
 }
@@ -580,6 +687,10 @@ impl GuiBackend for MockBackend {
 
     fn update_settings(&self, settings: &AppSettings) -> BackendResult<()> {
         self.with_state_mut(|state| state.settings = settings.clone());
+        // 持久化到磁盘
+        if let Err(e) = save_config(settings) {
+            self.log(&format!("保存配置失败: {}", e));
+        }
         self.log("设置已从界面更新");
         Self::success(())
     }
@@ -706,10 +817,21 @@ fn mask_url(url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{GuiBackend, MockBackend};
+    use super::{GuiBackend, MockBackend, config_path, load_config, save_config, AppSettings};
+    use std::sync::Mutex;
+
+    // 全局锁，确保测试串行执行
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn mock_backend_updates_connection_status() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // 使用临时配置文件
+        let temp_path = std::env::temp_dir().join(format!("glide-test-{}.json", std::process::id()));
+        std::env::set_var("GLIDE_CONFIG_PATH", temp_path.to_str().unwrap());
+        let _ = std::fs::remove_file(&temp_path);
+
         // Use a port that is very unlikely to have a real server on it
         // so the health check always fails in tests
         let backend = MockBackend::new();
@@ -725,20 +847,38 @@ mod tests {
         let status = backend.get_service_status().data.unwrap();
         assert_eq!("连接断开", status.connection_status);
         assert!(status.running);
+
+        let _ = std::fs::remove_file(&temp_path);
+        std::env::remove_var("GLIDE_CONFIG_PATH");
     }
 
     #[test]
     fn mock_backend_rejects_empty_server_url() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        let temp_path = std::env::temp_dir().join(format!("glide-test-empty-{}.json", std::process::id()));
+        std::env::set_var("GLIDE_CONFIG_PATH", temp_path.to_str().unwrap());
+        let _ = std::fs::remove_file(&temp_path);
+
         let backend = MockBackend::new();
 
         let result = backend.connect_server("");
 
         assert!(!result.success);
         assert_eq!("服务端地址不能为空", result.error.unwrap());
+
+        let _ = std::fs::remove_file(&temp_path);
+        std::env::remove_var("GLIDE_CONFIG_PATH");
     }
 
     #[test]
     fn mock_backend_toggles_clipboard_and_input_settings() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        let temp_path = std::env::temp_dir().join(format!("glide-test-toggle-{}.json", std::process::id()));
+        std::env::set_var("GLIDE_CONFIG_PATH", temp_path.to_str().unwrap());
+        let _ = std::fs::remove_file(&temp_path);
+
         let backend = MockBackend::new();
 
         assert!(backend.set_clipboard_enabled(false).success);
@@ -747,5 +887,69 @@ mod tests {
         let settings = backend.get_settings().data.unwrap();
         assert!(!settings.clipboard_enabled);
         assert!(settings.input_enabled);
+
+        let _ = std::fs::remove_file(&temp_path);
+        std::env::remove_var("GLIDE_CONFIG_PATH");
+    }
+
+    #[test]
+    fn config_persistence_and_save_methods() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // 使用临时文件避免影响真实配置
+        let temp_path = std::env::temp_dir().join(format!("glide-test-combined-{}.json", std::process::id()));
+        std::env::set_var("GLIDE_CONFIG_PATH", temp_path.to_str().unwrap());
+
+        // 清理可能存在的旧文件
+        let _ = std::fs::remove_file(&temp_path);
+
+        let settings = AppSettings {
+            server_url: "http://test-server:8080".to_string(),
+            device_name: "test-device".to_string(),
+            auto_connect: false,
+            clipboard_enabled: true,
+            input_enabled: false,
+            auth_username: "testuser".to_string(),
+            auth_password: "testpass".to_string(),
+            registration_token: "test-token".to_string(),
+        };
+
+        // 保存配置
+        let result = save_config(&settings);
+        assert!(result.is_ok(), "save_config failed: {:?}", result.err());
+
+        // 验证文件存在
+        assert!(temp_path.exists(), "config file should exist at {:?}", temp_path);
+
+        // 直接读取文件验证内容
+        let content = std::fs::read_to_string(&temp_path)
+            .expect("should be able to read config file");
+        assert!(content.contains("test-server"), "config should contain test-server");
+
+        // 加载配置
+        let loaded = load_config();
+        assert!(loaded.is_some(), "load_config should return Some");
+
+        let loaded = loaded.unwrap();
+        assert_eq!(loaded.server_url, settings.server_url);
+        assert_eq!(loaded.auth_username, settings.auth_username);
+        assert_eq!(loaded.registration_token, settings.registration_token);
+
+        // 测试 save 方法也持久化到磁盘
+        let backend = MockBackend::new();
+        backend.save_server_url("http://method-test:9090");
+        backend.save_auth("method-user", "method-pass");
+        backend.save_registration_token("method-token");
+
+        // 验证文件更新
+        let loaded = load_config().expect("should load config after save methods");
+        assert_eq!(loaded.server_url, "http://method-test:9090");
+        assert_eq!(loaded.auth_username, "method-user");
+        assert_eq!(loaded.auth_password, "method-pass");
+        assert_eq!(loaded.registration_token, "method-token");
+
+        // 清理
+        let _ = std::fs::remove_file(&temp_path);
+        std::env::remove_var("GLIDE_CONFIG_PATH");
     }
 }

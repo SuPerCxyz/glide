@@ -471,9 +471,8 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             let Some(win) = win.upgrade() else {
                 return;
             };
-            let mut settings = backend.get_settings().data.unwrap_or_else(default_settings);
-            settings.server_url = url.to_string();
-            let result = backend.update_settings(&settings);
+            // 直接调用后端的 save_server_url 方法（会自动持久化）
+            let result = backend.save_server_url(&url);
             if !result.success {
                 warn!("failed to save server url: {:?}", result.error);
             }
@@ -488,9 +487,8 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
             let Some(win) = win.upgrade() else {
                 return;
             };
-            let mut settings = backend.get_settings().data.unwrap_or_else(default_settings);
-            settings.device_name = name.to_string();
-            let result = backend.update_settings(&settings);
+            // 直接调用后端的 save_device_name 方法（会自动持久化）
+            let result = backend.save_device_name(&name);
             if !result.success {
                 warn!("failed to save device name: {:?}", result.error);
             }
