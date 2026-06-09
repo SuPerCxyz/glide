@@ -205,6 +205,41 @@ async fn device_register(
         .unwrap_or("linux");
     let trusted = req.get("trusted").and_then(|v| v.as_bool()).unwrap_or(true);
     let public_key = req.get("public_key_fingerprint").and_then(|v| v.as_str());
+
+    // Check if authentication is required
+    let require_auth = std::env::var("GLIDE_REQUIRE_AUTH")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    // Verify Bearer token if authentication is required
+    if require_auth {
+        let auth_header = headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .ok_or_else(|| {
+                (
+                    axum::http::StatusCode::UNAUTHORIZED,
+                    Json(serde_json::json!({"error": "authorization required"})),
+                )
+            })?;
+
+        let token = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "invalid authorization format"})),
+            )
+        })?;
+
+        // Verify session token
+        let sessions = state.sessions.read().await;
+        if !sessions.contains_key(token) {
+            return Err((
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "invalid session token"})),
+            ));
+        }
+    }
+
     let registration_token = std::env::var("GLIDE_REGISTRATION_TOKEN").ok();
 
     // Verify registration token if configured.
