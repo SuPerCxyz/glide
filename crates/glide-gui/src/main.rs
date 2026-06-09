@@ -619,7 +619,7 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
             backend.log(&entry);
         }
     }
-    if let Some(logs) = backend.tail_logs(200).data {
+    if let Some(logs) = backend.tail_logs(1000).data {
         window.set_log_content(SharedString::from(logs.join("\n")));
     }
 
