@@ -30,6 +30,7 @@ export component MainWindow inherits Window {
     in-out property <bool> dark-mode: false;
     in-out property <string> auth-username: "";
     in-out property <string> auth-password: "";
+    in-out property <string> registration-token: "";
     in-out property <[MonitorInfo]> monitors: [];
     in-out property <string> monitor-status: "未检测";
     in-out property <int> total-devices: 0;
@@ -50,6 +51,7 @@ export component MainWindow inherits Window {
     callback save-name(string);
     callback toggle-theme();
     callback save-auth(string, string);
+    callback save-registration-token(string);
     callback detect-monitors();
     callback save-monitor-layout();
     callback monitor-selected(string);
@@ -115,6 +117,7 @@ export component MainWindow inherits Window {
                         dark-mode: dark-mode;
                         auth-username: auth-username;
                         auth-password: auth-password;
+                        registration-token: registration-token;
                         enable-tls: enable-tls;
                         save-server(url) => { root.save-server(url); }
                         save-name(name) => { root.save-name(name); }
@@ -123,6 +126,7 @@ export component MainWindow inherits Window {
                             AppColors.dark-mode = root.dark-mode;
                         }
                         save-auth(user, pass) => { root.save-auth(user, pass); }
+                        save-registration-token(token) => { root.save-registration-token(token); }
                         toggle-tls => { root.toggle-tls(); }
                     }
                     if current-page == 5 : PlatformPage { platform-summary: platform-summary; }

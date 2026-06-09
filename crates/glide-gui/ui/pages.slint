@@ -248,11 +248,13 @@ export component SettingsPage inherits VerticalLayout {
     in property <bool> dark-mode;
     in property <string> auth-username;
     in property <string> auth-password;
+    in property <string> registration-token;
     in property <bool> enable-tls;
     callback save-server(string);
     callback save-name(string);
     callback toggle-theme();
     callback save-auth(string, string);
+    callback save-registration-token(string);
     callback toggle-tls();
 
     ScrollView {
@@ -374,6 +376,46 @@ export component SettingsPage inherits VerticalLayout {
                     Button {
                         text: "保存认证信息";
                         clicked => { root.save-auth(username-input.text, password-input.text); }
+                    }
+                }
+            }
+
+            SectionTitle { label: "注册"; }
+            Rectangle {
+                background: AppColors.page-surface;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: AppColors.border-base;
+                animate background { duration: 200ms; }
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 10px;
+                    Text {
+                        text: "服务端注册 token";
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: AppColors.text-primary;
+                        animate color { duration: 200ms; }
+                    }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        Text {
+                            text: "Token";
+                            font-size: 14px;
+                            min-width: 60px;
+                            color: AppColors.text-secondary;
+                            animate color { duration: 200ms; }
+                        }
+                        token-input := LineEdit {
+                            text: registration-token;
+                            placeholder-text: "可选";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    Button {
+                        text: "保存注册 token";
+                        clicked => { root.save-registration-token(token-input.text); }
                     }
                 }
             }

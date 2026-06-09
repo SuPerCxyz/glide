@@ -45,6 +45,7 @@ pub struct AppSettings {
     pub input_enabled: bool,
     pub auth_username: String,
     pub auth_password: String,
+    pub registration_token: String,
 }
 
 #[allow(dead_code)]
@@ -151,6 +152,7 @@ impl MockBackend {
                     server_url: "http://127.0.0.1:8080".to_string(),
                     auth_username: String::new(),
                     auth_password: String::new(),
+                    registration_token: String::new(),
                     device_name,
                     auto_connect: false,
                     clipboard_enabled: true,
@@ -240,6 +242,14 @@ impl MockBackend {
             state.settings.auth_password = password.to_string();
         });
         self.log("认证信息已保存");
+        Self::success(())
+    }
+
+    pub fn save_registration_token(&self, token: &str) -> BackendResult<()> {
+        self.with_state_mut(|state| {
+            state.settings.registration_token = token.to_string();
+        });
+        self.log("注册 token 已保存");
         Self::success(())
     }
 }
@@ -417,14 +427,20 @@ impl GuiBackend for MockBackend {
         // 注册设备
         let reg_url = format!("{}/api/v1/devices/register", server_url);
         let device_name = self.with_state(|s| s.settings.device_name.clone());
+        let registration_token = self.with_state(|s| s.settings.registration_token.clone());
         let platform = std::env::consts::OS.to_string();
 
-        let body = serde_json::json!({
+        let mut body = serde_json::json!({
             "device_id": self.device_id,
             "name": device_name,
             "platform": platform,
             "trusted": true,
         });
+
+        // 如果配置了注册 token，添加到请求体
+        if !registration_token.is_empty() {
+            body["registration_token"] = serde_json::json!(registration_token);
+        }
 
         self.log(&format!("正在注册到服务端：{}", mask_url(&server_url)));
 

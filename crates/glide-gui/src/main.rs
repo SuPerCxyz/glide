@@ -562,6 +562,21 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
     {
         let backend = backend.clone();
         let win = window.as_weak();
+        window.on_save_registration_token(move |token| {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            let result = backend.save_registration_token(&token);
+            if !result.success {
+                warn!("failed to save registration token: {:?}", result.error);
+            }
+            refresh_window(&win, &backend);
+        });
+    }
+
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
         window.on_toggle_tls(move || {
             let Some(win) = win.upgrade() else {
                 return;
@@ -589,6 +604,7 @@ fn refresh_window(window: &MainWindow, backend: &MockBackend) {
         window.set_device_name(SharedString::from(settings.device_name));
         window.set_auth_username(SharedString::from(settings.auth_username));
         window.set_auth_password(SharedString::from(settings.auth_password));
+        window.set_registration_token(SharedString::from(settings.registration_token));
     }
 
     if let Some(devices) = backend.list_devices().data {
@@ -651,6 +667,7 @@ fn default_settings() -> AppSettings {
         input_enabled: false,
         auth_username: String::new(),
         auth_password: String::new(),
+        registration_token: String::new(),
     }
 }
 
