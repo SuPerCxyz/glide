@@ -61,12 +61,12 @@ export component Sidebar inherits Rectangle {
         Rectangle { height: 1px; background: AppColors.border-base; }
         Rectangle { height: 8px; }
         SidebarItem { icon: "◉";  label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "";  label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "⊡";  label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "☰";  label: "日志";     index: 3; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: ""; label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "⊡"; label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "≡"; label: "日志";     index: 3; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "⚙"; label: "设置";     index: 4; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "◧";  label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "";  label: "显示器";   index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "◫"; label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: ""; label: "显示器";   index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: ""; label: "关于";     index: 7; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
     }
 }
