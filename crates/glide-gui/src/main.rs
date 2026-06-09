@@ -340,10 +340,23 @@ fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
     window.invoke_page_changed(3);
     window.invoke_save_server(SharedString::from("http://192.0.2.10:8080"));
     window.invoke_save_name(SharedString::from("glide-smoke"));
-    let status = backend
-        .get_service_status()
-        .data
-        .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到服务状态"));
+
+    // 异步连接需要等待后台线程完成（最长 ~8 秒）
+    let status = {
+        let mut attempts = 0;
+        loop {
+            let s = backend
+                .get_service_status()
+                .data
+                .unwrap_or_else(|| panic!("交互 smoke 未从模拟后端拿到服务状态"));
+            // 等待异步连接完成（状态不再是"未连接"或"连接中..."）
+            if (s.connection_status != "未连接" && s.connection_status != "连接中...") || attempts >= 20 {
+                break s;
+            }
+            attempts += 1;
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    };
     let settings = backend
         .get_settings()
         .data
