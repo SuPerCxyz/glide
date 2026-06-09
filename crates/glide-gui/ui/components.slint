@@ -25,15 +25,17 @@ component SidebarItem inherits Rectangle {
         clicked => { root.page-selected(index); }
     }
     HorizontalLayout {
-        padding-left: 12px;
-        spacing: 10px;
-        alignment: center;
-        Text { text: icon; font-size: 16px; min-width: 20px; }
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        alignment: start;
+        Text { text: icon; font-size: 16px; width: 20px; vertical-alignment: center; }
         Text {
             text: label;
             font-size: 14px;
             font-weight: index == current-index ? 600 : 400;
             color: index == current-index ? AppColors.sidebar-active-text : AppColors.sidebar-text;
+            vertical-alignment: center;
             animate color { duration: 150ms; }
         }
     }
@@ -47,17 +49,18 @@ export component Sidebar inherits Rectangle {
     animate background { duration: 200ms; }
     VerticalLayout {
         padding-top: 16px; padding-bottom: 16px;
-        padding-left: 12px; padding-right: 12px;
-        spacing: 0;
+        padding-left: 16px; padding-right: 16px;
+        spacing: 4px;
         Rectangle {
             height: 48px;
-            VerticalLayout {
-                padding-left: 10px;
-                alignment: center;
-                Text { text: "Glide"; font-size: 24px; font-weight: 800; color: AppColors.primary; }
+            HorizontalLayout {
+                padding-left: 8px;
+                alignment: start;
+                Text { text: "Glide"; font-size: 24px; font-weight: 800; color: AppColors.primary; vertical-alignment: center; }
             }
         }
         Rectangle { height: 1px; background: AppColors.border-base; }
+        Rectangle { height: 8px; }
         SidebarItem { icon: "◉";  label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "🖥";  label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "🔗";  label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
@@ -97,8 +100,9 @@ export component TopBar inherits Rectangle {
     Rectangle { height: 1px; background: AppColors.border-base; y: 55px; width: 100%; }
     HorizontalLayout {
         padding-left: 24px; padding-right: 24px;
-        alignment: center;
-        Text { text: title; font-size: 22px; font-weight: 700; color: AppColors.text-primary; horizontal-stretch: 1; animate color { duration: 200ms; } }
+        alignment: start;
+        Text { text: title; font-size: 22px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; animate color { duration: 200ms; } }
+        Rectangle { width: 12px; }
         StatusBadge {
             label: connection-status;
             badge-color: connection-status == "已连接" ? AppColors.status-online : connection-status == "未连接" ? AppColors.status-offline : connection-status == "连接中" ? AppColors.status-connecting : AppColors.status-unpaired;
@@ -110,7 +114,7 @@ export component TopBar inherits Rectangle {
 export component SectionTitle inherits HorizontalLayout {
     in property <string> label;
     spacing: 10px;
-    alignment: center;
+    alignment: start;
     Rectangle { width: 4px; height: 18px; border-radius: 2px; background: AppColors.primary; }
     Text { text: label; font-size: 16px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; animate color { duration: 200ms; } }
 }
@@ -158,12 +162,13 @@ export component DeviceCard inherits Rectangle {
     HorizontalLayout {
         padding-left: 16px; padding-right: 16px;
         spacing: 14px;
-        alignment: center;
+        alignment: start;
         Rectangle { width: 36px; height: 36px; border-radius: 8px; background: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg; animate background { duration: 200ms; }
             VerticalLayout { alignment: center; Text { text: "🖥"; font-size: 18px; } }
         }
         VerticalLayout {
             spacing: 3px; horizontal-stretch: 1;
+            alignment: start;
             Text { text: device-name; font-size: 15px; font-weight: 600; color: AppColors.text-primary; animate color { duration: 200ms; } }
             Text { text: device-platform; font-size: 13px; color: AppColors.text-secondary; animate color { duration: 200ms; } }
         }
@@ -190,9 +195,10 @@ export component SettingsRow inherits Rectangle {
     HorizontalLayout {
         padding-left: 16px; padding-right: 16px;
         spacing: 14px;
-        alignment: center;
+        alignment: start;
         VerticalLayout {
             spacing: 3px; horizontal-stretch: 1;
+            alignment: start;
             Text { text: label; font-size: 15px; font-weight: 600; color: AppColors.text-primary; animate color { duration: 200ms; } }
             Text { text: detail; font-size: 13px; color: AppColors.text-secondary; animate color { duration: 200ms; } }
         }

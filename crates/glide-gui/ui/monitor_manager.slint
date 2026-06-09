@@ -30,7 +30,7 @@ component MonitorCard inherits Rectangle {
     HorizontalLayout {
         padding: 16px;
         spacing: 16px;
-        alignment: center;
+        alignment: start;
 
         // Monitor icon
         Rectangle {
@@ -124,101 +124,102 @@ export component MonitorManagerPage inherits VerticalLayout {
     callback save-layout();
     callback monitor-selected(string);
 
-    padding: 24px;
-    spacing: 20px;
-
-    // Header
-    HorizontalLayout {
-        alignment: start;
-        spacing: 12px;
-        Text {
-            text: "显示器管理器";
-            font-size: 24px;
-            font-weight: 700;
-            color: AppColors.text-primary;
-            vertical-alignment: center;
-        }
-        Rectangle { width: 1px; height: 24px; background: AppColors.border-base; }
-        Text {
-            text: status-text;
-            font-size: 14px;
-            color: AppColors.text-secondary;
-            vertical-alignment: center;
-        }
-    }
-
-    // Visualization area
-    Rectangle {
-        background: AppColors.page-surface;
-        border-radius: 8px;
-        border-width: 1px;
-        border-color: AppColors.border-base;
-        vertical-stretch: 1;
-
+    ScrollView {
         VerticalLayout {
-            padding: 20px;
-            spacing: 16px;
+            padding: 24px;
+            spacing: 20px;
 
-            // Title
-            Text {
-                text: "显示器布局";
-                font-size: 16px;
-                font-weight: 600;
-                color: AppColors.text-primary;
+            // Header
+            HorizontalLayout {
+                alignment: start;
+                spacing: 12px;
+                Text {
+                    text: "显示器管理器";
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: AppColors.text-primary;
+                    vertical-alignment: center;
+                }
+                Rectangle { width: 1px; height: 24px; background: AppColors.border-base; }
+                Text {
+                    text: status-text;
+                    font-size: 14px;
+                    color: AppColors.text-secondary;
+                    vertical-alignment: center;
+                }
             }
 
-            // Monitor visualization (simplified - shows list)
-            ScrollView {
-                viewport-height: 300px;
+            // Visualization area
+            Rectangle {
+                background: AppColors.page-surface;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: AppColors.border-base;
+                min-height: 300px;
+
                 VerticalLayout {
-                    spacing: 12px;
-                    for monitor in monitors : MonitorCard {
-                        monitor: monitor;
-                        clicked => { root.monitor-selected(monitor.monitor-id); }
+                    padding: 20px;
+                    spacing: 16px;
+
+                    // Title
+                    Text {
+                        text: "显示器布局";
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: AppColors.text-primary;
+                    }
+
+                    // Monitor visualization (simplified - shows list)
+                    VerticalLayout {
+                        spacing: 12px;
+                        for monitor in monitors : MonitorCard {
+                            monitor: monitor;
+                            clicked => { root.monitor-selected(monitor.monitor-id); }
+                        }
+                    }
+
+                    // Action buttons
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: end;
+                        Button {
+                            text: "重新检测";
+                            clicked => { root.detect-monitors(); }
+                        }
+                        Button {
+                            text: "保存布局";
+                            clicked => { root.save-layout(); }
+                        }
                     }
                 }
             }
 
-            // Action buttons
-            HorizontalLayout {
-                spacing: 12px;
-                alignment: end;
-                Button {
-                    text: "重新检测";
-                    clicked => { root.detect-monitors(); }
-                }
-                Button {
-                    text: "保存布局";
-                    clicked => { root.save-layout(); }
-                }
-            }
-        }
-    }
+            // Help text
+            Rectangle {
+                background: AppColors.alert-info-bg;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: AppColors.alert-info-border;
+                height: 60px;
 
-    // Help text
-    Rectangle {
-        background: AppColors.alert-info-bg;
-        border-radius: 8px;
-        border-width: 1px;
-        border-color: AppColors.alert-info-border;
-        height: 60px;
-
-        HorizontalLayout {
-            padding: 16px;
-            spacing: 12px;
-            alignment: start;
-            Text {
-                text: "💡";
-                font-size: 20px;
-                vertical-alignment: center;
-            }
-            Text {
-                text: "显示器管理器用于配置多显示器环境下的鼠标键盘共享。调整显示器位置以匹配物理布局，实现无缝切换。";
-                font-size: 13px;
-                color: AppColors.alert-info-text;
-                wrap: word-wrap;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
+                HorizontalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+                    alignment: start;
+                    Text {
+                        text: "💡";
+                        font-size: 20px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "显示器管理器用于配置多显示器环境下的鼠标键盘共享。调整显示器位置以匹配物理布局，实现无缝切换。";
+                        font-size: 13px;
+                        color: AppColors.alert-info-text;
+                        wrap: word-wrap;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                }
             }
         }
     }
