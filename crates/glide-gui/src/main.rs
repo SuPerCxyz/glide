@@ -107,7 +107,7 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     let _ = tracing_log::LogTracer::init();
     let filter = EnvFilter::try_from_env("GLIDE_GUI_LOG").unwrap_or_else(|_| {
         EnvFilter::new(
-            "debug,icu_provider=error,icu_segmenter=error,icu_locid=error,icu_list=error,icu_locale=error",
+            "info,glide_core=debug,glide_cli=debug,glide_server=debug,glide_desktop=debug,glide_gui=debug,glide_daemon=debug,icu_provider=error,icu_segmenter=error,icu_locid=error,icu_list=error,icu_locale=error",
         )
     });
     // 组合日志层：GuiLogLayer 桥接事件到 GUI 日志页，fmt 层输出到 stderr
