@@ -1,4 +1,4 @@
-import { Button, Switch, LineEdit } from "std-widgets.slint";
+import { Switch } from "std-widgets.slint";
 import { AppColors } from "colors.slint";
 
 export struct DeviceRow {
@@ -16,7 +16,7 @@ component SidebarItem inherits Rectangle {
     in property <int> index;
     in property <int> current-index;
     callback page-selected(int);
-    height: 40px;
+    height: 38px;
     border-radius: 8px;
     background: index == current-index ? AppColors.sidebar-active : ta.has-hover ? AppColors.button-ghost-hover : transparent;
     animate background { duration: 150ms; }
@@ -25,11 +25,11 @@ component SidebarItem inherits Rectangle {
         clicked => { root.page-selected(index); }
     }
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        spacing: 12px;
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 10px;
         alignment: start;
-        Text { text: icon; font-size: 16px; width: 20px; vertical-alignment: center; }
+        Text { text: icon; font-size: 14px; width: 22px; color: index == current-index ? AppColors.sidebar-active-text : AppColors.sidebar-text; vertical-alignment: center; }
         Text {
             text: label;
             font-size: 14px;
@@ -44,30 +44,32 @@ component SidebarItem inherits Rectangle {
 export component Sidebar inherits Rectangle {
     in property <int> current-index;
     callback page-selected(int);
-    width: 200px;
+    width: 228px;
     background: AppColors.sidebar-bg;
+    Rectangle { x: 227px; width: 1px; height: 100%; background: AppColors.border-base; }
     VerticalLayout {
-        padding-top: 16px; padding-bottom: 16px;
-        padding-left: 16px; padding-right: 16px;
+        padding-top: 18px; padding-bottom: 16px;
+        padding-left: 14px; padding-right: 14px;
         spacing: 4px;
         Rectangle {
-            height: 48px;
+            height: 46px;
             HorizontalLayout {
-                padding-left: 8px;
+                padding-left: 10px;
                 alignment: start;
-                Text { text: "Glide"; font-size: 24px; font-weight: 800; color: AppColors.primary; vertical-alignment: center; }
+                Rectangle { width: 24px; height: 24px; border-radius: 6px; background: AppColors.primary; }
+                Text { text: "Glide"; font-size: 22px; font-weight: 800; color: AppColors.text-primary; vertical-alignment: center; }
             }
         }
         Rectangle { height: 1px; background: AppColors.border-base; }
         Rectangle { height: 8px; }
-        SidebarItem { icon: "";   label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: ""; label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "";   label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "S"; label: "状态";     index: 0; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "D"; label: "设备";     index: 1; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "P"; label: "配对";     index: 2; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
         SidebarItem { icon: "≡"; label: "日志";     index: 3; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "⚙"; label: "设置";     index: 4; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: "";   label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: ""; label: "显示器";   index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
-        SidebarItem { icon: ""; label: "关于";     index: 7; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "*"; label: "设置";     index: 4; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "C"; label: "平台能力"; index: 5; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "M"; label: "显示器";   index: 6; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
+        SidebarItem { icon: "i"; label: "关于";     index: 7; current-index: current-index; page-selected(idx) => { root.page-selected(idx); } }
     }
 }
 
@@ -76,7 +78,7 @@ export component StatusBadge inherits Rectangle {
     in property <color> badge-color: AppColors.text-tertiary;
     in property <color> badge-bg: AppColors.page-surface-alt;
     in property <bool> pulse: false;
-    min-width: 72px;
+    min-width: 74px;
     height: 24px;
     border-radius: 6px;
     background: badge-bg;
@@ -97,15 +99,14 @@ export component TopBar inherits Rectangle {
     Rectangle { height: 1px; background: AppColors.border-base; y: 55px; width: 100%; }
     HorizontalLayout {
         padding-left: 24px; padding-right: 24px;
-        // 左侧：页面图标 + 标题
         HorizontalLayout {
             horizontal-stretch: 1;
             alignment: start;
-            Text { text: title; font-size: 22px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; }
+            Text { text: title; font-size: 20px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; }
         }
-        // 右侧 spacer 推 Badge 到最右
         Rectangle { horizontal-stretch: 1; }
-        // 右侧：连接状态 Badge
+        Text { text: "连接"; font-size: 13px; color: AppColors.text-secondary; vertical-alignment: center; }
+        Rectangle { width: 8px; }
         StatusBadge {
             label: connection-status;
             badge-color: connection-status == "已连接" ? AppColors.status-online : connection-status == "未连接" ? AppColors.status-offline : connection-status == "连接中" ? AppColors.status-connecting : AppColors.status-unpaired;
@@ -116,10 +117,75 @@ export component TopBar inherits Rectangle {
 
 export component SectionTitle inherits HorizontalLayout {
     in property <string> label;
-    spacing: 10px;
+    spacing: 8px;
     alignment: start;
-    Rectangle { width: 4px; height: 18px; border-radius: 2px; background: AppColors.primary; }
-    Text { text: label; font-size: 16px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; }
+    Rectangle { width: 3px; height: 17px; border-radius: 2px; background: AppColors.primary; }
+    Text { text: label; font-size: 15px; font-weight: 700; color: AppColors.text-primary; vertical-alignment: center; }
+}
+
+export component PageButton inherits Rectangle {
+    in property <string> text;
+    in property <string> variant: "secondary";
+    in property <bool> prominent: false;
+    callback clicked();
+    min-width: prominent ? 86px : 70px;
+    height: prominent ? 38px : 34px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: variant == "primary" ? AppColors.button-primary-bg :
+        variant == "danger" ? AppColors.alert-danger-border : AppColors.border-base;
+    background: variant == "primary" ? (ta.has-hover ? AppColors.primary-hover : AppColors.button-primary-bg) :
+        variant == "danger" ? (ta.has-hover ? AppColors.alert-danger-bg : AppColors.page-elevated) :
+        (ta.has-hover ? AppColors.button-secondary-hover : AppColors.page-elevated);
+    animate background { duration: 120ms; }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.text;
+        font-size: 13px;
+        font-weight: variant == "primary" ? 600 : 500;
+        color: variant == "primary" ? AppColors.button-primary-text :
+            variant == "danger" ? AppColors.alert-danger-text : AppColors.button-secondary-text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component MetricCard inherits Rectangle {
+    in property <string> title;
+    in property <string> value;
+    in property <string> detail;
+    in property <string> state: "muted";
+    min-height: 96px;
+    width: 100%;
+    horizontal-stretch: 1;
+    background: AppColors.page-surface;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: AppColors.border-base;
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+        alignment: start;
+        Rectangle {
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background: state == "success" ? AppColors.status-online :
+                state == "warning" ? AppColors.status-limited :
+                state == "error" ? AppColors.status-error :
+                state == "connecting" ? AppColors.status-connecting : AppColors.status-unpaired;
+        }
+        VerticalLayout {
+            spacing: 4px;
+            horizontal-stretch: 1;
+            Text { text: title; font-size: 13px; font-weight: 600; color: AppColors.text-secondary; }
+            Text { text: value; font-size: 16px; font-weight: 700; color: AppColors.text-primary; wrap: word-wrap; }
+            Text { text: detail; font-size: 12px; color: AppColors.text-tertiary; wrap: word-wrap; }
+        }
+    }
 }
 
 export component AlertBox inherits Rectangle {
@@ -127,6 +193,8 @@ export component AlertBox inherits Rectangle {
     in property <string> body;
     in property <string> alert-type: "info";
     border-radius: 8px;
+    width: 100%;
+    horizontal-stretch: 1;
     background: alert-type == "info" ? AppColors.alert-info-bg : alert-type == "warning" ? AppColors.alert-warning-bg : alert-type == "success" ? AppColors.alert-success-bg : AppColors.alert-danger-bg;
     HorizontalLayout {
         Rectangle { width: 4px; border-radius: 2px; background: alert-type == "info" ? AppColors.alert-info-border : alert-type == "warning" ? AppColors.alert-warning-border : alert-type == "success" ? AppColors.alert-success-border : AppColors.alert-danger-border; }
@@ -152,7 +220,9 @@ export component DeviceCard inherits Rectangle {
     callback trust-request(string);
     callback untrust-request(string);
     callback remove-request(string);
-    height: 72px;
+    min-height: 70px;
+    width: 100%;
+    horizontal-stretch: 1;
     background: AppColors.page-surface;
     border-radius: 8px;
     border-width: 1px;
@@ -174,9 +244,9 @@ export component DeviceCard inherits Rectangle {
         }
         StatusBadge { label: is-trusted ? "已信任" : "未信任"; badge-color: is-trusted ? AppColors.status-online : AppColors.status-unpaired; badge-bg: is-trusted ? AppColors.status-online-bg : AppColors.status-unpaired-bg; }
         StatusBadge { label: status-text; badge-color: is-online ? AppColors.status-online : AppColors.status-offline; badge-bg: is-online ? AppColors.status-online-bg : AppColors.status-offline-bg; }
-        if is-lan && !is-trusted : Button { text: "信任"; clicked => { root.trust-request(device-id); } }
-        if is-lan && is-trusted : Button { text: "取消信任"; clicked => { root.untrust-request(device-id); } }
-        Button { text: "移除"; clicked => { root.remove-request(device-id); } }
+        if is-lan && !is-trusted : PageButton { text: "信任"; variant: "primary"; clicked => { root.trust-request(device-id); } }
+        if is-lan && is-trusted : PageButton { text: "取消信任"; clicked => { root.untrust-request(device-id); } }
+        PageButton { text: "移除"; variant: "danger"; clicked => { root.remove-request(device-id); } }
     }
 }
 
@@ -185,9 +255,11 @@ export component SettingsRow inherits Rectangle {
     in property <string> detail;
     in property <bool> checked;
     callback toggled();
-    height: 56px;
+    min-height: 58px;
+    width: 100%;
+    horizontal-stretch: 1;
     background: AppColors.page-surface;
-    border-radius: 8px;
+    border-radius: 10px;
     border-width: 1px;
     border-color: AppColors.border-base;
     HorizontalLayout {

@@ -298,6 +298,10 @@ impl MockBackend {
         });
     }
 
+    pub fn clear_logs(&self) {
+        self.with_state_mut(|state| state.logs.clear());
+    }
+
     fn success<T>(data: T) -> BackendResult<T> {
         BackendResult {
             success: true,

@@ -1,10 +1,14 @@
-import { Button, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
-import { StatusBadge, DeviceCard, SettingsRow, AlertBox, SectionTitle, DeviceRow } from "components.slint";
+import { LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+import { StatusBadge, DeviceCard, SettingsRow, AlertBox, SectionTitle, DeviceRow, PageButton, MetricCard } from "components.slint";
 import { AppColors } from "colors.slint";
 
 // === Pages with unified spacing and dark mode toggle ===
 
 export component StatusPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     in property <bool> service-running;
     in property <string> connection-status;
     in property <string> device-count-text;
@@ -16,83 +20,111 @@ export component StatusPage inherits VerticalLayout {
     callback toggle-clipboard();
     callback toggle-input();
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
-            width: 100%;
-
-            SectionTitle { label: "后台服务"; }
-
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
             Rectangle {
-                background: AppColors.page-surface;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.border-base;
-                HorizontalLayout {
-                    padding: 16px;
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
+                VerticalLayout {
+                    padding-top: 22px;
+                    padding-bottom: 24px;
                     spacing: 16px;
-                    alignment: start;
-                    VerticalLayout {
-                        spacing: 4px;
+                    width: 100%;
+                    alignment: stretch;
+
+                    Rectangle {
+                        min-height: 74px;
+                        width: 100%;
                         horizontal-stretch: 1;
-                        alignment: start;
-                        Text {
-                            text: service-running ? "后台服务运行中" : "后台服务未运行";
-                            font-size: 16px;
-                            font-weight: 700;
-                            color: AppColors.text-primary;
-                        }
-                        Text {
-                            text: server-url == "" ? "尚未配置服务端地址" : server-url;
-                            font-size: 13px;
-                            color: AppColors.text-secondary;
-                        }
-                        Text {
-                            text: "已连接设备: " + device-count-text;
-                            font-size: 13px;
-                            color: AppColors.text-secondary;
+                        background: AppColors.page-surface;
+                        border-radius: 12px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        HorizontalLayout {
+                            padding: 16px;
+                            spacing: 14px;
+                            alignment: start;
+                            VerticalLayout {
+                                spacing: 4px;
+                                horizontal-stretch: 1;
+                                alignment: start;
+                                Text { text: connection-status == "已连接" ? "已连接到同步网络" : connection-status == "连接中" ? "正在连接服务端" : "尚未连接同步网络"; font-size: 18px; font-weight: 700; color: AppColors.text-primary; }
+                                Text { text: connection-status == "已连接" ? "剪贴板和键鼠同步状态见下方模块。" : "下一步：确认服务端地址后点击连接。"; font-size: 13px; color: AppColors.text-secondary; }
+                            }
+                            StatusBadge {
+                                label: connection-status;
+                                badge-color: connection-status == "已连接" ? AppColors.status-online : connection-status == "连接中" ? AppColors.status-connecting : AppColors.status-unpaired;
+                                badge-bg: connection-status == "已连接" ? AppColors.status-online-bg : connection-status == "连接中" ? AppColors.status-connecting-bg : AppColors.status-unpaired-bg;
+                            }
+                            if connection-status == "已连接" : PageButton { text: "断开连接"; variant: "danger"; clicked => { root.disconnect(); } }
+                            if connection-status != "已连接" : PageButton { text: "连接"; variant: "primary"; prominent: true; clicked => { root.connect(); } }
                         }
                     }
-                    // Button container
-                    VerticalLayout {
-                        alignment: center;
-                        if connection-status == "已连接" : Button {
-                            text: "断开";
-                            width: 80px;
-                            height: 32px;
-                            clicked => { root.disconnect(); }
+
+                    GridLayout {
+                        spacing: 12px;
+                        Row {
+                            MetricCard { title: "后台服务"; value: service-running ? "运行中" : "未运行"; detail: service-running ? "GUI 已可读取服务状态" : "需要启动 daemon 后接管能力"; state: service-running ? "success" : "error"; }
+                            MetricCard { title: "连接状态"; value: connection-status; detail: server-url == "" ? "未配置服务端地址" : server-url; state: connection-status == "已连接" ? "success" : connection-status == "连接中" ? "connecting" : "muted"; }
                         }
-                        if connection-status != "已连接" : Button {
-                            text: "连接";
-                            width: 80px;
-                            height: 32px;
-                            clicked => { root.connect(); }
+                        Row {
+                            MetricCard { title: "剪贴板同步"; value: clipboard-enabled ? "已开启" : "已关闭"; detail: "当前为 GUI/daemon 接入前状态"; state: clipboard-enabled ? "success" : "muted"; }
+                            MetricCard { title: "键鼠共享"; value: input-enabled ? "已开启" : "默认关闭"; detail: "真实控制需后台服务和平台权限"; state: input-enabled ? "warning" : "muted"; }
                         }
+                    }
+
+                    SectionTitle { label: "快速控制"; }
+                    SettingsRow { label: "剪贴板同步"; detail: "同步文本，后续扩展图片和文件"; checked: clipboard-enabled; toggled => { root.toggle-clipboard(); } }
+                    SettingsRow { label: "键鼠共享"; detail: "默认关闭，由后台服务和平台层执行"; checked: input-enabled; toggled => { root.toggle-input(); } }
+
+                    SectionTitle { label: "当前信息"; }
+                    Rectangle {
+                        background: AppColors.page-surface;
+                        width: 100%;
+                        horizontal-stretch: 1;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        GridLayout {
+                            padding: 16px;
+                            spacing: 12px;
+                            Row {
+                                Text { text: "服务端"; font-size: 13px; font-weight: 600; color: AppColors.text-secondary; }
+                                Text { text: server-url == "" ? "未配置" : server-url; font-size: 13px; color: AppColors.text-primary; wrap: word-wrap; }
+                            }
+                            Row {
+                                Text { text: "可信设备"; font-size: 13px; font-weight: 600; color: AppColors.text-secondary; }
+                                Text { text: device-count-text; font-size: 13px; color: AppColors.text-primary; }
+                            }
+                            Row {
+                                Text { text: "最近同步"; font-size: 13px; font-weight: 600; color: AppColors.text-secondary; }
+                                Text { text: clipboard-enabled ? "等待后台服务上报" : "剪贴板同步已关闭"; font-size: 13px; color: AppColors.text-primary; }
+                            }
+                        }
+                    }
+
+                    AlertBox {
+                        alert-title: connection-status == "已连接" ? "提示" : "需要操作";
+                        body: connection-status == "已连接" ? "GUI 已完成服务端注册和健康检查；剪贴板、键鼠真实同步仍等待 daemon 接入。" : "若服务端不可达，请到设置页检查地址、端口、防火墙和注册 token。";
+                        alert-type: connection-status == "已连接" ? "success" : "warning";
                     }
                 }
             }
-
-            SectionTitle { label: "同步开关"; }
-            SettingsRow {
-                label: "剪贴板同步";
-                detail: "同步文本，后续扩展图片和文件";
-                checked: clipboard-enabled;
-                toggled => { root.toggle-clipboard(); }
-            }
-            SettingsRow {
-                label: "键鼠共享";
-                detail: "默认关闭，由后台服务和平台层执行";
-                checked: input-enabled;
-                toggled => { root.toggle-input(); }
-            }
+            Rectangle { width: 24px; }
         }
     }
 }
 
 export component DevicesPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     in property <[DeviceRow]> devices;
     in property <int> total-devices: 0;
     in property <int> online-devices: 0;
@@ -100,139 +132,183 @@ export component DevicesPage inherits VerticalLayout {
     callback untrust-device(string);
     callback remove-device(string);
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 16px;
-            width: 100%;
-
-            // Header with stats
-            HorizontalLayout {
-                spacing: 16px;
-                alignment: start;
-                SectionTitle { label: "局域网设备"; }
-                Rectangle {
-                    width: 1px; height: 24px;
-                    background: AppColors.border-base;
-                }
-                Text {
-                    text: "在线: " + online-devices + " / 总计: " + total-devices;
-                    font-size: 13px;
-                    color: AppColors.text-secondary;
-                    vertical-alignment: center;
-                }
-            }
-
-            if devices.length == 0 : Rectangle {
-                background: AppColors.page-surface;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.border-base;
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
                 VerticalLayout {
-                    padding-top: 40px;
-                    padding-bottom: 40px;
-                    padding-left: 20px;
-                    padding-right: 20px;
-                    spacing: 8px;
-                    alignment: center;
-                    Text {
-                        text: "暂未发现局域网设备";
-                        font-size: 15px;
-                        font-weight: 600;
-                        color: AppColors.text-secondary;
-                        horizontal-alignment: center;
-                    }
-                    Text {
-                        text: "glide-gui 会自动发现同网络设备";
-                        font-size: 14px;
-                        color: AppColors.text-tertiary;
-                        horizontal-alignment: center;
-                        wrap: word-wrap;
-                    }
-                }
-            }
-
-            VerticalLayout {
-                spacing: 10px;
-                for device in devices: DeviceCard {
+                    padding-top: 22px;
+                    padding-bottom: 24px;
+                    spacing: 16px;
                     width: 100%;
-                    device-name: device.name;
-                    device-platform: device.platform;
-                    status-text: device.status;
-                    device-id: device.device-id;
-                    is-online: device.status == "在线";
-                    is-trusted: device.trusted;
-                    is-lan: device.is-lan;
-                    trust-request(id) => { root.trust-device(id); }
-                    untrust-request(id) => { root.untrust-device(id); }
-                    remove-request(id) => { root.remove-device(id); }
+                    alignment: stretch;
+
+                    HorizontalLayout {
+                        spacing: 16px;
+                        alignment: start;
+                        SectionTitle { label: "局域网设备"; }
+                        Rectangle { width: 1px; height: 22px; background: AppColors.border-base; }
+                        Text {
+                            text: "在线: " + online-devices + " / 总计: " + total-devices;
+                            font-size: 13px;
+                            color: AppColors.text-secondary;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if devices.length == 0 : Rectangle {
+                        background: AppColors.page-surface;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        VerticalLayout {
+                            padding-top: 36px;
+                            padding-bottom: 36px;
+                            padding-left: 20px;
+                            padding-right: 20px;
+                            spacing: 8px;
+                            alignment: center;
+                            Text { text: "暂未发现局域网设备"; font-size: 15px; font-weight: 600; color: AppColors.text-secondary; horizontal-alignment: center; }
+                            Text { text: "glide-gui 会自动发现同网络设备"; font-size: 13px; color: AppColors.text-tertiary; horizontal-alignment: center; wrap: word-wrap; }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 10px;
+                        for device in devices: DeviceCard {
+                            width: 100%;
+                            device-name: device.name;
+                            device-platform: device.platform;
+                            status-text: device.status;
+                            device-id: device.device-id;
+                            is-online: device.status == "在线";
+                            is-trusted: device.trusted;
+                            is-lan: device.is-lan;
+                            trust-request(id) => { root.trust-device(id); }
+                            untrust-request(id) => { root.untrust-device(id); }
+                            remove-request(id) => { root.remove-device(id); }
+                        }
+                    }
                 }
             }
+            Rectangle { width: 24px; }
         }
     }
 }
 
 export component PairingPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
-            width: 100%;
-
-            SectionTitle { label: "已注册设备"; }
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
             Rectangle {
-                background: AppColors.page-surface;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.border-base;
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
                 VerticalLayout {
-                    padding-top: 32px;
-                    padding-bottom: 32px;
-                    padding-left: 20px;
-                    padding-right: 20px;
-                    alignment: center;
-                    Text {
-                        text: "所有登录服务端的设备自动受信，无需额外配对。";
-                        font-size: 15px;
-                        color: AppColors.text-secondary;
-                        horizontal-alignment: center;
-                        wrap: word-wrap;
+                    padding-top: 22px;
+                    padding-bottom: 24px;
+                    spacing: 16px;
+                    width: 100%;
+                    alignment: stretch;
+
+                    SectionTitle { label: "已注册设备"; }
+                    Rectangle {
+                        background: AppColors.page-surface;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        VerticalLayout {
+                            padding: 20px;
+                            spacing: 8px;
+                            alignment: start;
+                            Text { text: "当前配对策略"; font-size: 15px; font-weight: 700; color: AppColors.text-primary; }
+                            Text {
+                                text: "所有登录服务端的设备自动受信，无需额外配对。真实配对码、设备指纹和用户确认仍待 daemon IPC 接入。";
+                                font-size: 13px;
+                                color: AppColors.text-secondary;
+                                wrap: word-wrap;
+                            }
+                        }
                     }
                 }
             }
+            Rectangle { width: 24px; }
         }
     }
 }
 
 export component LogPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     in property <string> log-content;
+    callback clear-logs();
+    callback copy-logs();
 
-    VerticalLayout {
-        padding: 24px;
-        spacing: 20px;
-        width: 100%;
-
-        SectionTitle { label: "运行日志"; }
-        // TextEdit read-only: 支持鼠标选中、右键复制 (Copy / Select All)
-        // 内置 ScrollView 自动处理纵向和横向滚动
-        TextEdit {
-            text: log-content == "" ? "暂无日志" : log-content;
-            read-only: true;
-            font-family: "JetBrains Mono";
-            font-size: 13px;
-            wrap: no-wrap;
-            vertical-stretch: 1;
+    HorizontalLayout {
+        Rectangle { width: 24px; }
+        Rectangle {
+            horizontal-stretch: 1;
             width: 100%;
+            VerticalLayout {
+                padding-top: 22px;
+                padding-bottom: 24px;
+                spacing: 14px;
+                width: 100%;
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    SectionTitle { label: "运行日志"; }
+                    Rectangle { horizontal-stretch: 1; }
+                    StatusBadge { label: "全部"; badge-color: AppColors.status-unpaired; badge-bg: AppColors.status-unpaired-bg; }
+                    PageButton { text: "复制"; clicked => { root.copy-logs(); } }
+                    PageButton { text: "清空"; variant: "danger"; clicked => { root.clear-logs(); } }
+                }
+
+                Rectangle {
+                    background: AppColors.log-bg;
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: AppColors.border-base;
+                    vertical-stretch: 1;
+                    min-height: 340px;
+                    TextEdit {
+                        text: log-content == "" ? "暂无日志" : log-content;
+                        read-only: true;
+                        font-family: "Maple Mono NL NF CN";
+                        font-size: 12px;
+                        wrap: no-wrap;
+                        vertical-stretch: 1;
+                        width: 100%;
+                    }
+                }
+            }
         }
+        Rectangle { width: 24px; }
     }
 }
 
 export component SettingsPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     in property <string> server-url;
     in property <string> device-name;
     in property <bool> dark-mode;
@@ -247,13 +323,22 @@ export component SettingsPage inherits VerticalLayout {
     callback save-registration-token(string);
     callback toggle-tls();
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
-            width: 100%;
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
+                VerticalLayout {
+                    padding-top: 22px;
+                    padding-bottom: 24px;
+                    spacing: 16px;
+                    width: 100%;
+                    alignment: stretch;
 
             SectionTitle { label: "主题"; }
             Rectangle {
@@ -272,8 +357,8 @@ export component SettingsPage inherits VerticalLayout {
                         color: AppColors.text-primary;
                         horizontal-stretch: 1;
                     }
-                    Button {
-                        text: dark-mode ? "☀ 浅色" : "🌙 深色";
+                    PageButton {
+                        text: dark-mode ? "浅色" : "深色";
                         clicked => { root.toggle-theme(); }
                     }
                 }
@@ -302,8 +387,9 @@ export component SettingsPage inherits VerticalLayout {
                             placeholder-text: "http://server:8080";
                             horizontal-stretch: 1;
                         }
-                        Button {
+                        PageButton {
                             text: "保存";
+                            variant: "primary";
                             clicked => { root.save-server(server-input.text); }
                         }
                     }
@@ -355,8 +441,9 @@ export component SettingsPage inherits VerticalLayout {
                             horizontal-stretch: 1;
                         }
                     }
-                    Button {
+                    PageButton {
                         text: "保存认证信息";
+                        variant: "primary";
                         clicked => { root.save-auth(username-input.text, password-input.text); }
                     }
                 }
@@ -392,8 +479,9 @@ export component SettingsPage inherits VerticalLayout {
                             horizontal-stretch: 1;
                         }
                     }
-                    Button {
+                    PageButton {
                         text: "保存注册 token";
+                        variant: "primary";
                         clicked => { root.save-registration-token(token-input.text); }
                     }
                 }
@@ -421,8 +509,9 @@ export component SettingsPage inherits VerticalLayout {
                             text: device-name;
                             horizontal-stretch: 1;
                         }
-                        Button {
+                        PageButton {
                             text: "保存";
+                            variant: "primary";
                             clicked => { root.save-name(name-input.text); }
                         }
                     }
@@ -448,7 +537,7 @@ export component SettingsPage inherits VerticalLayout {
                             font-weight: 600;
                             color: AppColors.text-primary;
                         }
-                        Button {
+                        PageButton {
                             text: enable-tls ? "已启用" : "未加密";
                             clicked => { root.toggle-tls(); }
                         }
@@ -460,100 +549,110 @@ export component SettingsPage inherits VerticalLayout {
                         wrap: word-wrap;
                     }
                 }
+                }
             }
+            Rectangle { width: 24px; }
         }
     }
 }
+}
 
 export component PlatformPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     in property <string> platform-summary;
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
-            width: 100%;
-
-            AlertBox {
-                alert-title: "能力提示";
-                body: "Linux 第一阶段优先 X11。Wayland 下全局键鼠控制受合成器限制，GUI 不会承诺完整控制能力。";
-                alert-type: "warning";
-            }
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
             Rectangle {
-                background: AppColors.page-surface;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.border-base;
-                vertical-stretch: 1;
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
                 VerticalLayout {
-                    padding: 16px;
-                    Text {
-                        text: platform-summary;
-                        font-size: 15px;
-                        color: AppColors.text-secondary;
-                        wrap: word-wrap;
+                    padding-top: 22px;
+                    padding-bottom: 24px;
+                    spacing: 16px;
+                    width: 100%;
+                    alignment: stretch;
+
+                    AlertBox {
+                        alert-title: "能力提示";
+                        body: "Linux 第一阶段优先 X11。Wayland 下全局键鼠控制受合成器限制，GUI 不会承诺完整控制能力。";
+                        alert-type: "warning";
+                    }
+                    Rectangle {
+                        background: AppColors.page-surface;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        vertical-stretch: 1;
+                        min-height: 180px;
+                        VerticalLayout {
+                            padding: 16px;
+                            Text {
+                                text: platform-summary;
+                                font-size: 14px;
+                                color: AppColors.text-secondary;
+                                wrap: word-wrap;
+                            }
+                        }
                     }
                 }
             }
+            Rectangle { width: 24px; }
         }
     }
 }
 
 export component AboutPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 16px;
-            width: 100%;
-
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
             Rectangle {
-                background: AppColors.page-surface;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.border-base;
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
                 VerticalLayout {
-                    padding: 40px;
-                    spacing: 12px;
-                    alignment: center;
-                    Text {
-                        text: "Glide";
-                        font-size: 34px;
-                        font-weight: 800;
-                        color: AppColors.primary;
-                        horizontal-alignment: center;
-                    }
-                    Text {
-                        text: "局域网优先的剪贴板同步与键鼠共享";
-                        font-size: 16px;
-                        color: AppColors.text-secondary;
-                        horizontal-alignment: center;
-                    }
-                    Rectangle { height: 1px; background: AppColors.border-base; }
-                    Text {
-                        text: "界面运行时：Rust + Slint";
-                        font-size: 15px;
-                        color: AppColors.text-primary;
-                        horizontal-alignment: center;
-                    }
-                    Text {
-                        text: "不依赖 Tauri、WebView2 或内嵌浏览器运行时。";
-                        font-size: 15px;
-                        color: AppColors.text-primary;
-                        horizontal-alignment: center;
-                    }
-                    Text {
-                        text: "仓库地址：https://github.com/SuPerCxyz/glide";
-                        font-size: 15px;
-                        color: AppColors.primary;
-                        horizontal-alignment: center;
+                    padding-top: 22px;
+                    padding-bottom: 24px;
+                    spacing: 16px;
+                    width: 100%;
+                    alignment: stretch;
+
+                    Rectangle {
+                        background: AppColors.page-surface;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        VerticalLayout {
+                            padding: 22px;
+                            spacing: 10px;
+                            alignment: start;
+                            Text { text: "Glide"; font-size: 26px; font-weight: 800; color: AppColors.primary; }
+                            Text { text: "局域网优先的剪贴板同步与键鼠共享"; font-size: 14px; color: AppColors.text-secondary; }
+                            Rectangle { height: 1px; background: AppColors.border-base; }
+                            Text { text: "界面运行时：Rust + Slint"; font-size: 14px; color: AppColors.text-primary; }
+                            Text { text: "不依赖 Tauri、WebView2 或内嵌浏览器运行时。"; font-size: 14px; color: AppColors.text-primary; }
+                            Text { text: "仓库地址：https://github.com/SuPerCxyz/glide"; font-size: 14px; color: AppColors.primary; }
+                        }
                     }
                 }
             }
+            Rectangle { width: 24px; }
         }
     }
 }

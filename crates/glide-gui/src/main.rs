@@ -331,6 +331,13 @@ fn run_smoke() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_interaction_smoke() -> Result<(), Box<dyn Error>> {
+    let smoke_config = env::temp_dir().join(format!(
+        "glide-gui-interaction-smoke-{}.json",
+        std::process::id()
+    ));
+    let _ = fs::remove_file(&smoke_config);
+    env::set_var("GLIDE_CONFIG_PATH", &smoke_config);
+
     let backend = MockBackend::with_id(default_device_id());
     let window = create_window(&backend)?;
 
@@ -506,6 +513,30 @@ fn create_window(backend: &MockBackend) -> Result<MainWindow, slint::PlatformErr
                 warn!("disconnect failed: {:?}", result.error);
             }
             refresh_window_local(&win, &backend, false);
+        });
+    }
+
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
+        window.on_clear_logs(move || {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            backend.clear_logs();
+            refresh_window_local(&win, &backend, true);
+        });
+    }
+
+    {
+        let backend = backend.clone();
+        let win = window.as_weak();
+        window.on_copy_logs(move || {
+            let Some(win) = win.upgrade() else {
+                return;
+            };
+            backend.log("可在日志区域选中文本后右键复制");
+            refresh_window_local(&win, &backend, true);
         });
     }
 

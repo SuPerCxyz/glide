@@ -1,5 +1,6 @@
-import { Button, ScrollView } from "std-widgets.slint";
+import { ScrollView } from "std-widgets.slint";
 import { AppColors } from "colors.slint";
+import { PageButton, SectionTitle, AlertBox } from "components.slint";
 
 export struct MonitorInfo {
     monitor-id: string,
@@ -15,7 +16,7 @@ component MonitorCard inherits Rectangle {
     in property <MonitorInfo> monitor;
     callback clicked();
 
-    height: 80px;
+    min-height: 74px;
     background: AppColors.page-surface;
     border-radius: 8px;
     border-width: 1px;
@@ -32,18 +33,19 @@ component MonitorCard inherits Rectangle {
         spacing: 16px;
         alignment: start;
 
-        // Monitor icon
         Rectangle {
-            width: 48px;
-            height: 48px;
+            width: 38px;
+            height: 38px;
             background: AppColors.primary-subtle;
             border-radius: 8px;
 
             VerticalLayout {
                 alignment: center;
                 Text {
-                    text: "🖥️";
-                    font-size: 24px;
+                    text: "M";
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: AppColors.primary;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -88,10 +90,9 @@ component MonitorCard inherits Rectangle {
             }
         }
 
-        // Position indicator
         Rectangle {
             width: 60px;
-            height: 40px;
+            height: 38px;
             background: AppColors.page-surface-alt;
             border-radius: 4px;
             border-width: 1px;
@@ -118,112 +119,79 @@ component MonitorCard inherits Rectangle {
 }
 
 export component MonitorManagerPage inherits VerticalLayout {
+    in property <length> available-width: 800px;
+    width: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     in property <[MonitorInfo]> monitors: [];
     in property <string> status-text: "未检测";
     callback detect-monitors();
     callback save-layout();
     callback monitor-selected(string);
 
-    ScrollView {
+    scroll := ScrollView {
         vertical-stretch: 1;
         width: 100%;
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
-            width: 100%;
-
-            // Header
-            HorizontalLayout {
-                alignment: start;
-                spacing: 12px;
-                Text {
-                    text: "显示器管理器";
-                    font-size: 24px;
-                    font-weight: 700;
-                    color: AppColors.text-primary;
-                    vertical-alignment: center;
-                }
-                Rectangle { width: 1px; height: 24px; background: AppColors.border-base; }
-                Text {
-                    text: status-text;
-                    font-size: 14px;
-                    color: AppColors.text-secondary;
-                    vertical-alignment: center;
-                }
-            }
-
-            // Visualization area
+        viewport-width: self.width;
+        HorizontalLayout {
+            width: scroll.visible-width;
+            Rectangle { width: 24px; }
             Rectangle {
-                background: AppColors.page-surface;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.border-base;
-                min-height: 300px;
-
+                horizontal-stretch: 1;
+                min-width: available-width - 48px;
                 VerticalLayout {
-                    padding: 20px;
+                    padding-top: 22px;
+                    padding-bottom: 24px;
                     spacing: 16px;
+                    width: 100%;
+                    alignment: stretch;
 
-                    // Title
-                    Text {
-                        text: "显示器布局";
-                        font-size: 16px;
-                        font-weight: 600;
-                        color: AppColors.text-primary;
-                    }
-
-                    // Monitor visualization (simplified - shows list)
-                    VerticalLayout {
-                        spacing: 12px;
-                        for monitor in monitors : MonitorCard {
-                            monitor: monitor;
-                            clicked => { root.monitor-selected(monitor.monitor-id); }
-                        }
-                    }
-
-                    // Action buttons
                     HorizontalLayout {
+                        alignment: start;
                         spacing: 12px;
-                        alignment: end;
-                        Button {
-                            text: "重新检测";
-                            clicked => { root.detect-monitors(); }
+                        SectionTitle { label: "显示器布局"; }
+                        Rectangle { width: 1px; height: 22px; background: AppColors.border-base; }
+                        Text { text: status-text; font-size: 13px; color: AppColors.text-secondary; vertical-alignment: center; }
+                    }
+
+                    Rectangle {
+                        background: AppColors.page-surface;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: AppColors.border-base;
+                        min-height: 280px;
+
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 14px;
+
+                            Text { text: "检测到的显示器"; font-size: 15px; font-weight: 700; color: AppColors.text-primary; }
+
+                            VerticalLayout {
+                                spacing: 10px;
+                                for monitor in monitors : MonitorCard {
+                                    monitor: monitor;
+                                    clicked => { root.monitor-selected(monitor.monitor-id); }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: end;
+                                PageButton { text: "重新检测"; clicked => { root.detect-monitors(); } }
+                                PageButton { text: "保存布局"; variant: "primary"; clicked => { root.save-layout(); } }
+                            }
                         }
-                        Button {
-                            text: "保存布局";
-                            clicked => { root.save-layout(); }
-                        }
+                    }
+
+                    AlertBox {
+                        alert-title: "用途";
+                        body: "显示器管理器用于配置多显示器环境下的鼠标键盘共享。调整显示器位置以匹配物理布局。";
+                        alert-type: "info";
                     }
                 }
             }
-
-            // Help text
-            Rectangle {
-                background: AppColors.alert-info-bg;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: AppColors.alert-info-border;
-                height: 60px;
-
-                HorizontalLayout {
-                    padding: 16px;
-                    spacing: 12px;
-                    alignment: start;
-                    Text {
-                        text: "💡";
-                        font-size: 20px;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        text: "显示器管理器用于配置多显示器环境下的鼠标键盘共享。调整显示器位置以匹配物理布局，实现无缝切换。";
-                        font-size: 13px;
-                        color: AppColors.alert-info-text;
-                        wrap: word-wrap;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                    }
-                }
-            }
+            Rectangle { width: 24px; }
         }
     }
 }
